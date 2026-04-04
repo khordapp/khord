@@ -35,11 +35,13 @@ export async function fetchSongs(did: string, limit = 10): Promise<KhordSong[]> 
 		collection: SONG_NSID,
 		limit
 	});
-	return res.data.records.map((r) => ({
-		uri: r.uri,
-		cid: r.cid,
-		value: r.value as KhordSongRecord
-	}));
+	return res.data.records
+		.filter((r) => (r.value as KhordSongRecord).listed !== false)
+		.map((r) => ({
+			uri: r.uri,
+			cid: r.cid,
+			value: r.value as KhordSongRecord
+		}));
 }
 
 export async function fetchSetlists(did: string): Promise<KhordSetlist[]> {

@@ -82,6 +82,10 @@
 						"description": "Optional note from the person sharing the song.",
 						"maxLength": 300
 					},
+					"listed": {
+						"type": "boolean",
+						"description": "Whether this song should appear in the public feed. Defaults to true. Set to false for songs added directly to a setlist without sharing."
+					},
 					"createdAt": {
 						"type": "string",
 						"format": "datetime"

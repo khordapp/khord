@@ -33,6 +33,7 @@ export const GET: RequestHandler = ({ url }) => {
 		FROM songs s
 		JOIN actors a ON a.did = s.actor_did
 		WHERE s.actor_did IN (${placeholders})
+		AND s.listed != 0
 		${cursor ? 'AND s.created_at < ?' : ''}
 		ORDER BY s.created_at DESC
 		LIMIT ?

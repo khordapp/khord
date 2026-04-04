@@ -69,7 +69,31 @@
 				"addedAt": {
 					"type": "string",
 					"format": "datetime"
+				},
+				"snapshot": {
+					"type": "ref",
+					"ref": "#snapshot",
+					"description": "Copy of song display data at time of addition. Used as fallback if the source record is deleted."
 				}
+			}
+		},
+		"snapshot": {
+			"type": "object",
+			"description": "Snapshot of song metadata embedded in a setlist item for resilience against source record deletion.",
+			"required": ["title", "artist"],
+			"properties": {
+				"title":          { "type": "string", "maxLength": 300 },
+				"artist":         { "type": "string", "maxLength": 300 },
+				"album":          { "type": "string", "maxLength": 300 },
+				"thumbnailUrl":   { "type": "string", "maxLength": 2000 },
+				"spotifyUrl":     { "type": "string", "maxLength": 2000 },
+				"appleMusicUrl":  { "type": "string", "maxLength": 2000 },
+				"youtubeMusicUrl":{ "type": "string", "maxLength": 2000 },
+				"tidalUrl":       { "type": "string", "maxLength": 2000 },
+				"deezerUrl":      { "type": "string", "maxLength": 2000 },
+				"amazonMusicUrl": { "type": "string", "maxLength": 2000 },
+				"soundcloudUrl":  { "type": "string", "maxLength": 2000 },
+				"songlinkUrl":    { "type": "string", "maxLength": 2000 }
 			}
 		}
 	}

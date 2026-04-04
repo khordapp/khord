@@ -6,6 +6,7 @@
 	import { getAgent } from '$lib/atproto/agent';
 	import { session } from '$lib/stores/auth';
 	import { SONG_NSID, type KhordSongRecord } from '$lib/atproto/lexicons/song';
+	import { theme as t } from '$lib/theme';
 
 	const NOTE_LIMIT = 300;
 
@@ -15,7 +16,7 @@
 	let shareError = '';
 	let shared = false;
 
-	$: noteCharsLeft = NOTE_LIMIT - [...note].length; // grapheme-aware via spread
+	$: noteCharsLeft = NOTE_LIMIT - [...note].length;
 	$: noteOverLimit = noteCharsLeft < 0;
 
 	function handleSelect(e: CustomEvent<TrackResult>) {
@@ -51,7 +52,6 @@
 				const entity = getCanonicalEntity(odesliResult);
 				record = {
 					...record,
-					// Prefer Odesli's canonical metadata where available
 					title: entity?.title ?? selected.title,
 					artist: entity?.artistName ?? selected.artist,
 					...platformUrls
@@ -94,16 +94,16 @@
 <!-- Modal -->
 <div
 	class="fixed z-50 bottom-0 left-0 right-0 sm:bottom-auto sm:top-20 sm:left-1/2 sm:-translate-x-1/2
-		w-full sm:max-w-md bg-zinc-900 border border-zinc-700 rounded-t-2xl sm:rounded-2xl shadow-2xl"
+		w-full sm:max-w-md {t.surfaceBg} border {t.borderStrong} rounded-t-2xl sm:rounded-2xl shadow-2xl"
 	role="dialog"
 	aria-modal="true"
 	aria-label="Share a song"
 >
-	<div class="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
-		<h2 class="text-sm font-semibold">Share a song</h2>
+	<div class="px-5 py-4 border-b {t.borderBase} flex items-center justify-between">
+		<h2 class="text-sm font-semibold {t.textPrimary}">Share a song</h2>
 		<button
 			on:click={closeShareSong}
-			class="text-zinc-500 hover:text-zinc-100 transition-colors text-lg leading-none"
+			class="{t.textMuted} {t.hoverText} transition-colors text-lg leading-none"
 			aria-label="Close"
 		>
 			✕
@@ -113,23 +113,23 @@
 	<div class="p-5 space-y-4">
 		{#if shared}
 			<div class="py-6 text-center space-y-1">
-				<p class="text-zinc-100 text-sm font-medium">Added to your lineup</p>
-				<p class="text-zinc-500 text-xs">{selected?.title} · {selected?.artist}</p>
+				<p class="{t.textPrimary} text-sm font-medium">Added to your lineup</p>
+				<p class="{t.textMuted} text-xs">{selected?.title} · {selected?.artist}</p>
 			</div>
 		{:else if !selected}
 			<SongSearch autofocus on:select={handleSelect} />
 		{:else}
-			<div class="rounded-lg border border-zinc-700 bg-zinc-950 px-4 py-3 flex items-center justify-between gap-3">
+			<div class="rounded-lg border {t.borderStrong} {t.recessedBg} px-4 py-3 flex items-center justify-between gap-3">
 				<div>
-					<p class="text-sm text-zinc-100 font-medium">{selected.title}</p>
-					<p class="text-xs text-zinc-500">
+					<p class="text-sm {t.textPrimary} font-medium">{selected.title}</p>
+					<p class="text-xs {t.textMuted}">
 						{selected.artist}{selected.album ? ` · ${selected.album}` : ''}{selected.year ? ` (${selected.year})` : ''}
 					</p>
 				</div>
 				<button
 					on:click={clearSelection}
 					disabled={sharing}
-					class="text-zinc-600 hover:text-zinc-300 transition-colors text-sm shrink-0 disabled:opacity-0"
+					class="{t.textFaint} {t.hoverTextSecondary} transition-colors text-sm shrink-0 disabled:opacity-0"
 					aria-label="Clear selection"
 				>
 					✕
@@ -143,12 +143,12 @@
 					rows="3"
 					maxlength={NOTE_LIMIT}
 					disabled={sharing}
-					class="w-full bg-zinc-950 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-zinc-100
-						placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-zinc-500
+					class="w-full {t.recessedBg} border {t.borderStrong} rounded-lg px-3 py-2 text-sm {t.textPrimary}
+						placeholder:{t.textFaint} focus:outline-none focus:ring-1 {t.focusRing}
 						resize-none disabled:opacity-50"
 				></textarea>
 				<div class="flex justify-end">
-					<span class="text-xs {noteCharsLeft <= 20 ? (noteOverLimit ? 'text-red-400' : 'text-amber-400') : 'text-zinc-600'}">
+					<span class="text-xs {noteCharsLeft <= 20 ? (noteOverLimit ? 'text-red-400' : 'text-amber-400') : t.textFaint}">
 						{noteCharsLeft}
 					</span>
 				</div>
@@ -161,8 +161,8 @@
 			<button
 				on:click={handleShare}
 				disabled={sharing || noteOverLimit}
-				class="w-full bg-white text-black text-sm font-medium px-4 py-2.5 rounded-lg
-					hover:bg-zinc-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+				class="w-full {t.btnPrimaryBg} {t.btnPrimaryText} text-sm font-medium px-4 py-2.5 rounded-lg
+					{t.btnPrimaryHover} transition-colors disabled:opacity-50 disabled:cursor-not-allowed
 					flex items-center justify-center gap-2"
 			>
 				{#if sharing}

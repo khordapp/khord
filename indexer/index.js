@@ -37,12 +37,12 @@ const upsertSong = db.prepare(`
     uri, cid, actor_did, title, artist, album, isrc, odesli_key,
     spotify_url, apple_music_url, youtube_music_url, tidal_url,
     deezer_url, amazon_music_url, soundcloud_url, songlink_url,
-    note, created_at
+    note, listed, created_at
   ) VALUES(
     @uri, @cid, @actor_did, @title, @artist, @album, @isrc, @odesli_key,
     @spotify_url, @apple_music_url, @youtube_music_url, @tidal_url,
     @deezer_url, @amazon_music_url, @soundcloud_url, @songlink_url,
-    @note, @created_at
+    @note, @listed, @created_at
   )
   ON CONFLICT(uri) DO UPDATE SET
     cid             = excluded.cid,
@@ -52,6 +52,7 @@ const upsertSong = db.prepare(`
     spotify_url     = excluded.spotify_url,
     apple_music_url = excluded.apple_music_url,
     songlink_url    = excluded.songlink_url,
+    listed          = excluded.listed,
     indexed_at      = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
 `);
 
@@ -102,6 +103,7 @@ function handleCommit(evt) {
           soundcloud_url:    r.soundcloudUrl ?? null,
           songlink_url:      r.songlinkUrl  ?? null,
           note:              r.note         ?? null,
+          listed:            r.listed === false ? 0 : 1,
           created_at:        r.createdAt    ?? new Date().toISOString(),
         });
       } else if (op.action === 'delete') {

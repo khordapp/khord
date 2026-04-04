@@ -16,6 +16,7 @@ export interface KhordSongRecord {
 	soundcloudUrl?: string;
 	songlinkUrl?: string;
 	note?: string;
+	listed?: boolean;
 	createdAt: string;
 }
 

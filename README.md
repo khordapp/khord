@@ -1,28 +1,37 @@
 # Khord
 
-Decentralized social platform for sharing music across streaming services. Share a song once — listeners hear it on whichever platform they already use (Spotify, Apple Music, YouTube Music, etc.). Artist and platform revenue flows naturally since playback is native on each service.
+**Music, across every platform.**
 
-User identity and social records are stored in an [AT Protocol](https://atproto.com/) PDS. No central database for user data — an optional SQLite AppView indexes records for faster feed queries.
+Khord is a decentralized social app for sharing music. Share a song once — your followers listen on whichever streaming service they use. Spotify, Apple Music, Tidal, and more. Artist revenue flows naturally because playback happens natively in each platform.
+
+Identity and records live on the [AT Protocol](https://atproto.com/). No central Khord database — your shares, votes, and setlists are yours.
+
+---
 
 ## Features
 
-- **Feed** — songs shared by people you follow, assembled from their AT Protocol PDS
-- **Daily setlist** — date-filtered view of shared songs; defaults to today
+- **Feed** — songs shared by people you follow, assembled from their AT Protocol PDSes
+- **Daily view** — date-filtered view of shared songs; create a setlist from an entire day in one click
 - **Setlists** — curated, ordered playlists stored as AT Protocol records; drag to reorder; shareable via link
+- **Upnotes** — lightweight reactions stored as AT Protocol records; vote counts from AppView
 - **Cross-platform links** — preferred streaming service shown first with brand colors; others in a dropdown
-- **Post to Bluesky** — cross-post any song or setlist with a link facet and optional album art embed
+- **Post to Bluesky** — cross-post any song with a structured compose sheet: fixed title+artist header (linked to song.link), optional personal note, fixed attribution footer; album art embed toggle
+- **Resync metadata** — refresh platform links for any of your songs against the latest Odesli data
 - **Notes** — optional text attached to a shared song (up to 300 characters)
 - **Album art** — thumbnails sourced from Odesli; can be disabled per instance
-- **Instance config** — app name, tagline, identity provider, and access control all configurable via env vars
+- **Setlist resilience** — each setlist item embeds a snapshot of song metadata; setlists render correctly even if the source record is deleted
+- **Setlist-only songs** — songs added directly to a setlist can be kept off the public feed via a "Also share to feed" checkbox (default off)
+- **18 themes** — admin-controlled via `PUBLIC_THEME`; neutral and chromatic, dark and light
+- **Instance config** — app name, tagline, identity provider, access control, and theme all configurable via env vars
 
 ## Stack
 
 - [SvelteKit](https://kit.svelte.dev/) + TypeScript + TailwindCSS
 - [@atproto/api](https://github.com/bluesky-social/atproto) — user identity, AT Protocol OAuth, record storage
-- [Odesli API](https://odesli.co/) (song.link) — cross-platform URL resolution
+- [Odesli API](https://odesli.co/) (song.link) — cross-platform URL resolution (free, no key)
 - [Spotify Web API](https://developer.spotify.com/) — client credentials search (fills Spotify gap left by Odesli)
-- iTunes Search API — free text search for song discovery
-- [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) — AppView index (optional, falls back to direct PDS fetch)
+- iTunes Search API — free song discovery (no auth)
+- [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) — optional AppView index; falls back to direct PDS fetch
 - [svelte-dnd-action](https://github.com/isaacHagoel/svelte-dnd-action) — drag-to-reorder for setlists
 
 ## Getting started
@@ -103,6 +112,7 @@ PUBLIC_APP_URL=https://dev.myapp.com
 | `PUBLIC_APP_NAME` | Display name in UI and page titles (default: `Khord`) |
 | `PUBLIC_APP_TAGLINE` | Tagline on the home page (default: `Music, across every platform.`) |
 | `PUBLIC_AUTH_PROVIDER_NAME` | Identity provider name in sign-in UI (default: `Bluesky`) |
+| `PUBLIC_THEME` | UI color theme — see [Themes](#themes) (default: `dark`) |
 | `PUBLIC_SPOTIFY_CLIENT_ID` | Spotify app client ID — from developer.spotify.com |
 | `SPOTIFY_CLIENT_SECRET` | Spotify app client secret — server-only |
 | `ALLOWED_DIDS` | Comma-separated AT Protocol DIDs allowed to sign in; unset = open registration |
@@ -110,6 +120,18 @@ PUBLIC_APP_URL=https://dev.myapp.com
 | `DISABLE_ALBUM_ART` | Set to `true` to hide album art thumbnails globally |
 | `INDEXER_DB_PATH` | Path to SQLite DB (default: `/data/khord.db`) |
 | `FIREHOSE_RELAY` | AT Protocol firehose relay URL (default: `wss://bsky.network`) |
+
+## Themes
+
+Set `PUBLIC_THEME` in `.env`. A rebuild (or dev server restart) is required when changing this value.
+
+| Category | Values |
+|---|---|
+| Neutral dark | `dark` (default), `zinc`, `slate`, `gray`, `neutral`, `stone` |
+| Neutral light | `light`, `zinc-light`, `slate-light`, `neutral-light`, `stone-light` |
+| Chromatic dark | `navy`, `teal`, `emerald`, `rose`, `violet` |
+
+To add a custom theme: implement the `Theme` interface in `src/lib/theme/`, then register it in `src/lib/theme/index.ts`.
 
 ## AT Protocol lexicons
 
@@ -119,7 +141,7 @@ Records are stored in the user's PDS:
 |---|---|
 | `app.khord.song` | Shared song — platform URLs, album art, optional note |
 | `app.khord.vote` | Up/down vote on a song |
-| `app.khord.setlist` | Ordered list of songs; stored on creator's PDS |
+| `app.khord.setlist` | Ordered list of songs with per-item metadata snapshots; stored on creator's PDS |
 
 ## How it works
 
@@ -265,7 +287,7 @@ src/
       lexicons/
         song.ts             # app.khord.song types
         vote.ts             # app.khord.vote types
-        setlist.ts          # app.khord.setlist types
+        setlist.ts          # app.khord.setlist types + KhordSetlistItemSnapshot
       social.ts             # fetchSongs, fetchSetlists, createSetlist, updateSetlist, etc.
     odesli/
       client.ts             # resolveUrl(), extractPlatformUrls()
@@ -275,30 +297,41 @@ src/
       access.ts             # ALLOWED_DIDS + MAX_USERS enforcement
     itunes/
       client.ts             # iTunes Search API
+    theme/
+      types.ts              # Theme interface (33 tokens)
+      index.ts              # Reads PUBLIC_THEME, exports resolved theme
+      dark.ts / light.ts    # Default dark and light themes
+      *.ts                  # 16 additional theme variants
     components/
-      ShareSongModal.svelte # Song search → resolve → AT Protocol record create
+      ShareSongModal.svelte    # Song search → resolve → AT Protocol record create
       CreateSetlistModal.svelte # Setlist creation with song search
-      SongCard.svelte       # Feed card: platform links, upnote, post-to-feed
-      SongSearch.svelte     # iTunes-backed search input
+      SongCard.svelte          # Feed card: platform links, upnote, post, resync
+      SongSearch.svelte        # iTunes-backed search input
+      StreamingPill.svelte     # Branded platform pill + chevron dropdown
+      ServicePicker.svelte     # Preferred platform picker
     stores/
       auth.ts               # session, isLoggedIn, authReady
       votes.ts              # upvotes, like/unlike
-      shareSong.ts          # share modal state
+      shareSong.ts          # share modal state + lastSharedSong
       createSetlist.ts      # create setlist modal state
       following.ts          # followed users
       prefs.ts              # localStorage preferred platform
       instance.ts           # instanceConfig (albumArtDisabled)
   routes/
-    +layout.svelte          # shell, desktop + mobile nav, footer, modals
+    +layout.svelte          # shell, avatar dropdown nav, speed-dial FAB, footer
     +page.svelte            # Feed / Daily / Setlists tabs
-    setlists/[handle]/[rkey]/  # Setlist detail: drag reorder, share, edit
+    s/[handle]/[rkey]/        # Setlist detail: drag reorder, add songs, share, edit
+    setlists/[handle]/[rkey]/ # 301 redirect → /s/[handle]/[rkey]/
     login/+page.svelte      # AT Protocol OAuth login
     oauth/callback/         # OAuth redirect callback
+    spotify/callback/       # Spotify OAuth callback
     settings/               # Preferred streaming service
+    invite/                 # Invite page
     api/
       resolve/              # Odesli proxy + Spotify augmentation
       feed/                 # AppView feed query (SQLite)
       votes/                # AppView votes query (SQLite)
+      votes/counts/         # Batch vote counts for a list of URIs
       thumbnail/            # Image proxy (avoids CORS on third-party CDNs)
       auth/check/           # Access control check + user registration
       auth/status/          # Instance config endpoint
@@ -317,17 +350,23 @@ lexicons/
 - [x] AT Protocol OAuth + identity
 - [x] Song sharing (`app.khord.song` records)
 - [x] Feed — songs from followed users, AppView → PDS fallback
-- [x] Voting (`app.khord.vote` records)
+- [x] Voting (`app.khord.vote` records) with AppView vote counts
 - [x] Platform links — preferred service, brand colors, More dropdown
 - [x] song.link attribution
 - [x] Album art (Odesli thumbnails)
 - [x] Notes on shared songs
 - [x] Post to Bluesky — link facets + album art embed
 - [x] Setlists (`app.khord.setlist`) — create, reorder, share
-- [x] Daily setlist view
-- [x] Instance configuration (name, access control, etc.)
-- [x] Docker Compose deployment
-- [ ] AppView vote counts in feed UI
+- [x] Daily view with one-click setlist creation
+- [x] Setlist resilience via embedded metadata snapshots
+- [x] Setlist-only songs (`listed` field) — add to setlist without posting to feed
+- [x] Resync song metadata against latest Odesli data
+- [x] Structured Bluesky compose sheet (fixed header/footer, editable note)
+- [x] Short setlist URLs (`/s/handle/rkey`) with 301 redirects from old paths
+- [x] 18 themes via `PUBLIC_THEME`
+- [x] Instance configuration (name, access control, theme, etc.)
+- [x] Docker Compose deployment + Unraid guide
+- [ ] Setlist export to streaming services (Spotify first via user OAuth + ISRC lookup; Apple Music via MusicKit JS)
 - [ ] YouTube Music resolution
 - [ ] Setlist collaboration (proposal pattern)
 - [ ] Capacitor wrapper for iOS/Android

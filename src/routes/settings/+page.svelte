@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { prefs, type PlatformKey } from '$lib/stores/prefs';
 	import { APP_NAME } from '$lib/config';
+	import { theme as t } from '$lib/theme';
 
 	const PLATFORMS: { key: PlatformKey; label: string }[] = [
 		{ key: 'spotifyUrl',      label: 'Spotify' },
@@ -26,8 +27,8 @@
 
 	<div class="space-y-3">
 		<div class="space-y-1">
-			<h2 class="text-sm font-semibold text-zinc-100">Preferred streaming service</h2>
-			<p class="text-xs text-zinc-500">
+			<h2 class="text-sm font-semibold {t.textPrimary}">Preferred streaming service</h2>
+			<p class="text-xs {t.textMuted}">
 				When set, this platform's link will always appear first on each song. Others are shown in a
 				collapsed list. Tap again to clear.
 			</p>
@@ -39,12 +40,12 @@
 					on:click={() => select(platform.key)}
 					class="w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-colors
 						{$prefs === platform.key
-							? 'border-white bg-zinc-800 text-zinc-100'
-							: 'border-zinc-700 bg-zinc-900 text-zinc-300 hover:border-zinc-500 hover:text-zinc-100'}"
+							? `${t.borderHighlight} ${t.elevatedBg} ${t.textPrimary}`
+							: `${t.borderStrong} ${t.surfaceBg} ${t.textSecondary} ${t.hoverBorderStrong} ${t.hoverText}`}"
 				>
 					<span class="text-sm">{platform.label}</span>
 					{#if $prefs === platform.key}
-						<span class="text-xs text-zinc-400">preferred</span>
+						<span class="text-xs {t.textMuted}">preferred</span>
 					{/if}
 				</button>
 			{/each}

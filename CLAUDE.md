@@ -32,7 +32,7 @@ src/
       lexicons/
         song.ts             # app.khord.song types
         vote.ts             # app.khord.vote types
-        setlist.ts          # app.khord.setlist types (KhordSetlist, KhordSetlistItem, KhordSetlistRecord)
+        setlist.ts          # app.khord.setlist types + KhordSetlistItemSnapshot
       social.ts             # fetchSongs, fetchSetlists, fetchSetlist, createSetlist, updateSetlist, deleteSetlist
     odesli/
       client.ts             # resolveUrl(), extractPlatformUrls() (includes songlinkUrl, thumbnailUrl)
@@ -42,35 +42,49 @@ src/
       access.ts             # checkAndRegister(did) — ALLOWED_DIDS + MAX_USERS enforcement
     itunes/
       client.ts             # free text search for song discovery
+    theme/
+      types.ts              # Theme interface (33 tokens)
+      dark.ts               # default: zinc-950 base, white CTA, violet accent
+      light.ts              # gray-100 base, gray-900 CTA, violet/indigo accent
+      slate.ts / gray.ts / neutral.ts / stone.ts          # neutral dark variants
+      slate-light.ts / zinc-light.ts / neutral-light.ts / stone-light.ts  # neutral light variants
+      navy.ts / teal.ts / emerald.ts / rose.ts / violet.ts  # chromatic dark variants
+      index.ts              # reads PUBLIC_THEME, exports resolved `theme` object
     components/
       ShareSongModal.svelte # search → Odesli resolve → AT Protocol record create; note field (300 char limit)
-      SongCard.svelte       # feed card: platform links, preferred highlight, selection, upnote, post-to-feed; no per-card delete
+      SongCard.svelte       # feed card: platform links, selection, upnote, post-to-feed, resync metadata
       SongSearch.svelte     # iTunes-backed search input
+      StreamingPill.svelte  # branded pill + chevron dropdown; preferred platform first; shared by feed + setlists
+      ServicePicker.svelte  # preferred platform picker used in /settings
     stores/
-      auth.ts               # session store, isLoggedIn derived
+      auth.ts               # session store, isLoggedIn derived, authReady (gates post-OAuth loads)
       votes.ts              # user's upvotes, like/unlike actions
       shareSong.ts          # modal open state + lastSharedSong for feed update
+      createSetlist.ts      # modal open state
       following.ts          # followed users (FollowedUser[])
       prefs.ts              # localStorage-backed user preferences (preferred platform)
       instance.ts           # instanceConfig store (albumArtDisabled) populated from /api/auth/status
   routes/
-    +layout.svelte          # shell, nav (desktop + hamburger mobile), FAB, footer with API attribution
+    +layout.svelte          # shell, avatar dropdown nav, speed-dial FAB (share song / new setlist), footer
     +page.svelte            # home — Feed / Daily / Setlists tabs; selection, bulk delete, create setlist
     login/+page.svelte      # AT Protocol login form; shows instance full/restricted state
     oauth/callback/         # AT Protocol OAuth callback; calls /api/auth/check, signs out if denied
+    spotify/callback/       # Spotify OAuth callback (user-level auth, if enabled)
     invite/                 # invite page
     settings/               # preferred streaming service picker
-    setlists/[handle]/[rkey]/  # setlist detail: drag reorder, remove items, edit title, delete, share post
+    s/[handle]/[rkey]/        # setlist detail: drag reorder, add songs, remove, edit title, delete, share
+    setlists/[handle]/[rkey]/ # 301 redirect → /s/[handle]/[rkey]/
     api/resolve/            # server-side Odesli proxy + Spotify augmentation
     api/auth/status/        # GET — returns { restricted, full, albumArtDisabled }
     api/auth/check/         # POST { did } — access control check + register user
     api/feed/               # GET — SQLite AppView feed (returns 503 if DB unavailable)
     api/votes/              # GET — SQLite AppView votes for a DID (returns 503 if DB unavailable)
+    api/votes/counts/       # GET ?uris=... — batch vote counts for a list of song URIs
     api/thumbnail/          # GET ?url= — server-side image proxy for album art (avoids CORS on third-party CDNs)
 lexicons/
   app.khord.song.json       # AT Protocol lexicon definitions
   app.khord.vote.json
-  app.khord.setlist.json    # setlist lexicon — ordered items[], collaborators[], open flag
+  app.khord.setlist.json    # setlist lexicon — ordered items[], snapshot per item, collaborators[], open flag
 indexer/
   index.js                  # AT Protocol firehose subscriber — writes songs/votes to SQLite
   schema.sql                # SQLite schema — actors, songs, votes, cursor, registered_users
@@ -90,17 +104,32 @@ Records are stored in the user's PDS under these NSIDs:
 ### app.khord.setlist
 
 - `title` (required), `description` (optional), `createdAt`
-- `items[]` — ordered; each item: `songUri`, `songCid`, `addedBy` (DID), `addedAt`
+- `items[]` — ordered; each item: `songUri`, `songCid`, `addedBy` (DID), `addedAt`, `snapshot` (optional)
+- `snapshot` — embedded copy of song metadata at time of addition (title, artist, album, all platform URLs); used as fallback if source record is deleted; optional for backward compatibility
 - `collaborators[]` — DIDs; listed but contribution writes are creator-only in v1
 - `open` — boolean; future flag for open contribution (v2)
 - Stored on creator's PDS; `updateSetlist` does a full `putRecord` to persist reorders/edits
+
+## Theming
+
+Themes are selected via `PUBLIC_THEME` in `.env`. A rebuild (or dev server restart) is required when changing the value — `$env/static/public` is used so server and client always agree.
+
+| Category | Values |
+|---|---|
+| Neutral dark | `dark` (default), `zinc`, `slate`, `gray`, `neutral`, `stone` |
+| Neutral light | `light`, `zinc-light`, `slate-light`, `neutral-light`, `stone-light` |
+| Chromatic dark | `navy`, `teal`, `emerald`, `rose`, `violet` |
+
+The `Theme` interface has 33 typed string tokens covering backgrounds, borders, text, interactive states, primary CTA, accent, and link colors. All values are complete Tailwind class strings so JIT scanning works without safelisting.
+
+To add a new theme: create `src/lib/theme/mytheme.ts` implementing `Theme`, then register it in `src/lib/theme/index.ts`.
 
 ## Song sharing flow
 
 1. User searches by text (iTunes API) → selects a result
 2. Apple Music URL passed to `/api/resolve` (server-side proxy):
    - Calls Odesli → returns Deezer, Tidal, Amazon Music, Apple Music, SoundCloud, song.link page URL
-   - Odesli does not return Spotify or YouTube Music — Spotify separately searched via client credentials
+   - Odesli does not return Spotify or YouTube Music — Spotify separately searched via client credentials; YouTube Music skipped (API quota too limiting)
 3. `app.khord.song` record created in PDS with platform URLs for: Spotify, Apple Music, Deezer, Tidal, Amazon Music, SoundCloud, plus `songlinkUrl` for attribution
 4. Feed updates immediately (optimistic prepend via `lastSharedSong` store)
 
@@ -108,59 +137,72 @@ Records are stored in the user's PDS under these NSIDs:
 
 - Album art: 48×48 thumbnail top-left (from `record.thumbnailUrl`); hidden if `albumArtDisabled` instance config is set or URL absent
 - Selected state: check icon overlays thumbnail (or plain circle if no art); clicking upper card area toggles selection
-- "Listen on" label precedes platform pills row
-- Preferred platform (set in `/settings`, stored in localStorage) shown first as a branded pill (bg/text/border inline styles)
-- Other platforms shown inline (first one visible, rest behind a "More" dropdown anchored bottom-full)
-- song.link always shown last in indigo for attribution
-- Upnote button bottom-right: expands to show "Upnote"/"Upnoted" text on hover/active
+- Preferred platform (set in `/settings`, stored in localStorage) shown first as a branded pill (bg/text/border inline styles) via `StreamingPill`; remaining platforms behind a chevron dropdown; song.link shown separately in link color
+- Action row (bottom-right): Resync (owner-only, icon expands on hover) → Post to AT Protocol feed → Upnote
+- Resync: re-resolves `appleMusicUrl` via `/api/resolve`, does a `putRecord` to update the PDS record in place; updates card reactively
 - No per-card delete button — deletion is handled from the feed header
 - Note (optional, ≤300 chars) shown below metadata with dynamic left padding matching art/no-art alignment
 
-## Setlist detail page (`/setlists/[handle]/[rkey]`)
+## Setlist detail page (`/s/[handle]/[rkey]`)
 
+- Canonical URL is `/s/[handle]/[rkey]`; old `/setlists/[handle]/[rkey]` path returns 301
 - Resolves handle → DID via `getProfile`, then fetches setlist record + all song records in parallel
+- If a song record is missing (deleted), falls back to the embedded `snapshot` in the setlist item — renders identically
 - Drag-to-reorder via `svelte-dnd-action`; on drop, calls `updateSetlist` with reordered items array
-- Per-row streaming pill: preferred platform first (branded), chevron expands dropdown with remaining platforms + song.link; `h-7 items-stretch` ensures pill and chevron are equal height
+- Per-row streaming pill: preferred platform first (branded), chevron expands dropdown; song.link shown separately
 - Owner can: edit title inline, remove individual songs, delete the entire setlist (with confirm modal)
-- Share button opens a compose sheet pre-filled with setlist title + `{APP_URL}/setlists/{handle}/{rkey}`; URL gets a link facet; editable before posting
+- Owner "Add song" panel: search → Odesli resolve → creates PDS record → appends to setlist; "Also share to feed" checkbox (default unchecked) controls `listed` field on the created song record
+- Share button opens a compose sheet pre-filled with setlist title + URL; URL gets a link facet; editable before posting
 - Non-owners see the setlist read-only (no drag, no remove, no edit)
+- Vote counts fetched from `/api/votes/counts` and displayed per row
 
 ## Post-to-feed (cross-post to AT Protocol social)
 
 - "Post" button on each card opens a compose sheet (only when logged in and `songlinkUrl` present)
-- Compose sheet pre-fills: "Title by Artist", note (if present), "Shared from {APP_NAME}"
-- Title/artist text carries a link facet pointing to `songlinkUrl` — no bare URL in body
+- Compose sheet has three sections:
+  - **Fixed header** (not editable): "Title by Artist" — always included; carries a link facet pointing to `songlinkUrl`
+  - **Editable note** (optional): pre-filled from `record.note` if present, otherwise blank; user's personal comment
+  - **Fixed footer** (not editable): "Shared from {APP_NAME}" — always appended
+- Char counter (300 limit) counts all three sections combined; amber ≤20, red over limit
 - Optional album art toggle (default on if art available and not globally disabled): fetches thumbnail via `/api/thumbnail` proxy, uploads as blob, attaches as `app.bsky.embed.external` pointing to `songlinkUrl`
-- User can edit compose text freely before posting; char counter (300 limit, amber ≤20, red over)
 - Posts `app.bsky.feed.post` to user's PDS; "Posted" confirmation shown for 3s after success
 
 ## Home page tabs
 
 Three tabs rendered in `+page.svelte`, controlled by `activeTab: 'feed' | 'daily' | 'setlists'`:
 
-**Feed** — existing behavior; sticky toolbar with:
+**Feed** — sticky toolbar with:
 - Refresh (reloads + scrolls to top)
-- "Setlist" button (violet, appears when songs selected) → create setlist modal with title input + song preview; navigates to new setlist on create
-- "Remove N" button (red, appears when songs selected) → confirmation modal listing titles before delete
+- "Setlist (N)" button (accent color, appears when songs selected) → create setlist modal
+- "Remove N" button (red, appears when songs selected) → confirmation modal before deletion
+- Song cards are selectable; `selectedUris: Set<string>` tracked in `+page.svelte`
 
-**Daily** — date-filtered view of feed items; date picker in toolbar; defaults to today; no selection
+**Daily** — date-filtered view of feed items; date picker in toolbar; defaults to today
+- Songs are selectable; `dailySelectedUris` is a separate set, reset when date changes
+- "Setlist all" button always visible when songs exist; pre-fills modal with all items for the day
+- "Setlist (N)" replaces it once specific cards are selected
 
-**Setlists** — lists user's own setlists (lazy-loaded on first tab switch); each row links to `/setlists/[handle]/[rkey]`
+**Setlists** — lists user's own setlists (lazy-loaded on first tab switch); each row links to `/s/[handle]/[rkey]`
 
-## Feed header behaviour
+## Setlist snapshot resilience
 
-- Sticky toolbar pinned to top of viewport (`sticky top-0`) with frosted glass background
-- Refresh button reloads feed and scrolls to top (`window.scrollTo`)
-- Delete button appears only when `selectedUris.size > 0`; clicking opens a confirmation modal listing song titles before deletion
-- `removeSelected()` deletes all selected songs owned by the current user; clears them from `selectedUris` after
-- Selected state (`selectedUris: Set<string>`) tracked in `+page.svelte`
+When a song is added to a setlist (via CreateSetlistModal, feed selection, or daily selection), a `snapshot` of the song's display data is embedded in the setlist item:
+- title, artist, album, thumbnailUrl, all platform URLs
+- The setlist detail page fetches the live PDS record first; if unavailable, reconstructs a `KhordSongRecord` from the snapshot
+- `snapshot` is optional — existing setlist records without it continue to work
+
+## Navigation
+
+- Header: app name (links home) + avatar/handle dropdown (Feed, Settings, Invite, Sign out)
+- Speed-dial FAB (bottom-right, logged-in only): `+` expands to "Share song" and "New setlist" pill buttons
+- No separate mobile/desktop nav split — single unified dropdown
 
 ## Key decisions
 
 - No central database — everything lives in AT Protocol PDS
 - Feed assembled by fetching `app.khord.song` records directly from each followed user's PDS; falls back gracefully from AppView (503) to PDS fetch
-- Vote counts require an AppView — currently only binary liked/unliked state (count display pending AppView wiring)
-- Odesli does not return Spotify or YouTube Music — confirmed empirically (not a free-tier restriction, just absent); Spotify filled via client credentials; YouTube Music not yet resolved
+- Vote counts fetched in batch from `/api/votes/counts`; displayed with optimistic updates in SongCard
+- Odesli does not return Spotify or YouTube Music — confirmed empirically (not a free-tier restriction, just absent); Spotify filled via client credentials; YouTube Music skipped
 - No user-level Spotify or Apple Music auth — platform links open natively in user's app
 - `/api/resolve` caches Odesli + Spotify results in-process (stable data, no TTL needed)
 - AT Protocol OAuth uses redirect flow (not popup); requires a public URL — `npm run tunnel` uses the stable `dev.khord.app` named Cloudflare tunnel
@@ -172,9 +214,13 @@ Three tabs rendered in `+page.svelte`, controlled by `activeTab: 'feed' | 'daily
 - SQLite AppView indexer scaffolded — feed/votes API routes exist but app still falls back to PDS fetch when DB unavailable
 - Setlists are creator-only writes in v1; collaborator contribution (proposal pattern or delegated writes) is v2
 - `svelte-dnd-action` used for drag-to-reorder on setlist detail page
-- Mobile nav uses hamburger menu (hidden `sm:hidden`); desktop nav is `hidden sm:flex`
-- Footer includes API attributions: Odesli, iTunes Search API, Spotify Web API, AT Protocol
+- Theme uses `$env/static/public` (not dynamic) — baked at build time so server and client always agree, preventing hydration mismatches
+- Setlist item snapshots are embedded data (not separate records) — keeps setlist as a single atomic AT Protocol record
+- `listed` boolean on `app.khord.song`: absent/`true` = appears in feed; `false` = setlist-only. PDS fetch filters in `social.ts`; AppView feed filters with `WHERE listed != 0`. Songs added via the setlist add-song panel default to `listed: false` unless "Also share to feed" is checked
+- Post-to-feed compose sheet has fixed header (title+artist with link facet) and footer ("Shared from…") with only the middle note section editable — prevents accidental removal of attribution and ensures consistent post structure
+- Setlist canonical URL is `/s/[handle]/[rkey]`; old `/setlists/` path 301-redirects to keep existing links working
 - Capacitor wrapper planned for iOS/Android
+- Setlist export to streaming services planned: Spotify first (user OAuth + ISRC lookup), then Apple Music via MusicKit JS
 
 ## Environment variables
 
@@ -184,6 +230,7 @@ Three tabs rendered in `+page.svelte`, controlled by `activeTab: 'feed' | 'daily
 | `PUBLIC_APP_NAME` | Display name shown in UI and page titles (default: `Khord`) |
 | `PUBLIC_APP_TAGLINE` | One-line tagline on home page (default: `Music, across every platform.`) |
 | `PUBLIC_AUTH_PROVIDER_NAME` | Identity provider name shown in sign-in UI (default: `Bluesky`) |
+| `PUBLIC_THEME` | UI color theme (default: `dark`); requires rebuild to change — see Theming section |
 | `PUBLIC_SPOTIFY_CLIENT_ID` | Spotify app client ID — from developer.spotify.com |
 | `SPOTIFY_CLIENT_SECRET` | Spotify app client secret — server-only, never sent to browser |
 | `ALLOWED_DIDS` | Comma-separated AT Protocol DIDs allowed to sign in; unset = open |
@@ -225,7 +272,7 @@ docker compose up -d
 
 **Scaling path:** SQLite in WAL mode handles ~10k users comfortably on a single node. At 100k+ users, migrate to Turso or Postgres — the schema is straightforward to port.
 
-**AppView status:** Indexer + `/api/feed` + `/api/votes` routes are scaffolded. App tries AppView first and falls back to PDS fetch on 503. Next steps: wire vote counts into `SongCard` UI; wire AppView feed as default when DB is available.
+**AppView status:** Indexer + `/api/feed` + `/api/votes/counts` routes are scaffolded. App tries AppView first and falls back to PDS fetch on 503.
 
 ## Product context
 

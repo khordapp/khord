@@ -6,6 +6,7 @@
 	import { following, followingLoaded } from '$lib/stores/following';
 	import { getFollowing } from '$lib/atproto/social';
 	import { goto } from '$app/navigation';
+	import { theme as t } from '$lib/theme';
 
 	let error = '';
 
@@ -50,11 +51,11 @@
 <div class="flex flex-col items-center justify-center py-24 space-y-4 text-center">
 	{#if error}
 		<p class="text-red-400 text-sm max-w-sm">{error}</p>
-		<a href="/login" class="text-sm text-zinc-400 hover:text-zinc-100 transition-colors">
+		<a href="/login" class="text-sm {t.textMuted} {t.hoverText} transition-colors">
 			← Try again
 		</a>
 	{:else}
-		<div class="w-6 h-6 border-2 border-zinc-600 border-t-white rounded-full animate-spin"></div>
-		<p class="text-zinc-500 text-sm">Completing sign-in…</p>
+		<div class="w-6 h-6 border-2 {t.textFaint} border-t-current rounded-full animate-spin"></div>
+		<p class="{t.textMuted} text-sm">Completing sign-in…</p>
 	{/if}
 </div>
