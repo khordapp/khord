@@ -1,0 +1,76 @@
+{
+	"lexicon": 1,
+	"id": "app.khord.setlist",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "A user-curated ordered list of songs (setlist). Stored on the creator's PDS. Collaborators may be listed but only the creator can mutate the record in v1.",
+			"key": "tid",
+			"record": {
+				"type": "object",
+				"required": ["title", "items", "createdAt"],
+				"properties": {
+					"title": {
+						"type": "string",
+						"maxLength": 100
+					},
+					"description": {
+						"type": "string",
+						"maxLength": 300
+					},
+					"items": {
+						"type": "array",
+						"description": "Ordered list of songs in the setlist.",
+						"items": {
+							"type": "ref",
+							"ref": "#item"
+						},
+						"maxLength": 500
+					},
+					"collaborators": {
+						"type": "array",
+						"description": "DIDs of users allowed to propose additions (v2). Listed but not enforced in v1.",
+						"items": {
+							"type": "string"
+						},
+						"maxLength": 50
+					},
+					"open": {
+						"type": "boolean",
+						"description": "If true, any follower may propose additions (v2). Default false."
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "datetime"
+					}
+				}
+			}
+		},
+		"item": {
+			"type": "object",
+			"description": "A single song entry in a setlist.",
+			"required": ["songUri", "songCid", "addedBy", "addedAt"],
+			"properties": {
+				"songUri": {
+					"type": "string",
+					"description": "AT URI of the app.khord.song record.",
+					"maxLength": 300
+				},
+				"songCid": {
+					"type": "string",
+					"description": "CID of the app.khord.song record at time of addition.",
+					"maxLength": 100
+				},
+				"addedBy": {
+					"type": "string",
+					"description": "DID of the user who added this song.",
+					"maxLength": 100
+				},
+				"addedAt": {
+					"type": "string",
+					"format": "datetime"
+				}
+			}
+		}
+	}
+}

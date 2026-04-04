@@ -1,0 +1,6 @@
+# Khord — Caddyfile
+# Replace khord.app with your domain. Caddy handles TLS automatically.
+
+khord.app {
+  reverse_proxy app:3000
+}

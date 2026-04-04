@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+node_modules
+.svelte-kit
+build
+data
+.git
+*.md
+tunnel-dev.sh

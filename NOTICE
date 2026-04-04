@@ -1,0 +1,32 @@
+Khord — Third-Party API Attribution
+=====================================
+
+This software makes use of the following third-party APIs and services.
+Users who deploy or modify this software must preserve this attribution.
+
+Odesli (song.link)
+  Cross-platform music link resolution
+  https://odesli.co
+  Free API — attribution required per Odesli terms of service.
+  Song pages link back to song.link as required.
+
+Apple iTunes Search API
+  Music search and metadata
+  https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/
+  Free API provided by Apple Inc.
+
+Spotify Web API
+  Music search and streaming link resolution
+  https://developer.spotify.com
+  Requires a Spotify developer account and active Premium subscription
+  for client credentials flow. Subject to Spotify Developer Terms of Service.
+
+AT Protocol / Bluesky
+  Decentralized identity, record storage, and social graph
+  https://atproto.com
+  Open protocol developed by Bluesky PBC.
+
+--------------------------------------------------------------------------------
+
+This product includes software developed by third parties under open-source
+licenses. See package.json and node_modules for full dependency attribution.

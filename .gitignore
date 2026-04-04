@@ -1,0 +1,31 @@
+# SvelteKit
+.svelte-kit/
+build/
+
+# Dependencies
+node_modules/
+
+# Environment — never commit secrets
+.env
+.env.*
+!.env.example
+
+# Vite artifacts
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*
+
+# SQLite data (runtime, not source)
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# macOS
+.DS_Store
+
+# Editor
+.vscode/settings.json
+.idea/
+
+# Claude Code session files
+.claude/

@@ -1,0 +1,30 @@
+{
+	"lexicon": 1,
+	"id": "app.khord.vote",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "A vote (up or down) on a song.",
+			"key": "tid",
+			"record": {
+				"type": "object",
+				"required": ["subject", "direction", "createdAt"],
+				"properties": {
+					"subject": {
+						"type": "ref",
+						"ref": "com.atproto.repo.strongRef",
+						"description": "The song being voted on."
+					},
+					"direction": {
+						"type": "string",
+						"knownValues": ["up", "down"]
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "datetime"
+					}
+				}
+			}
+		}
+	}
+}

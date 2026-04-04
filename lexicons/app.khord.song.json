@@ -1,0 +1,93 @@
+{
+	"lexicon": 1,
+	"id": "app.khord.song",
+	"defs": {
+		"main": {
+			"type": "record",
+			"description": "A song shared on Khord, identified by ISRC for cross-platform resolution. Platform URLs are populated automatically via Odesli.",
+			"key": "tid",
+			"record": {
+				"type": "object",
+				"required": ["title", "artist", "createdAt"],
+				"properties": {
+					"isrc": {
+						"type": "string",
+						"description": "International Standard Recording Code — universal track identifier.",
+						"maxLength": 15
+					},
+					"title": {
+						"type": "string",
+						"maxLength": 300
+					},
+					"artist": {
+						"type": "string",
+						"maxLength": 300
+					},
+					"album": {
+						"type": "string",
+						"maxLength": 300
+					},
+					"odesliKey": {
+						"type": "string",
+						"description": "Odesli entity unique ID — can be used to re-resolve platform links.",
+						"maxLength": 200
+					},
+					"thumbnailUrl": {
+						"type": "string",
+						"description": "Album art thumbnail URL from Odesli (hosted on streaming CDN, not stored locally).",
+						"maxLength": 500
+					},
+					"spotifyUrl": {
+						"type": "string",
+						"description": "Spotify track URL.",
+						"maxLength": 300
+					},
+					"appleMusicUrl": {
+						"type": "string",
+						"description": "Apple Music track URL.",
+						"maxLength": 300
+					},
+					"youtubeMusicUrl": {
+						"type": "string",
+						"description": "YouTube Music track URL.",
+						"maxLength": 300
+					},
+					"deezerUrl": {
+						"type": "string",
+						"description": "Deezer track URL.",
+						"maxLength": 300
+					},
+					"tidalUrl": {
+						"type": "string",
+						"description": "Tidal track URL.",
+						"maxLength": 300
+					},
+					"amazonMusicUrl": {
+						"type": "string",
+						"description": "Amazon Music track URL.",
+						"maxLength": 300
+					},
+					"soundcloudUrl": {
+						"type": "string",
+						"description": "SoundCloud track URL.",
+						"maxLength": 300
+					},
+					"songlinkUrl": {
+						"type": "string",
+						"description": "song.link page URL — aggregates all platform links (Odesli attribution).",
+						"maxLength": 300
+					},
+					"note": {
+						"type": "string",
+						"description": "Optional note from the person sharing the song.",
+						"maxLength": 300
+					},
+					"createdAt": {
+						"type": "string",
+						"format": "datetime"
+					}
+				}
+			}
+		}
+	}
+}
