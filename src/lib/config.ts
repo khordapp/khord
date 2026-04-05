@@ -1,7 +1,7 @@
 import { env } from '$env/dynamic/public';
 
 export const APP_DOMAIN = 'khord.app';
-export const APP_URL    = `https://${APP_DOMAIN}`;
+export const APP_URL    = (env.PUBLIC_APP_URL ?? `https://${APP_DOMAIN}`).replace(/\/$/, '');
 
 // Configurable per instance via environment variables.
 // Fall back to Khord defaults so the app works out of the box.

@@ -1,0 +1,58 @@
+{
+  "lexicon": 1,
+  "id": "app.khord.setlist.proposal",
+  "defs": {
+    "main": {
+      "type": "record",
+      "description": "A proposal to add a song to someone else's setlist. Stored on the proposer's PDS.",
+      "key": "tid",
+      "record": {
+        "type": "object",
+        "required": ["setlistUri", "setlistCid", "snapshot", "createdAt"],
+        "properties": {
+          "setlistUri": {
+            "type": "string",
+            "description": "AT URI of the target setlist."
+          },
+          "setlistCid": {
+            "type": "string",
+            "description": "CID of the setlist at time of proposal, for staleness detection."
+          },
+          "snapshot": {
+            "type": "ref",
+            "ref": "#songSnapshot",
+            "description": "Embedded song metadata so the owner can preview without fetching a separate record."
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 300,
+            "description": "Optional message from the proposer to the setlist owner."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "datetime"
+          }
+        }
+      }
+    },
+    "songSnapshot": {
+      "type": "object",
+      "description": "Embedded song data at the time of proposal.",
+      "required": ["title", "artist"],
+      "properties": {
+        "title":          { "type": "string" },
+        "artist":         { "type": "string" },
+        "album":          { "type": "string" },
+        "thumbnailUrl":   { "type": "string" },
+        "spotifyUrl":     { "type": "string" },
+        "appleMusicUrl":  { "type": "string" },
+        "youtubeMusicUrl": { "type": "string" },
+        "tidalUrl":       { "type": "string" },
+        "deezerUrl":      { "type": "string" },
+        "amazonMusicUrl": { "type": "string" },
+        "soundcloudUrl":  { "type": "string" },
+        "songlinkUrl":    { "type": "string" }
+      }
+    }
+  }
+}

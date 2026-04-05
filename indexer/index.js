@@ -13,8 +13,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_PATH  = process.env.INDEXER_DB_PATH ?? join(__dirname, '../data/khord.db');
 const RELAY    = process.env.FIREHOSE_RELAY   ?? 'wss://bsky.network';
 
-const SONG_NSID = 'app.khord.song';
-const VOTE_NSID = 'app.khord.vote';
+const SONG_NSID     = 'app.khord.song';
+const VOTE_NSID     = 'app.khord.vote';
+const PROPOSAL_NSID = 'app.khord.setlist.proposal';
 
 // ── Database setup ────────────────────────────────────────────────────────────
 
@@ -69,6 +70,28 @@ const upsertVote = db.prepare(`
 
 const deleteVote = db.prepare(`DELETE FROM votes WHERE uri = @uri`);
 
+const upsertProposal = db.prepare(`
+  INSERT INTO proposals(
+    uri, cid, proposer_did, setlist_uri, setlist_cid,
+    title, artist, album, thumbnail_url,
+    spotify_url, apple_music_url, youtube_music_url, tidal_url,
+    deezer_url, amazon_music_url, soundcloud_url, songlink_url,
+    note, created_at
+  ) VALUES(
+    @uri, @cid, @proposer_did, @setlist_uri, @setlist_cid,
+    @title, @artist, @album, @thumbnail_url,
+    @spotify_url, @apple_music_url, @youtube_music_url, @tidal_url,
+    @deezer_url, @amazon_music_url, @soundcloud_url, @songlink_url,
+    @note, @created_at
+  )
+  ON CONFLICT(uri) DO UPDATE SET
+    cid        = excluded.cid,
+    note       = excluded.note,
+    indexed_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+`);
+
+const deleteProposal = db.prepare(`DELETE FROM proposals WHERE uri = @uri`);
+
 const getCursor  = db.prepare(`SELECT seq FROM cursor WHERE id = 1`);
 const setCursor  = db.prepare(`UPDATE cursor SET seq = @seq WHERE id = 1`);
 
@@ -108,6 +131,38 @@ function handleCommit(evt) {
         });
       } else if (op.action === 'delete') {
         deleteSong.run({ uri });
+      }
+    }
+
+    if (collection === PROPOSAL_NSID) {
+      if (op.action === 'create' || op.action === 'update') {
+        const r = op.record;
+        const s = r.snapshot ?? {};
+        if (!r.setlistUri) continue;
+        upsertActor.run({ did });
+        upsertProposal.run({
+          uri,
+          cid:               op.cid,
+          proposer_did:      did,
+          setlist_uri:       r.setlistUri,
+          setlist_cid:       r.setlistCid ?? '',
+          title:             s.title      ?? '',
+          artist:            s.artist     ?? '',
+          album:             s.album      ?? null,
+          thumbnail_url:     s.thumbnailUrl   ?? null,
+          spotify_url:       s.spotifyUrl     ?? null,
+          apple_music_url:   s.appleMusicUrl  ?? null,
+          youtube_music_url: s.youtubeMusicUrl ?? null,
+          tidal_url:         s.tidalUrl        ?? null,
+          deezer_url:        s.deezerUrl       ?? null,
+          amazon_music_url:  s.amazonMusicUrl  ?? null,
+          soundcloud_url:    s.soundcloudUrl   ?? null,
+          songlink_url:      s.songlinkUrl     ?? null,
+          note:              r.note            ?? null,
+          created_at:        r.createdAt       ?? new Date().toISOString(),
+        });
+      } else if (op.action === 'delete') {
+        deleteProposal.run({ uri });
       }
     }
 

@@ -55,6 +55,34 @@ CREATE TABLE IF NOT EXISTS votes (
 CREATE INDEX IF NOT EXISTS votes_subject_uri ON votes(subject_uri);
 CREATE INDEX IF NOT EXISTS votes_actor_did   ON votes(actor_did);
 
+-- ── Proposals ────────────────────────────────────────────────────────────────
+-- Song proposals submitted by non-owners; stored on proposer's PDS, indexed here.
+CREATE TABLE IF NOT EXISTS proposals (
+  uri          TEXT PRIMARY KEY,          -- at://proposer_did/app.khord.setlist.proposal/rkey
+  cid          TEXT NOT NULL,
+  proposer_did TEXT NOT NULL REFERENCES actors(did),
+  setlist_uri  TEXT NOT NULL,             -- at://owner_did/app.khord.setlist/rkey
+  setlist_cid  TEXT NOT NULL,
+  title        TEXT NOT NULL,
+  artist       TEXT NOT NULL,
+  album        TEXT,
+  thumbnail_url TEXT,
+  spotify_url  TEXT,
+  apple_music_url TEXT,
+  youtube_music_url TEXT,
+  tidal_url    TEXT,
+  deezer_url   TEXT,
+  amazon_music_url TEXT,
+  soundcloud_url TEXT,
+  songlink_url TEXT,
+  note         TEXT,
+  created_at   TEXT NOT NULL,
+  indexed_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
+CREATE INDEX IF NOT EXISTS proposals_setlist_uri ON proposals(setlist_uri);
+CREATE INDEX IF NOT EXISTS proposals_proposer_did ON proposals(proposer_did);
+
 -- ── Registered users ─────────────────────────────────────────────────────────
 -- Tracks every DID that has successfully signed in to this instance.
 -- Used for MAX_USERS enforcement.

@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { session, authReady } from '$lib/stores/auth';
-	import { fetchSetlist, updateSetlist, deleteSetlist } from '$lib/atproto/social';
+	import { fetchSetlist, updateSetlist, deleteSetlist, createProposal, fetchProposalsFromPDSes, getFollowing } from '$lib/atproto/social';
 	import type { KhordSetlist, KhordSetlistItem, KhordSetlistRecord } from '$lib/atproto/lexicons/setlist';
 	import type { KhordSongRecord } from '$lib/atproto/lexicons/song';
 	import { SONG_NSID } from '$lib/atproto/lexicons/song';
+	import type { KhordProposal } from '$lib/atproto/lexicons/proposal';
 	import { getAgent } from '$lib/atproto/agent';
 	import { dndzone } from 'svelte-dnd-action';
 	import { flip } from 'svelte/animate';
@@ -136,23 +137,205 @@
 		}
 	}
 
+	// Propose song (non-owner)
+	let proposeOpen = false;
+	let proposeQuery = '';
+	let proposeSearching = false;
+	let proposeResults: TrackResult[] = [];
+	let proposeResolving = false;
+	let proposeNote = '';
+	let proposeError = '';
+	let proposeSubmitted = false;
+	let proposeDebounceTimer: ReturnType<typeof setTimeout>;
+
+	$: if (proposeQuery.trim().length >= 2) {
+		clearTimeout(proposeDebounceTimer);
+		proposeDebounceTimer = setTimeout(doProposeSearch, 350);
+	} else {
+		clearTimeout(proposeDebounceTimer);
+		proposeResults = [];
+	}
+
+	async function doProposeSearch() {
+		proposeSearching = true;
+		try {
+			proposeResults = await searchTracks(proposeQuery.trim());
+		} catch {
+			proposeResults = [];
+		} finally {
+			proposeSearching = false;
+		}
+	}
+
+	async function submitProposal(track: TrackResult) {
+		if (!$session || !setlist || proposeResolving) return;
+		proposeResolving = true;
+		proposeError = '';
+		proposeQuery = '';
+		proposeResults = [];
+		try {
+			let snapshot = {
+				title: track.title,
+				artist: track.artist,
+				...(track.album && { album: track.album })
+			};
+
+			if (track.appleMusicUrl) {
+				const res = await fetch(`/api/resolve?url=${encodeURIComponent(track.appleMusicUrl)}`);
+				if (!res.ok) throw new Error(`Could not resolve song links (${res.status})`);
+				const odesliResult: OdesliResponse = await res.json();
+				const platformUrls = extractPlatformUrls(odesliResult);
+				const entity = getCanonicalEntity(odesliResult);
+				snapshot = {
+					...snapshot,
+					title: entity?.title ?? track.title,
+					artist: entity?.artistName ?? track.artist,
+					...platformUrls
+				};
+			}
+
+			await createProposal(
+				$session.did,
+				setlist.uri,
+				setlist.cid,
+				snapshot,
+				proposeNote
+			);
+			proposeSubmitted = true;
+			proposeNote = '';
+			setTimeout(() => {
+				proposeSubmitted = false;
+				proposeOpen = false;
+			}, 2000);
+		} catch (e) {
+			proposeError = e instanceof Error ? e.message : 'Failed to submit proposal.';
+		} finally {
+			proposeResolving = false;
+		}
+	}
+
+	// Proposals (owner)
+	let proposals: KhordProposal[] = [];
+	let proposalsLoading = false;
+	let acceptingUri: string | null = null;
+
+	const DISMISSED_KEY = `khord_dismissed_proposals_${rkey}`;
+
+	function getDismissed(): Set<string> {
+		try { return new Set(JSON.parse(localStorage.getItem(DISMISSED_KEY) ?? '[]')); }
+		catch { return new Set(); }
+	}
+
+	function persistDismiss(uri: string) {
+		try {
+			const s = getDismissed();
+			s.add(uri);
+			localStorage.setItem(DISMISSED_KEY, JSON.stringify([...s]));
+		} catch { /* non-fatal */ }
+	}
+
+	async function loadProposals() {
+		if (!setlist) return;
+		proposalsLoading = true;
+		try {
+			const res = await fetch(`/api/proposals?setlistUri=${encodeURIComponent(setlist.uri)}`);
+			const dismissed = getDismissed();
+			if (res.ok) {
+				const data = await res.json();
+				proposals = data.proposals.filter((p: KhordProposal) => !dismissed.has(p.uri));
+			} else {
+				// Fallback: query followers' PDSes directly
+				const followerDids = $session
+					? (await getFollowing($session.did)).map((f) => f.did)
+					: [];
+				// Also include the current user's own DID (useful for dev/testing)
+				const dids = $session ? [...new Set([...(followerDids), $session.did])] : followerDids;
+				const all = dids.length > 0
+					? await fetchProposalsFromPDSes(setlist.uri, dids)
+					: [];
+				proposals = all.filter((p) => !dismissed.has(p.uri));
+			}
+		} catch {
+			// non-fatal — no proposals shown
+		} finally {
+			proposalsLoading = false;
+		}
+	}
+
+	async function acceptProposal(proposal: KhordProposal) {
+		if (!$session || !setlist || acceptingUri) return;
+		acceptingUri = proposal.uri;
+		try {
+			const s = proposal.value.snapshot;
+			const songRecord: KhordSongRecord = {
+				title: s.title,
+				artist: s.artist,
+				...(s.album && { album: s.album }),
+				...(s.thumbnailUrl && { thumbnailUrl: s.thumbnailUrl }),
+				...(s.spotifyUrl && { spotifyUrl: s.spotifyUrl }),
+				...(s.appleMusicUrl && { appleMusicUrl: s.appleMusicUrl }),
+				...(s.youtubeMusicUrl && { youtubeMusicUrl: s.youtubeMusicUrl }),
+				...(s.tidalUrl && { tidalUrl: s.tidalUrl }),
+				...(s.deezerUrl && { deezerUrl: s.deezerUrl }),
+				...(s.amazonMusicUrl && { amazonMusicUrl: s.amazonMusicUrl }),
+				...(s.soundcloudUrl && { soundcloudUrl: s.soundcloudUrl }),
+				...(s.songlinkUrl && { songlinkUrl: s.songlinkUrl }),
+				listed: false,
+				createdAt: new Date().toISOString()
+			};
+
+			const createRes = await getAgent().com.atproto.repo.createRecord({
+				repo: $session.did,
+				collection: SONG_NSID,
+				record: { $type: SONG_NSID, ...songRecord }
+			});
+
+			const newItem: KhordSetlistItem = {
+				songUri: createRes.data.uri,
+				songCid: createRes.data.cid,
+				addedBy: $session.did,
+				addedAt: new Date().toISOString(),
+				snapshot: s
+			};
+
+			const updated: KhordSetlistRecord = {
+				...setlist.value,
+				items: [...setlist.value.items, newItem]
+			};
+			await updateSetlist($session.did, rkey, updated);
+			setlist = { ...setlist, value: updated };
+			dndItems = [...dndItems, { id: newItem.songUri, item: newItem, record: songRecord }];
+			persistDismiss(proposal.uri);
+			proposals = proposals.filter((p) => p.uri !== proposal.uri);
+		} catch (e) {
+			proposeError = e instanceof Error ? e.message : 'Failed to accept proposal.';
+		} finally {
+			acceptingUri = null;
+		}
+	}
+
+	function dismissProposal(uri: string) {
+		persistDismiss(uri);
+		proposals = proposals.filter((p) => p.uri !== uri);
+	}
+
 	// Share compose
 	const POST_LIMIT = 300;
 	let shareOpen = false;
-	let shareText = '';
+	let shareNote = '';
 	let sharePosting = false;
 	let sharePosted = false;
 
-	$: shareCharsLeft = POST_LIMIT - [...shareText].length;
+	$: setlistUrl = `${APP_URL}/s/${handle}/${rkey}`;
+	$: shareTitleText = setlist?.value.title ?? '';
+	$: shareFooter = `Shared from ${APP_NAME}`;
+	$: fullShareText = [shareTitleText, ...(shareNote.trim() ? [shareNote.trim()] : []), shareFooter].join('\n\n');
+	$: shareCharsLeft = POST_LIMIT - [...fullShareText].length;
 	$: shareOver = shareCharsLeft < 0;
 
 	function openShare() {
 		if (!setlist) return;
-		const setlistUrl = `${APP_URL}/s/${handle}/${rkey}`;
-		const lines = [`${setlist.value.title} — a setlist on ${APP_NAME}`];
-		if (setlist.value.description) lines.push(setlist.value.description);
-		lines.push(setlistUrl);
-		shareText = lines.join('\n\n');
+		shareNote = '';
 		shareOpen = true;
 	}
 
@@ -160,20 +343,16 @@
 		if (!$session || sharePosting || shareOver) return;
 		sharePosting = true;
 		try {
-			const setlistUrl = `${APP_URL}/s/${handle}/${rkey}`;
 			const encoder = new TextEncoder();
-			const urlIndex = shareText.lastIndexOf(setlistUrl);
-			const facets = urlIndex >= 0 ? [{
-				index: {
-					byteStart: encoder.encode(shareText.slice(0, urlIndex)).length,
-					byteEnd: encoder.encode(shareText.slice(0, urlIndex)).length + encoder.encode(setlistUrl).length
-				},
+			const titleByteEnd = encoder.encode(shareTitleText).length;
+			const facets = [{
+				index: { byteStart: 0, byteEnd: titleByteEnd },
 				features: [{ $type: 'app.bsky.richtext.facet#link', uri: setlistUrl }]
-			}] : [];
+			}];
 			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			await (getAgent().app.bsky.feed.post.create as any)(
 				{ repo: $session.did },
-				{ $type: 'app.bsky.feed.post', text: shareText, ...(facets.length ? { facets } : {}), createdAt: new Date().toISOString() }
+				{ $type: 'app.bsky.feed.post', text: fullShareText, facets, createdAt: new Date().toISOString() }
 			);
 			shareOpen = false;
 			sharePosted = true;
@@ -226,6 +405,9 @@
 					// non-fatal
 				}
 			}
+
+			// Load proposals for the owner after setlist is available
+			if ($session?.handle === handle) loadProposals();
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Could not load setlist.';
 		} finally {
@@ -360,12 +542,26 @@
 					<span class="text-xs {t.textMuted}">@{$session.handle}</span>
 				</div>
 			{/if}
-			<textarea
-				bind:value={shareText}
-				rows="5"
-				class="w-full bg-transparent text-sm {t.textPrimary} placeholder:{t.textFaint} px-4 py-3 resize-none focus:outline-none"
-				placeholder="Write something…"
-			></textarea>
+			<!-- Fixed: setlist title as link -->
+			<div class="px-4 pt-3 pb-2">
+				<a href={setlistUrl} target="_blank" rel="noopener noreferrer" class="text-sm font-medium {t.textPrimary} hover:underline">{shareTitleText}</a>
+			</div>
+
+			<!-- Editable: optional note -->
+			<div class="px-4 pb-2 border-y {t.borderBase}">
+				<textarea
+					bind:value={shareNote}
+					rows="3"
+					class="w-full bg-transparent text-sm {t.textPrimary} placeholder:{t.textFaint} py-2.5 resize-none focus:outline-none"
+					placeholder="Add a note… (optional)"
+				></textarea>
+			</div>
+
+			<!-- Fixed: footer -->
+			<div class="px-4 pt-2 pb-1">
+				<p class="text-xs {t.textFaint}">{shareFooter}</p>
+			</div>
+
 			<div class="flex items-center justify-between px-4 pb-3">
 				<span class="text-xs {shareOver ? 'text-red-400' : shareCharsLeft <= 20 ? 'text-amber-400' : t.textFaint}">
 					{shareCharsLeft}
@@ -374,7 +570,7 @@
 					<button on:click={() => (shareOpen = false)} class="text-xs {t.textMuted} {t.hoverTextSecondary} px-3 py-1.5 transition-colors">Cancel</button>
 					<button
 						on:click={submitShare}
-						disabled={sharePosting || shareOver || shareText.trim().length === 0}
+						disabled={sharePosting || shareOver}
 						class="text-xs font-semibold {t.btnPrimaryBg} {t.btnPrimaryText} px-3 py-1.5 rounded-full {t.btnPrimaryHover} transition-colors disabled:opacity-40"
 					>
 						{#if sharePosting}
@@ -484,6 +680,17 @@
 				</svg>
 				Add song
 			</button>
+		{:else if $session && !isOwn && !loading}
+			<button
+				on:click={() => (proposeOpen = !proposeOpen)}
+				class="flex items-center gap-1.5 text-xs {proposeOpen ? `${t.textPrimary} ${t.elevatedBg} ${t.borderStrong}` : `${t.textMuted} ${t.hoverText} border-transparent`}
+					border px-2.5 py-1 rounded-full transition-colors"
+			>
+				<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0 transition-transform {proposeOpen ? 'rotate-45' : ''}" xmlns="http://www.w3.org/2000/svg">
+					<path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+				</svg>
+				Propose a song
+			</button>
 		{/if}
 	</div>
 
@@ -553,6 +760,138 @@
 				<input type="checkbox" bind:checked={addShareToFeed} class="rounded accent-violet-500" />
 				<span class="text-xs {t.textMuted}">Also share to feed</span>
 			</label>
+		</div>
+	{/if}
+
+	<!-- Propose panel (non-owner) -->
+	{#if proposeOpen && $session && !isOwn}
+		<div class="{t.surfaceBg} border {t.borderBase} rounded-xl px-4 py-3 space-y-2">
+			{#if proposeSubmitted}
+				<div class="py-4 text-center space-y-1">
+					<p class="text-sm font-medium {t.textPrimary}">Proposal submitted!</p>
+					<p class="text-xs {t.textMuted}">The setlist owner will review your suggestion.</p>
+				</div>
+			{:else}
+				<div class="relative">
+					<input
+						type="search"
+						bind:value={proposeQuery}
+						placeholder="Search for a song to propose…"
+						disabled={proposeResolving}
+						class="w-full {t.elevatedBg} border {t.borderStrong} rounded-lg pl-8 pr-3 py-2 text-sm {t.textPrimary}
+							placeholder:{t.textMuted} focus:outline-none {t.hoverBorderStrong} transition-colors disabled:opacity-50"
+					/>
+					<span class="absolute left-2.5 top-1/2 -translate-y-1/2 {t.textMuted} text-sm pointer-events-none">♪</span>
+					{#if proposeSearching || proposeResolving}
+						<span class="absolute right-3 top-1/2 -translate-y-1/2">
+							<span class="block w-3.5 h-3.5 border-2 {t.borderStrong} border-t-white rounded-full animate-spin"></span>
+						</span>
+					{/if}
+				</div>
+
+				{#if proposeError}
+					<p class="text-xs text-red-400">{proposeError}</p>
+				{/if}
+
+				{#if proposeQuery.trim().length >= 2}
+					<div class="rounded-lg border {t.borderBase} {t.recessedBg} overflow-hidden max-h-52 overflow-y-auto">
+						{#if proposeSearching && proposeResults.length === 0}
+							<div class="px-4 py-3 space-y-2.5">
+								{#each [1, 2, 3] as _}
+									<div class="space-y-1.5">
+										<div class="h-3.5 w-2/3 {t.elevatedBg} rounded animate-pulse"></div>
+										<div class="h-3 w-1/3 {t.elevatedBg} rounded animate-pulse"></div>
+									</div>
+								{/each}
+							</div>
+						{:else if proposeResults.length > 0}
+							<ul>
+								{#each proposeResults as result}
+									<li>
+										<button
+											on:click={() => submitProposal(result)}
+											disabled={proposeResolving}
+											class="w-full text-left px-4 py-3 border-b {t.borderBase} last:border-0 {t.hoverBg} transition-colors disabled:opacity-50"
+										>
+											<p class="text-sm {t.textPrimary} truncate">{result.title}</p>
+											<p class="text-xs {t.textMuted} truncate">
+												{result.artist}{result.album ? ` · ${result.album}` : ''}
+											</p>
+										</button>
+									</li>
+								{/each}
+							</ul>
+						{:else if !proposeSearching}
+							<div class="px-4 py-4 text-center {t.textMuted} text-sm">No results found.</div>
+						{/if}
+					</div>
+				{/if}
+
+				<textarea
+					bind:value={proposeNote}
+					placeholder="Add a note for the owner… (optional)"
+					rows="2"
+					maxlength="300"
+					disabled={proposeResolving}
+					class="w-full {t.elevatedBg} border {t.borderStrong} rounded-lg px-3 py-2 text-sm {t.textPrimary}
+						placeholder:{t.textMuted} focus:outline-none resize-none disabled:opacity-50"
+				></textarea>
+			{/if}
+		</div>
+	{/if}
+
+	<!-- Proposals section (owner) -->
+	{#if isOwn && !loading && (proposalsLoading || proposals.length > 0)}
+		<div class="space-y-2">
+			<div class="flex items-center gap-2">
+				<h2 class="text-xs font-semibold {t.textMuted} uppercase tracking-wider">Proposals</h2>
+				{#if proposalsLoading}
+					<span class="w-3 h-3 border-2 {t.borderStrong} border-t-transparent rounded-full animate-spin"></span>
+				{:else}
+					<span class="text-xs {t.textFaint}">{proposals.length}</span>
+				{/if}
+			</div>
+
+			{#each proposals as proposal (proposal.uri)}
+				{@const s = proposal.value.snapshot}
+				<div class="rounded-xl border {t.borderBase} {t.surfaceBg} px-4 py-3 flex items-center gap-3">
+					{#if !$instanceConfig.albumArtDisabled && s.thumbnailUrl}
+						<img src={s.thumbnailUrl} alt="" aria-hidden="true" class="w-10 h-10 rounded-md object-cover shrink-0" />
+					{/if}
+
+					<div class="flex-1 min-w-0">
+						<p class="text-sm font-semibold {t.textPrimary} truncate">{s.title}</p>
+						<p class="text-xs {t.textMuted} truncate">{s.artist}{s.album ? ` · ${s.album}` : ''}</p>
+						<p class="text-xs {t.textFaint} truncate mt-0.5">
+							proposed by @{proposal.proposerHandle ?? proposal.proposerDid}
+							{#if proposal.value.note}· "{proposal.value.note}"{/if}
+						</p>
+					</div>
+
+					<div class="flex items-center gap-1.5 shrink-0">
+						<button
+							on:click={() => acceptProposal(proposal)}
+							disabled={!!acceptingUri}
+							class="text-xs font-medium px-3 py-1.5 rounded-full {t.btnPrimaryBg} {t.btnPrimaryText} {t.btnPrimaryHover} transition-colors disabled:opacity-40"
+						>
+							{#if acceptingUri === proposal.uri}
+								<span class="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
+							{:else}
+								Accept
+							{/if}
+						</button>
+						<button
+							on:click={() => dismissProposal(proposal.uri)}
+							aria-label="Dismiss proposal"
+							class="{t.textFaint} {t.hoverTextSecondary} transition-colors"
+						>
+							<svg viewBox="0 0 14 14" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
+								<path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+							</svg>
+						</button>
+					</div>
+				</div>
+			{/each}
 		</div>
 	{/if}
 
@@ -636,6 +975,38 @@
 					{/if}
 				</div>
 			{/each}
+		</div>
+	{/if}
+
+	<!-- DEV ONLY: seed a test proposal from your own session so you can see the owner proposals UI -->
+	{#if import.meta.env.DEV && isOwn && setlist && $session}
+		<div class="mt-8 pt-6 border-t {t.borderBase}">
+			<p class="text-xs {t.textFaint} mb-2">Dev tools</p>
+			<button
+				on:click={async () => {
+					try {
+						await createProposal(
+							$session!.did,
+							setlist!.uri,
+							setlist!.cid,
+							{
+								title: 'Bohemian Rhapsody',
+								artist: 'Queen',
+								album: 'A Night at the Opera',
+								spotifyUrl: 'https://open.spotify.com/track/3z8h0TU7ReDPLIbEnYhWZb',
+								songlinkUrl: 'https://song.link/s/1e3NUB3VEI6nFzWxHIY5FY'
+							},
+							'Great song for this setlist!'
+						);
+						await loadProposals();
+					} catch (e) {
+						alert(e instanceof Error ? e.message : 'Seed failed');
+					}
+				}}
+				class="text-xs {t.textMuted} border {t.borderBase} px-3 py-1.5 rounded-lg {t.hoverBg} transition-colors"
+			>
+				+ Seed test proposal
+			</button>
 		</div>
 	{/if}
 </section>

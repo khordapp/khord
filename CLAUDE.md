@@ -33,7 +33,8 @@ src/
         song.ts             # app.khord.song types
         vote.ts             # app.khord.vote types
         setlist.ts          # app.khord.setlist types + KhordSetlistItemSnapshot
-      social.ts             # fetchSongs, fetchSetlists, fetchSetlist, createSetlist, updateSetlist, deleteSetlist
+        proposal.ts         # app.khord.setlist.proposal types + KhordProposal
+      social.ts             # fetchSongs, fetchSetlists, fetchSetlist, createSetlist, updateSetlist, deleteSetlist, createProposal, fetchProposalsFromPDSes
     odesli/
       client.ts             # resolveUrl(), extractPlatformUrls() (includes songlinkUrl, thumbnailUrl)
     server/
@@ -72,7 +73,7 @@ src/
     spotify/callback/       # Spotify OAuth callback (user-level auth, if enabled)
     invite/                 # invite page
     settings/               # preferred streaming service picker
-    s/[handle]/[rkey]/        # setlist detail: drag reorder, add songs, remove, edit title, delete, share
+    s/[handle]/[rkey]/        # setlist detail: drag reorder, add songs, propose songs, review proposals, share
     setlists/[handle]/[rkey]/ # 301 redirect → /s/[handle]/[rkey]/
     api/resolve/            # server-side Odesli proxy + Spotify augmentation
     api/auth/status/        # GET — returns { restricted, full, albumArtDisabled }
@@ -80,14 +81,16 @@ src/
     api/feed/               # GET — SQLite AppView feed (returns 503 if DB unavailable)
     api/votes/              # GET — SQLite AppView votes for a DID (returns 503 if DB unavailable)
     api/votes/counts/       # GET ?uris=... — batch vote counts for a list of song URIs
+    api/proposals/          # GET ?setlistUri=... — proposals for a setlist (returns 503 if DB unavailable)
     api/thumbnail/          # GET ?url= — server-side image proxy for album art (avoids CORS on third-party CDNs)
 lexicons/
   app.khord.song.json       # AT Protocol lexicon definitions
   app.khord.vote.json
   app.khord.setlist.json    # setlist lexicon — ordered items[], snapshot per item, collaborators[], open flag
+  app.khord.setlist.proposal.json  # proposal lexicon — setlistUri, setlistCid, snapshot, note
 indexer/
-  index.js                  # AT Protocol firehose subscriber — writes songs/votes to SQLite
-  schema.sql                # SQLite schema — actors, songs, votes, cursor, registered_users
+  index.js                  # AT Protocol firehose subscriber — writes songs/votes/proposals to SQLite
+  schema.sql                # SQLite schema — actors, songs, votes, proposals, cursor, registered_users
   Dockerfile                # includes python3/make/g++ for better-sqlite3 native bindings
 ```
 
@@ -100,6 +103,7 @@ Records are stored in the user's PDS under these NSIDs:
 | `app.khord.song` | Shared song — stores Odesli-resolved platform URLs |
 | `app.khord.vote` | Up/down vote on a song |
 | `app.khord.setlist` | Ordered list of song references; stored on creator's PDS |
+| `app.khord.setlist.proposal` | Song proposal from a non-owner; stored on proposer's PDS; includes embedded snapshot + optional note |
 
 ### app.khord.setlist
 
@@ -155,6 +159,9 @@ To add a new theme: create `src/lib/theme/mytheme.ts` implementing `Theme`, then
 - Share button opens a compose sheet pre-filled with setlist title + URL; URL gets a link facet; editable before posting
 - Non-owners see the setlist read-only (no drag, no remove, no edit)
 - Vote counts fetched from `/api/votes/counts` and displayed per row
+- **Proposals (owner):** loaded from `/api/proposals?setlistUri=...` after setlist loads; 503 fallback queries each follower's PDS + owner's own DID. Accept creates `app.khord.song` on owner's PDS and appends item to setlist. Dismiss removes from in-memory list and persists URI to `localStorage` (`khord_dismissed_proposals_<rkey>`) so dismissed proposals don't reappear on reload.
+- **Propose a song (non-owner):** "Propose a song" button visible to logged-in non-owners. Panel: iTunes search → Odesli resolve → `createRecord` for `app.khord.setlist.proposal` on proposer's PDS with embedded song snapshot. Submitted state shown for 2s then panel closes.
+- Dev-only "Seed test proposal" button at bottom of page (visible only in `import.meta.env.DEV` + owner) creates a Bohemian Rhapsody test proposal from current session
 
 ## Post-to-feed (cross-post to AT Protocol social)
 
@@ -219,6 +226,8 @@ When a song is added to a setlist (via CreateSetlistModal, feed selection, or da
 - `listed` boolean on `app.khord.song`: absent/`true` = appears in feed; `false` = setlist-only. PDS fetch filters in `social.ts`; AppView feed filters with `WHERE listed != 0`. Songs added via the setlist add-song panel default to `listed: false` unless "Also share to feed" is checked
 - Post-to-feed compose sheet has fixed header (title+artist with link facet) and footer ("Shared from…") with only the middle note section editable — prevents accidental removal of attribution and ensures consistent post structure
 - Setlist canonical URL is `/s/[handle]/[rkey]`; old `/setlists/` path 301-redirects to keep existing links working
+- Setlist collaboration uses a proposal pattern (`app.khord.setlist.proposal`) because AT Protocol records are owner-only writes — write-delegation is not viable. Proposals live on the proposer's PDS; discovery is via AppView SQLite (primary) or querying followers' PDSes (503 fallback, also includes owner's own DID for dev/testing). Owner accepts (creates song + appends to setlist) or dismisses (localStorage persistence keyed by rkey). No server-side dismiss state needed.
+- `APP_URL` reads from `env.PUBLIC_APP_URL` (dynamic) not a hardcoded constant — required for the share URL to match whichever domain the instance is running on
 - Capacitor wrapper planned for iOS/Android
 - Setlist export to streaming services planned: Spotify first (user OAuth + ISRC lookup), then Apple Music via MusicKit JS
 

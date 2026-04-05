@@ -6,6 +6,8 @@ Khord is a decentralized social app for sharing music. Share a song once — you
 
 Identity and records live on the [AT Protocol](https://atproto.com/). No central Khord database — your shares, votes, and setlists are yours.
 
+> **Vibe coded with [Claude](https://claude.ai/claude-code)** — this project was built collaboratively with Claude Code (Anthropic). Architecture decisions, feature design, and implementation were a human+AI pair programming effort.
+
 ---
 
 ## Features
@@ -21,6 +23,7 @@ Identity and records live on the [AT Protocol](https://atproto.com/). No central
 - **Album art** — thumbnails sourced from Odesli; can be disabled per instance
 - **Setlist resilience** — each setlist item embeds a snapshot of song metadata; setlists render correctly even if the source record is deleted
 - **Setlist-only songs** — songs added directly to a setlist can be kept off the public feed via a "Also share to feed" checkbox (default off)
+- **Setlist proposals** — logged-in visitors can propose songs to any setlist; owner reviews, accepts (song added to setlist), or dismisses; proposals stored as AT Protocol records on the proposer's own PDS
 - **18 themes** — admin-controlled via `PUBLIC_THEME`; neutral and chromatic, dark and light
 - **Instance config** — app name, tagline, identity provider, access control, and theme all configurable via env vars
 
@@ -142,6 +145,7 @@ Records are stored in the user's PDS:
 | `app.khord.song` | Shared song — platform URLs, album art, optional note |
 | `app.khord.vote` | Up/down vote on a song |
 | `app.khord.setlist` | Ordered list of songs with per-item metadata snapshots; stored on creator's PDS |
+| `app.khord.setlist.proposal` | Song proposal submitted by a non-owner; stored on the proposer's PDS; includes embedded song snapshot and optional note |
 
 ## How it works
 
@@ -288,7 +292,8 @@ src/
         song.ts             # app.khord.song types
         vote.ts             # app.khord.vote types
         setlist.ts          # app.khord.setlist types + KhordSetlistItemSnapshot
-      social.ts             # fetchSongs, fetchSetlists, createSetlist, updateSetlist, etc.
+        proposal.ts         # app.khord.setlist.proposal types
+      social.ts             # fetchSongs, fetchSetlists, createSetlist, updateSetlist, createProposal, etc.
     odesli/
       client.ts             # resolveUrl(), extractPlatformUrls()
     server/
@@ -332,17 +337,19 @@ src/
       feed/                 # AppView feed query (SQLite)
       votes/                # AppView votes query (SQLite)
       votes/counts/         # Batch vote counts for a list of URIs
+      proposals/            # Setlist proposals from AppView (PDS fallback on 503)
       thumbnail/            # Image proxy (avoids CORS on third-party CDNs)
       auth/check/           # Access control check + user registration
       auth/status/          # Instance config endpoint
 indexer/
-  index.js                  # AT Protocol firehose subscriber
+  index.js                  # AT Protocol firehose subscriber (songs, votes, proposals)
   schema.sql                # SQLite schema
   Dockerfile
 lexicons/
   app.khord.song.json
   app.khord.vote.json
   app.khord.setlist.json
+  app.khord.setlist.proposal.json
 ```
 
 ## Roadmap
@@ -366,9 +373,9 @@ lexicons/
 - [x] 18 themes via `PUBLIC_THEME`
 - [x] Instance configuration (name, access control, theme, etc.)
 - [x] Docker Compose deployment + Unraid guide
+- [x] Setlist collaboration — proposal system (`app.khord.setlist.proposal`); owner accept/dismiss with localStorage persistence
 - [ ] Setlist export to streaming services (Spotify first via user OAuth + ISRC lookup; Apple Music via MusicKit JS)
 - [ ] YouTube Music resolution
-- [ ] Setlist collaboration (proposal pattern)
 - [ ] Capacitor wrapper for iOS/Android
 
 ## License
