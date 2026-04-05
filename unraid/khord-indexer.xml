@@ -1,0 +1,66 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>khord-indexer</Name>
+  <Repository>ghcr.io/emptyfish/khord-indexer:latest</Repository>
+  <Registry>https://ghcr.io/emptyfish/khord-indexer</Registry>
+  <Network>bridge</Network>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/emptyfish/khord/issues</Support>
+  <Project>https://github.com/emptyfish/khord</Project>
+  <Overview>
+    Firehose indexer for Khord. Subscribes to the AT Protocol firehose and writes
+    songs, votes, and proposals from followed users into a local SQLite database,
+    enabling the Khord app to serve a fast AppView feed.
+
+    The Data Path must be set to the same directory as in the khord container so
+    both containers share the same SQLite database file.
+
+    This container has no web interface. Start the khord container first.
+  </Overview>
+  <Category>MediaApp:Music</Category>
+  <WebUI/>
+  <TemplateURL>https://raw.githubusercontent.com/emptyfish/khord/main/unraid/khord-indexer.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/emptyfish/khord/main/static/icon.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <CPUset/>
+  <DonateText/>
+  <DonateLink/>
+
+  <!-- ── Paths ── -->
+  <Config
+    Name="Data Path"
+    Target="/data"
+    Default="/mnt/user/appdata/khord/data"
+    Mode="rw"
+    Description="Directory for the SQLite database. Must match the Data Path set in the khord container exactly."
+    Type="Path"
+    Display="always"
+    Required="true"
+    Mask="false">/mnt/user/appdata/khord/data</Config>
+
+  <!-- ── Variables ── -->
+  <Config
+    Name="Database Path"
+    Target="INDEXER_DB_PATH"
+    Default="/data/khord.db"
+    Mode=""
+    Description="Path to the SQLite database file inside the container. Must match the Database Path set in the khord container."
+    Type="Variable"
+    Display="always"
+    Required="false"
+    Mask="false">/data/khord.db</Config>
+
+  <Config
+    Name="Firehose Relay"
+    Target="FIREHOSE_RELAY"
+    Default="wss://bsky.network"
+    Mode=""
+    Description="AT Protocol firehose relay URL to subscribe to."
+    Type="Variable"
+    Display="advanced"
+    Required="false"
+    Mask="false">wss://bsky.network</Config>
+
+</Container>
