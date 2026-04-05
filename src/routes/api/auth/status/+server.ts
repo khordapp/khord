@@ -4,12 +4,14 @@
 
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { env } from '$env/dynamic/private';
 import { getDbRw } from '$lib/server/db';
 import { isOwner } from '$lib/server/access';
+import { getSetting } from '$lib/server/settings';
 
 export const GET: RequestHandler = ({ url }) => {
-	const allowedDids = (process.env.ALLOWED_DIDS ?? '').split(',').filter((d) => d.trim());
-	const maxUsers = parseInt(process.env.MAX_USERS ?? '0', 10) || 0;
+	const allowedDids = (env.ALLOWED_DIDS ?? '').split(',').filter((d) => d.trim());
+	const maxUsers = parseInt(env.MAX_USERS ?? '0', 10) || 0;
 
 	const restricted = allowedDids.length > 0;
 	let full = false;
@@ -22,7 +24,9 @@ export const GET: RequestHandler = ({ url }) => {
 		}
 	}
 
-	const albumArtDisabled = process.env.DISABLE_ALBUM_ART === 'true';
+	// DB setting takes precedence over env var
+	const albumArtDisabled =
+		getSetting('album_art_disabled', env.DISABLE_ALBUM_ART === 'true' ? 'true' : 'false') === 'true';
 
 	const did = url.searchParams.get('did');
 	const owner = did ? isOwner(did) : false;

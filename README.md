@@ -27,8 +27,7 @@ Identity and records live on the [AT Protocol](https://atproto.com/). No central
 - **18 themes** — admin-controlled via `PUBLIC_THEME`; neutral and chromatic, dark and light; each theme includes a complementary hero gradient
 - **Customizable landing page** — edit `src/lib/landing.svelte` to add community-specific copy, images, or markup to the logged-out home page
 - **Instance config** — app name, tagline, identity provider, access control, and theme all configurable via env vars
-- **Owner admin** — `OWNER_DIDS` grants admin privileges; unlocks ban management UI
-- **Banlist** — ban users via `BANNED_DIDS` env var or direct SQLite insert; banned users are blocked at sign-in
+- **Admin panel** — owner-only page at `/admin`; manage users, bans, and instance settings (album art, registration, user cap) without restarting
 
 ## Stack
 
@@ -339,6 +338,7 @@ src/
     spotify/callback/       # Spotify OAuth callback
     settings/               # Preferred streaming service
     invite/                 # Invite page
+    admin/                  # Admin panel (owner-only): users, bans, instance settings
     api/
       resolve/              # Odesli proxy + Spotify augmentation
       feed/                 # AppView feed query (SQLite)
@@ -348,6 +348,7 @@ src/
       thumbnail/            # Image proxy (avoids CORS on third-party CDNs)
       auth/check/           # Access control check + user registration
       auth/status/          # Instance config; accepts ?did= to resolve isOwner
+      admin/                # Admin API routes (stats, users, bans, settings) — owner-only
 indexer/
   index.js                  # AT Protocol firehose subscriber (songs, votes, proposals)
   schema.sql                # SQLite schema
@@ -385,7 +386,7 @@ lexicons/
 - [x] Footer with API attributions and "Powered by Khord" credit
 - [x] Owner DIDs — `OWNER_DIDS` env var; `isOwner` resolved at session load via `/api/auth/status?did=`
 - [x] Banlist — `BANNED_DIDS` env var + `banned_users` SQLite table; enforced at sign-in
-- [ ] Ban management UI (owner-only)
+- [x] Admin panel — user list, ban management, and instance settings (album art, registration, user cap) at `/admin`
 - [ ] Setlist export to streaming services (Spotify first via user OAuth + ISRC lookup; Apple Music via MusicKit JS)
 - [ ] YouTube Music resolution
 - [ ] Capacitor wrapper for iOS/Android

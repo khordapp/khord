@@ -40,7 +40,8 @@ src/
     server/
       spotify.ts            # client credentials token + track search (server-only)
       db.ts                 # getDb() read-only / getDbRw() read-write SQLite connections (null if no DB)
-      access.ts             # checkAndRegister(did) — OWNER_DIDS, BANNED_DIDS, ALLOWED_DIDS + MAX_USERS enforcement; isOwner(did) exported helper
+      access.ts             # checkAndRegister(did) — OWNER_DIDS, BANNED_DIDS, ALLOWED_DIDS + MAX_USERS enforcement; isOwner(did) exported helper; reads env via $env/dynamic/private
+      settings.ts           # getSetting/setSetting/getAllSettings — DB-backed instance settings (instance_settings table); auto-creates table on first use
     itunes/
       client.ts             # free text search for song discovery
     theme/
@@ -65,7 +66,7 @@ src/
       createSetlist.ts      # modal open state
       following.ts          # followed users (FollowedUser[])
       prefs.ts              # localStorage-backed user preferences (preferred platform)
-      instance.ts           # instanceConfig store (albumArtDisabled, isOwner) populated from /api/auth/status
+      instance.ts           # instanceConfig store (albumArtDisabled, isOwner, loaded) populated from /api/auth/status; loaded flag gates admin page auth check
   routes/
     +layout.svelte          # shell, avatar dropdown nav, speed-dial FAB (share song / new setlist), footer
     +page.svelte            # home — Feed / Daily / Setlists tabs; selection, bulk delete, create setlist
@@ -74,6 +75,7 @@ src/
     spotify/callback/       # Spotify OAuth callback (user-level auth, if enabled)
     invite/                 # invite page
     settings/               # preferred streaming service picker
+    admin/                  # owner-only admin panel (users, bans, instance settings); gated on instanceConfig.loaded + isOwner
     s/[handle]/[rkey]/        # setlist detail: drag reorder, add songs, propose songs, review proposals, share
     setlists/[handle]/[rkey]/ # 301 redirect → /s/[handle]/[rkey]/
     api/resolve/            # server-side Odesli proxy + Spotify augmentation
@@ -84,6 +86,10 @@ src/
     api/votes/counts/       # GET ?uris=... — batch vote counts for a list of song URIs
     api/proposals/          # GET ?setlistUri=... — proposals for a setlist (returns 503 if DB unavailable)
     api/thumbnail/          # GET ?url= — server-side image proxy for album art (avoids CORS on third-party CDNs)
+    api/admin/stats/        # GET ?did= — instance stats (user count, song count, ban count, firehose cursor); owner-only
+    api/admin/users/        # GET ?did= — paginated registered users (LEFT JOIN actors); owner-only
+    api/admin/bans/         # GET/POST/DELETE — ban list + add/remove; owner-only; mutations use getDbRw()
+    api/admin/settings/     # GET/POST — instance settings (album_art_disabled, registration_closed, max_users); DB overrides env vars; owner-only
 lexicons/
   app.khord.song.json       # AT Protocol lexicon definitions
   app.khord.vote.json
@@ -91,7 +97,7 @@ lexicons/
   app.khord.setlist.proposal.json  # proposal lexicon — setlistUri, setlistCid, snapshot, note
 indexer/
   index.js                  # AT Protocol firehose subscriber — writes songs/votes/proposals to SQLite
-  schema.sql                # SQLite schema — actors, songs, votes, proposals, cursor, registered_users, banned_users
+  schema.sql                # SQLite schema — actors, songs, votes, proposals, cursor, registered_users, banned_users, instance_settings
   Dockerfile                # includes python3/make/g++ for better-sqlite3 native bindings
 ```
 
@@ -218,7 +224,8 @@ When a song is added to a setlist (via CreateSetlistModal, feed selection, or da
 - Album art URLs sourced from Odesli `thumbnailUrl`; longevity is a known tradeoff; `DISABLE_ALBUM_ART` env var available as CDN reliability escape hatch
 - `/api/thumbnail` proxies third-party image URLs server-side to avoid CORS; validates protocol and content-type; 24h cache headers
 - App name, tagline, and auth provider name all configurable via env vars (`PUBLIC_APP_NAME`, `PUBLIC_APP_TAGLINE`, `PUBLIC_AUTH_PROVIDER_NAME`)
-- Access control: `OWNER_DIDS` (admin), `BANNED_DIDS` (denylist), `ALLOWED_DIDS` (allowlist), `MAX_USERS` (cap) env vars; all enforced at OAuth callback via `/api/auth/check`. `isOwner` resolved at session load via `/api/auth/status?did=` and stored in `instanceConfig`. Dynamic bans also supported via `banned_users` SQLite table (no restart needed).
+- Access control: `OWNER_DIDS` (admin), `BANNED_DIDS` (denylist), `ALLOWED_DIDS` (allowlist), `MAX_USERS` (cap) env vars; all enforced at OAuth callback via `/api/auth/check`. `isOwner` resolved at session load via `/api/auth/status?did=` and stored in `instanceConfig`. Dynamic bans also supported via `banned_users` SQLite table (no restart needed). All server-side env var reads use `$env/dynamic/private` (not `process.env`) — required for SvelteKit/Vite dev to pick up `.env` values correctly.
+- Admin panel at `/admin` (owner-only): registered users list (paginated, LEFT JOIN actors), ban management (add/remove), instance settings (album art toggle, registration open/closed, user cap). Settings stored in `instance_settings` SQLite table via `src/lib/server/settings.ts`; DB values override env var defaults without restart. All `/api/admin/*` routes verify `isOwner(did)` server-side; return 503 when DB unavailable. Admin nav link gated on `$instanceConfig.isOwner`. Auth guard waits for `instanceConfig.loaded` (set after the layout's status fetch) to avoid false redirects during boot.
 - SQLite AppView indexer scaffolded — feed/votes API routes exist but app still falls back to PDS fetch when DB unavailable
 - Setlists are creator-only writes in v1; collaborator contribution (proposal pattern or delegated writes) is v2
 - `svelte-dnd-action` used for drag-to-reorder on setlist detail page

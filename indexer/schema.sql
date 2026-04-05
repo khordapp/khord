@@ -101,6 +101,15 @@ CREATE TABLE IF NOT EXISTS banned_users (
   banned_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
+-- ── Instance settings ────────────────────────────────────────────────────────
+-- Dynamic per-instance config — overrides env var defaults without a restart.
+-- Written by the admin UI; read by the app server.
+CREATE TABLE IF NOT EXISTS instance_settings (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
 -- ── Cursor ────────────────────────────────────────────────────────────────────
 -- Tracks the firehose sequence number so restarts resume from where we left off.
 CREATE TABLE IF NOT EXISTS cursor (

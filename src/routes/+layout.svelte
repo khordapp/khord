@@ -25,7 +25,8 @@
 		fetch(statusUrl).then(r => r.json()).then(data => {
 			instanceConfig.set({
 				albumArtDisabled: data.albumArtDisabled ?? false,
-				isOwner: data.isOwner ?? false
+				isOwner: data.isOwner ?? false,
+				loaded: true
 			});
 		}).catch(() => {});
 
@@ -106,6 +107,12 @@
 							<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M10.5 8H14M12 6.5V9.5M6 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM2 13s-.5-4 4-4 4 4 4 4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
 							Invite
 						</a>
+						{#if $instanceConfig.isOwner}
+							<a href="/admin" on:click={closeMenu} class="flex items-center gap-2.5 px-4 py-2.5 text-sm {t.textSecondary} {t.hoverText} {t.hoverBg} transition-colors">
+								<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M8 2a2 2 0 0 1 2 2v.5l2.5 1.5V13H3.5V6L6 4.5V4a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/><path d="M6.5 13v-3a1.5 1.5 0 0 1 3 0v3" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></svg>
+								Admin
+							</a>
+						{/if}
 						<div class="border-t {t.borderBase} mt-1 pt-1">
 							<button on:click={() => { closeMenu(); handleLogout(); }} class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm {t.textSecondary} {t.hoverText} {t.hoverBg} transition-colors">
 								<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3M10.5 11 14 8l-3.5-3M14 8H6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
