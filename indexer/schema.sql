@@ -91,6 +91,16 @@ CREATE TABLE IF NOT EXISTS registered_users (
   registered_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
 
+-- ── Banned users ──────────────────────────────────────────────────────────────
+-- DIDs blocked from signing in to this instance.
+-- To ban someone: INSERT INTO banned_users(did) VALUES('did:plc:...');
+-- To unban:       DELETE FROM banned_users WHERE did = 'did:plc:...';
+CREATE TABLE IF NOT EXISTS banned_users (
+  did       TEXT PRIMARY KEY,
+  reason    TEXT,
+  banned_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+
 -- ── Cursor ────────────────────────────────────────────────────────────────────
 -- Tracks the firehose sequence number so restarts resume from where we left off.
 CREATE TABLE IF NOT EXISTS cursor (

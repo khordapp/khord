@@ -47,6 +47,9 @@ const light: Theme = {
 	linkTextHover:   'hover:text-indigo-700',
 	linkBorder:      'border-indigo-300',
 	linkBorderHover: 'hover:border-indigo-500',
+
+	// Hero
+	heroGradient: 'bg-gradient-to-br from-violet-100 via-gray-100 to-gray-100',
 };
 
 export default light;

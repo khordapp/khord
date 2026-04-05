@@ -40,11 +40,11 @@ src/
     server/
       spotify.ts            # client credentials token + track search (server-only)
       db.ts                 # getDb() read-only / getDbRw() read-write SQLite connections (null if no DB)
-      access.ts             # checkAndRegister(did) — ALLOWED_DIDS + MAX_USERS enforcement
+      access.ts             # checkAndRegister(did) — OWNER_DIDS, BANNED_DIDS, ALLOWED_DIDS + MAX_USERS enforcement; isOwner(did) exported helper
     itunes/
       client.ts             # free text search for song discovery
     theme/
-      types.ts              # Theme interface (33 tokens)
+      types.ts              # Theme interface (34 tokens including heroGradient)
       dark.ts               # default: zinc-950 base, white CTA, violet accent
       light.ts              # gray-100 base, gray-900 CTA, violet/indigo accent
       slate.ts / gray.ts / neutral.ts / stone.ts          # neutral dark variants
@@ -57,6 +57,7 @@ src/
       SongSearch.svelte     # iTunes-backed search input
       StreamingPill.svelte  # branded pill + chevron dropdown; preferred platform first; shared by feed + setlists
       ServicePicker.svelte  # preferred platform picker used in /settings
+    landing.svelte          # editable logged-out landing content (below hero); replace to customise per instance
     stores/
       auth.ts               # session store, isLoggedIn derived, authReady (gates post-OAuth loads)
       votes.ts              # user's upvotes, like/unlike actions
@@ -64,7 +65,7 @@ src/
       createSetlist.ts      # modal open state
       following.ts          # followed users (FollowedUser[])
       prefs.ts              # localStorage-backed user preferences (preferred platform)
-      instance.ts           # instanceConfig store (albumArtDisabled) populated from /api/auth/status
+      instance.ts           # instanceConfig store (albumArtDisabled, isOwner) populated from /api/auth/status
   routes/
     +layout.svelte          # shell, avatar dropdown nav, speed-dial FAB (share song / new setlist), footer
     +page.svelte            # home — Feed / Daily / Setlists tabs; selection, bulk delete, create setlist
@@ -76,7 +77,7 @@ src/
     s/[handle]/[rkey]/        # setlist detail: drag reorder, add songs, propose songs, review proposals, share
     setlists/[handle]/[rkey]/ # 301 redirect → /s/[handle]/[rkey]/
     api/resolve/            # server-side Odesli proxy + Spotify augmentation
-    api/auth/status/        # GET — returns { restricted, full, albumArtDisabled }
+    api/auth/status/        # GET — returns { restricted, full, albumArtDisabled, isOwner }; accepts ?did= to resolve isOwner
     api/auth/check/         # POST { did } — access control check + register user
     api/feed/               # GET — SQLite AppView feed (returns 503 if DB unavailable)
     api/votes/              # GET — SQLite AppView votes for a DID (returns 503 if DB unavailable)
@@ -90,7 +91,7 @@ lexicons/
   app.khord.setlist.proposal.json  # proposal lexicon — setlistUri, setlistCid, snapshot, note
 indexer/
   index.js                  # AT Protocol firehose subscriber — writes songs/votes/proposals to SQLite
-  schema.sql                # SQLite schema — actors, songs, votes, proposals, cursor, registered_users
+  schema.sql                # SQLite schema — actors, songs, votes, proposals, cursor, registered_users, banned_users
   Dockerfile                # includes python3/make/g++ for better-sqlite3 native bindings
 ```
 
@@ -124,7 +125,7 @@ Themes are selected via `PUBLIC_THEME` in `.env`. A rebuild (or dev server resta
 | Neutral light | `light`, `zinc-light`, `slate-light`, `neutral-light`, `stone-light` |
 | Chromatic dark | `navy`, `teal`, `emerald`, `rose`, `violet` |
 
-The `Theme` interface has 33 typed string tokens covering backgrounds, borders, text, interactive states, primary CTA, accent, and link colors. All values are complete Tailwind class strings so JIT scanning works without safelisting.
+The `Theme` interface has 34 typed string tokens covering backgrounds, borders, text, interactive states, primary CTA, accent, link colors, and `heroGradient` (a complementary gradient bloom used on the logged-out landing page hero). All values are complete Tailwind class strings so JIT scanning works without safelisting.
 
 To add a new theme: create `src/lib/theme/mytheme.ts` implementing `Theme`, then register it in `src/lib/theme/index.ts`.
 
@@ -217,7 +218,7 @@ When a song is added to a setlist (via CreateSetlistModal, feed selection, or da
 - Album art URLs sourced from Odesli `thumbnailUrl`; longevity is a known tradeoff; `DISABLE_ALBUM_ART` env var available as CDN reliability escape hatch
 - `/api/thumbnail` proxies third-party image URLs server-side to avoid CORS; validates protocol and content-type; 24h cache headers
 - App name, tagline, and auth provider name all configurable via env vars (`PUBLIC_APP_NAME`, `PUBLIC_APP_TAGLINE`, `PUBLIC_AUTH_PROVIDER_NAME`)
-- Access control: `ALLOWED_DIDS` (allowlist) and `MAX_USERS` (cap) env vars; enforced at OAuth callback via `/api/auth/check`
+- Access control: `OWNER_DIDS` (admin), `BANNED_DIDS` (denylist), `ALLOWED_DIDS` (allowlist), `MAX_USERS` (cap) env vars; all enforced at OAuth callback via `/api/auth/check`. `isOwner` resolved at session load via `/api/auth/status?did=` and stored in `instanceConfig`. Dynamic bans also supported via `banned_users` SQLite table (no restart needed).
 - SQLite AppView indexer scaffolded — feed/votes API routes exist but app still falls back to PDS fetch when DB unavailable
 - Setlists are creator-only writes in v1; collaborator contribution (proposal pattern or delegated writes) is v2
 - `svelte-dnd-action` used for drag-to-reorder on setlist detail page
@@ -242,6 +243,8 @@ When a song is added to a setlist (via CreateSetlistModal, feed selection, or da
 | `PUBLIC_THEME` | UI color theme (default: `dark`); requires rebuild to change — see Theming section |
 | `PUBLIC_SPOTIFY_CLIENT_ID` | Spotify app client ID — from developer.spotify.com |
 | `SPOTIFY_CLIENT_SECRET` | Spotify app client secret — server-only, never sent to browser |
+| `OWNER_DIDS` | Comma-separated AT Protocol DIDs with owner/admin privileges; unlocks ban management UI |
+| `BANNED_DIDS` | Comma-separated AT Protocol DIDs blocked from signing in; requires restart (dynamic alternative: `banned_users` table) |
 | `ALLOWED_DIDS` | Comma-separated AT Protocol DIDs allowed to sign in; unset = open |
 | `MAX_USERS` | Max registered users (0 = unlimited); enforced via SQLite `registered_users` count |
 | `DISABLE_ALBUM_ART` | Set to `true` to hide album art thumbnails on song cards |

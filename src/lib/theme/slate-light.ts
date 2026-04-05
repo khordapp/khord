@@ -40,6 +40,9 @@ const slateLight: Theme = {
 	linkTextHover:   'hover:text-blue-700',
 	linkBorder:      'border-blue-300',
 	linkBorderHover: 'hover:border-blue-500',
+
+	// Hero
+	heroGradient: 'bg-gradient-to-br from-sky-100 via-slate-100 to-slate-100',
 };
 
 export default slateLight;

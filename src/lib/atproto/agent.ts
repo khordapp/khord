@@ -73,7 +73,7 @@ export async function initAuth(allowFailure = false): Promise<{ did: string; han
 // The browser navigates away; on return, the /oauth/callback page completes the flow.
 export async function signIn(handle: string): Promise<void> {
 	const base = getBaseUrl();
-	if (browser && base === APP_URL && import.meta.env.DEV) {
+	if (browser && !env.PUBLIC_APP_URL && import.meta.env.DEV) {
 		throw new Error(
 			'Set PUBLIC_APP_URL in .env to your tunnel URL to use OAuth locally. ' +
 			'Run: npx cloudflared tunnel --url http://localhost:5173'

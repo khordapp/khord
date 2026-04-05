@@ -24,8 +24,11 @@ Identity and records live on the [AT Protocol](https://atproto.com/). No central
 - **Setlist resilience** — each setlist item embeds a snapshot of song metadata; setlists render correctly even if the source record is deleted
 - **Setlist-only songs** — songs added directly to a setlist can be kept off the public feed via a "Also share to feed" checkbox (default off)
 - **Setlist proposals** — logged-in visitors can propose songs to any setlist; owner reviews, accepts (song added to setlist), or dismisses; proposals stored as AT Protocol records on the proposer's own PDS
-- **18 themes** — admin-controlled via `PUBLIC_THEME`; neutral and chromatic, dark and light
+- **18 themes** — admin-controlled via `PUBLIC_THEME`; neutral and chromatic, dark and light; each theme includes a complementary hero gradient
+- **Customizable landing page** — edit `src/lib/landing.svelte` to add community-specific copy, images, or markup to the logged-out home page
 - **Instance config** — app name, tagline, identity provider, access control, and theme all configurable via env vars
+- **Owner admin** — `OWNER_DIDS` grants admin privileges; unlocks ban management UI
+- **Banlist** — ban users via `BANNED_DIDS` env var or direct SQLite insert; banned users are blocked at sign-in
 
 ## Stack
 
@@ -118,7 +121,9 @@ PUBLIC_APP_URL=https://dev.myapp.com
 | `PUBLIC_THEME` | UI color theme — see [Themes](#themes) (default: `dark`) |
 | `PUBLIC_SPOTIFY_CLIENT_ID` | Spotify app client ID — from developer.spotify.com |
 | `SPOTIFY_CLIENT_SECRET` | Spotify app client secret — server-only |
+| `OWNER_DIDS` | Comma-separated AT Protocol DIDs with admin/owner privileges (ban management) |
 | `ALLOWED_DIDS` | Comma-separated AT Protocol DIDs allowed to sign in; unset = open registration |
+| `BANNED_DIDS` | Comma-separated AT Protocol DIDs blocked from signing in; requires restart |
 | `MAX_USERS` | Max registered users (0 = unlimited) |
 | `DISABLE_ALBUM_ART` | Set to `true` to hide album art thumbnails globally |
 | `INDEXER_DB_PATH` | Path to SQLite DB (default: `/data/khord.db`) |
@@ -133,6 +138,8 @@ Set `PUBLIC_THEME` in `.env`. A rebuild (or dev server restart) is required when
 | Neutral dark | `dark` (default), `zinc`, `slate`, `gray`, `neutral`, `stone` |
 | Neutral light | `light`, `zinc-light`, `slate-light`, `neutral-light`, `stone-light` |
 | Chromatic dark | `navy`, `teal`, `emerald`, `rose`, `violet` |
+
+Each theme includes a `heroGradient` token — a complementary gradient bloom used on the logged-out landing hero.
 
 To add a custom theme: implement the `Theme` interface in `src/lib/theme/`, then register it in `src/lib/theme/index.ts`.
 
@@ -299,7 +306,7 @@ src/
     server/
       db.ts                 # SQLite connections (server-only)
       spotify.ts            # Spotify client credentials token + search
-      access.ts             # ALLOWED_DIDS + MAX_USERS enforcement
+      access.ts             # OWNER_DIDS, BANNED_DIDS, ALLOWED_DIDS + MAX_USERS enforcement
     itunes/
       client.ts             # iTunes Search API
     theme/
@@ -321,10 +328,10 @@ src/
       createSetlist.ts      # create setlist modal state
       following.ts          # followed users
       prefs.ts              # localStorage preferred platform
-      instance.ts           # instanceConfig (albumArtDisabled)
+      instance.ts           # instanceConfig (albumArtDisabled, isOwner)
   routes/
-    +layout.svelte          # shell, avatar dropdown nav, speed-dial FAB, footer
-    +page.svelte            # Feed / Daily / Setlists tabs
+    +layout.svelte          # shell, avatar dropdown nav, speed-dial FAB, footer with attributions
+    +page.svelte            # Feed / Daily / Setlists tabs; logged-out hero
     s/[handle]/[rkey]/        # Setlist detail: drag reorder, add songs, share, edit
     setlists/[handle]/[rkey]/ # 301 redirect → /s/[handle]/[rkey]/
     login/+page.svelte      # AT Protocol OAuth login
@@ -340,7 +347,7 @@ src/
       proposals/            # Setlist proposals from AppView (PDS fallback on 503)
       thumbnail/            # Image proxy (avoids CORS on third-party CDNs)
       auth/check/           # Access control check + user registration
-      auth/status/          # Instance config endpoint
+      auth/status/          # Instance config; accepts ?did= to resolve isOwner
 indexer/
   index.js                  # AT Protocol firehose subscriber (songs, votes, proposals)
   schema.sql                # SQLite schema
@@ -374,6 +381,11 @@ lexicons/
 - [x] Instance configuration (name, access control, theme, etc.)
 - [x] Docker Compose deployment + Unraid guide
 - [x] Setlist collaboration — proposal system (`app.khord.setlist.proposal`); owner accept/dismiss with localStorage persistence
+- [x] Redesigned logged-out hero — gradient per theme, platform pills, customizable landing content (`src/lib/landing.svelte`)
+- [x] Footer with API attributions and "Powered by Khord" credit
+- [x] Owner DIDs — `OWNER_DIDS` env var; `isOwner` resolved at session load via `/api/auth/status?did=`
+- [x] Banlist — `BANNED_DIDS` env var + `banned_users` SQLite table; enforced at sign-in
+- [ ] Ban management UI (owner-only)
 - [ ] Setlist export to streaming services (Spotify first via user OAuth + ISRC lookup; Apple Music via MusicKit JS)
 - [ ] YouTube Music resolution
 - [ ] Capacitor wrapper for iOS/Android

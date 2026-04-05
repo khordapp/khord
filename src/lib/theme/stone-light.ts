@@ -40,6 +40,9 @@ const stoneLight: Theme = {
 	linkTextHover:   'hover:text-orange-700',
 	linkBorder:      'border-orange-300',
 	linkBorderHover: 'hover:border-orange-500',
+
+	// Hero
+	heroGradient: 'bg-gradient-to-br from-amber-100 via-stone-100 to-stone-100',
 };
 
 export default stoneLight;

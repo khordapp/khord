@@ -41,6 +41,9 @@ const teal: Theme = {
 	linkTextHover:   'hover:text-emerald-200',
 	linkBorder:      'border-emerald-700',
 	linkBorderHover: 'hover:border-emerald-500',
+
+	// Hero
+	heroGradient: 'bg-gradient-to-br from-cyan-800/30 via-teal-950 to-teal-950',
 };
 
 export default teal;

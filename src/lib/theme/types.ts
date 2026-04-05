@@ -69,4 +69,8 @@ export interface Theme {
 	linkTextHover: string;
 	linkBorder: string;
 	linkBorderHover: string;
+
+	// ── Hero (logged-out landing) ─────────────────────────────────────────────────
+	/** Gradient background for the logged-out hero section */
+	heroGradient: string;
 }

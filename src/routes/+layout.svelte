@@ -16,13 +16,19 @@
 	import { theme as t } from '$lib/theme';
 
 	onMount(async () => {
-		fetch('/api/auth/status').then(r => r.json()).then(data => {
-			instanceConfig.set({ albumArtDisabled: data.albumArtDisabled ?? false });
-		}).catch(() => {});
-
 		if (window.location.pathname === '/oauth/callback') { authReady.set(true); return; }
 
 		const s = await initAuth(true);
+
+		// Fetch instance config — pass DID when available so isOwner is resolved
+		const statusUrl = s ? `/api/auth/status?did=${encodeURIComponent(s.did)}` : '/api/auth/status';
+		fetch(statusUrl).then(r => r.json()).then(data => {
+			instanceConfig.set({
+				albumArtDisabled: data.albumArtDisabled ?? false,
+				isOwner: data.isOwner ?? false
+			});
+		}).catch(() => {});
+
 		if (s) {
 			session.set(s);
 			votes.load(s.did).catch(() => {});
@@ -117,9 +123,19 @@
 	</main>
 
 	<footer class="border-t {t.borderBase} mt-16 px-6 py-8">
-		<div class="max-w-2xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs {t.textFaint}">
-			<span class="font-medium {t.textMuted}">{APP_NAME.toLowerCase()}</span>
-			<div class="flex flex-wrap gap-x-4 gap-y-1.5 items-center">
+		<div class="max-w-2xl mx-auto space-y-4 text-xs {t.textFaint}">
+			<!-- Top row: app name + powered-by -->
+			<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+				<span class="font-semibold {t.textMuted}">{APP_NAME.toLowerCase()}</span>
+				<a
+					href="https://khord.app"
+					target="_blank"
+					rel="noopener noreferrer"
+					class="{t.textFaint} {t.hoverTextSecondary} transition-colors"
+				>Powered by Khord</a>
+			</div>
+			<!-- Bottom row: API attributions -->
+			<div class="flex flex-wrap gap-x-4 gap-y-1.5 border-t {t.borderFaded} pt-4">
 				<span>Cross-platform links via <a href="https://odesli.co" target="_blank" rel="noopener noreferrer" class="{t.textMuted} {t.hoverTextSecondary} transition-colors">Odesli</a></span>
 				<span>Music search via <a href="https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/" target="_blank" rel="noopener noreferrer" class="{t.textMuted} {t.hoverTextSecondary} transition-colors">iTunes Search API</a></span>
 				<span>Spotify data via <a href="https://developer.spotify.com" target="_blank" rel="noopener noreferrer" class="{t.textMuted} {t.hoverTextSecondary} transition-colors">Spotify Web API</a></span>

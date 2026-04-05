@@ -41,6 +41,9 @@ const navy: Theme = {
 	linkTextHover:   'hover:text-cyan-200',
 	linkBorder:      'border-cyan-700',
 	linkBorderHover: 'hover:border-cyan-500',
+
+	// Hero
+	heroGradient: 'bg-gradient-to-br from-sky-800/30 via-blue-950 to-blue-950',
 };
 
 export default navy;

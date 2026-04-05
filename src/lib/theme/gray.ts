@@ -40,6 +40,9 @@ const gray: Theme = {
 	linkTextHover:   'hover:text-indigo-300',
 	linkBorder:      'border-indigo-900',
 	linkBorderHover: 'hover:border-indigo-700',
+
+	// Hero
+	heroGradient: 'bg-gradient-to-br from-violet-950/70 via-gray-950 to-gray-950',
 };
 
 export default gray;

@@ -41,6 +41,9 @@ const rose: Theme = {
 	linkTextHover:   'hover:text-fuchsia-200',
 	linkBorder:      'border-fuchsia-800',
 	linkBorderHover: 'hover:border-fuchsia-600',
+
+	// Hero
+	heroGradient: 'bg-gradient-to-br from-fuchsia-900/30 via-rose-950 to-rose-950',
 };
 
 export default rose;

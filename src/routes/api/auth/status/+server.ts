@@ -5,8 +5,9 @@
 import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDbRw } from '$lib/server/db';
+import { isOwner } from '$lib/server/access';
 
-export const GET: RequestHandler = () => {
+export const GET: RequestHandler = ({ url }) => {
 	const allowedDids = (process.env.ALLOWED_DIDS ?? '').split(',').filter((d) => d.trim());
 	const maxUsers = parseInt(process.env.MAX_USERS ?? '0', 10) || 0;
 
@@ -23,5 +24,8 @@ export const GET: RequestHandler = () => {
 
 	const albumArtDisabled = process.env.DISABLE_ALBUM_ART === 'true';
 
-	return json({ restricted, full, maxUsers, albumArtDisabled });
+	const did = url.searchParams.get('did');
+	const owner = did ? isOwner(did) : false;
+
+	return json({ restricted, full, maxUsers, albumArtDisabled, isOwner: owner });
 };

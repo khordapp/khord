@@ -40,6 +40,9 @@ const neutral: Theme = {
 	linkTextHover:   'hover:text-orange-300',
 	linkBorder:      'border-orange-900',
 	linkBorderHover: 'hover:border-orange-700',
+
+	// Hero
+	heroGradient: 'bg-gradient-to-br from-amber-950/70 via-neutral-950 to-neutral-950',
 };
 
 export default neutral;

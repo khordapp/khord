@@ -47,6 +47,9 @@ const dark: Theme = {
 	linkTextHover:   'hover:text-indigo-300',
 	linkBorder:      'border-indigo-900',
 	linkBorderHover: 'hover:border-indigo-700',
+
+	// Hero
+	heroGradient: 'bg-gradient-to-br from-violet-950/70 via-zinc-950 to-zinc-950',
 };
 
 export default dark;

@@ -40,6 +40,9 @@ const slate: Theme = {
 	linkTextHover:   'hover:text-blue-300',
 	linkBorder:      'border-blue-900',
 	linkBorderHover: 'hover:border-blue-700',
+
+	// Hero
+	heroGradient: 'bg-gradient-to-br from-sky-950/70 via-slate-950 to-slate-950',
 };
 
 export default slate;

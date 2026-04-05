@@ -40,6 +40,9 @@ const zincLight: Theme = {
 	linkTextHover:   'hover:text-indigo-700',
 	linkBorder:      'border-indigo-300',
 	linkBorderHover: 'hover:border-indigo-500',
+
+	// Hero
+	heroGradient: 'bg-gradient-to-br from-violet-100 via-zinc-100 to-zinc-100',
 };
 
 export default zincLight;

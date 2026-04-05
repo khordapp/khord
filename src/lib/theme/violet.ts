@@ -41,6 +41,9 @@ const violet: Theme = {
 	linkTextHover:   'hover:text-indigo-200',
 	linkBorder:      'border-indigo-700',
 	linkBorderHover: 'hover:border-indigo-500',
+
+	// Hero
+	heroGradient: 'bg-gradient-to-br from-purple-800/30 via-violet-950 to-violet-950',
 };
 
 export default violet;

@@ -12,6 +12,7 @@
 	import { getAgent } from '$lib/atproto/agent';
 	import { goto } from '$app/navigation';
 	import { theme as t } from '$lib/theme';
+	import LandingContent from '$lib/landing.svelte';
 
 	type Tab = 'feed' | 'daily' | 'setlists';
 
@@ -531,16 +532,41 @@
 		{/if}
 	</section>
 {:else}
-	<section class="space-y-6">
-		<div class="space-y-2">
-			<h1 class="text-3xl font-bold">{APP_TAGLINE}</h1>
-			<p class="{t.textMuted}">
-				Share songs with anyone — they listen on whatever service they use.
-				Your feed is your lineup: only music from people you follow.
-			</p>
-		</div>
-		<a href="/login" class="inline-block {t.btnPrimaryBg} {t.btnPrimaryText} text-sm font-medium px-4 py-2 rounded-md {t.btnPrimaryHover} transition-colors">
-			Get started
-		</a>
-	</section>
+	<div class="space-y-4">
+		<section class="relative overflow-hidden {t.heroGradient} rounded-2xl px-8 py-14 space-y-8">
+			<!-- Badge -->
+			<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full {t.elevatedBg} border {t.borderStrong} text-xs {t.textSecondary} font-medium">
+				<span class="w-1.5 h-1.5 rounded-full bg-current {t.accentText} shrink-0"></span>
+				Music on every platform
+			</span>
+
+			<!-- Headline + subhead -->
+			<div class="space-y-4 max-w-md">
+				<h1 class="text-4xl font-bold {t.textPrimary} leading-tight">{APP_TAGLINE}</h1>
+				<p class="{t.textSecondary} text-base leading-relaxed">
+					A place for music fans to share what they're listening to, discover songs from friends, and build setlists together.
+				</p>
+			</div>
+
+			<!-- Streaming service pills -->
+			<div class="flex flex-wrap gap-2">
+				{#each ['Spotify', 'Apple Music', 'Tidal', 'Deezer', 'SoundCloud'] as service}
+					<span class="px-3 py-1 text-xs rounded-full {t.elevatedBg} border {t.borderBase} {t.textMuted}">{service}</span>
+				{/each}
+			</div>
+
+			<!-- CTA -->
+			<div class="space-y-2">
+				<a href="/login" class="inline-flex items-center gap-2 {t.btnPrimaryBg} {t.btnPrimaryText} text-sm font-semibold px-5 py-2.5 rounded-lg {t.btnPrimaryHover} transition-colors">
+					Get started
+					<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
+						<path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+				</a>
+				<p class="text-xs {t.textMuted}">Log in with your existing {AUTH_PROVIDER_NAME} account to get started.</p>
+			</div>
+		</section>
+
+		<LandingContent />
+	</div>
 {/if}
