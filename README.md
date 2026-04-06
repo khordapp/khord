@@ -16,7 +16,7 @@ Identity and records live on the [AT Protocol](https://atproto.com/). No central
 - **Daily view** — date-filtered view of shared songs; create a setlist from an entire day in one click
 - **Setlists** — curated, ordered playlists stored as AT Protocol records; drag to reorder; shareable via link
 - **Upnotes** — lightweight reactions stored as AT Protocol records; vote counts from AppView
-- **Cross-platform links** — preferred streaming service shown first with brand colors; others in a dropdown
+- **Cross-platform links** — preferred streaming service shown first with brand colors and a play icon; others in a dropdown; "Set default…" shortcut in the dropdown links to preferences
 - **Post to Bluesky** — cross-post any song with a structured compose sheet: fixed title+artist header (linked to song.link), optional personal note, fixed attribution footer; album art embed toggle
 - **Resync metadata** — refresh platform links for any of your songs against the latest Odesli data
 - **Notes** — optional text attached to a shared song (up to 300 characters)

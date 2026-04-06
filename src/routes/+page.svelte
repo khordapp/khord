@@ -369,9 +369,10 @@
 							on:click={refreshFeed}
 							disabled={feedLoading}
 							aria-label="Refresh feed"
-							class="flex items-center gap-1.5 text-xs {t.textMuted} {t.hoverText} disabled:opacity-40 transition-colors"
+							title="Reload songs from everyone you follow"
+							class="flex items-center gap-1.5 text-xs {t.textMuted} {t.hoverText} border {t.borderBase} {t.hoverBorderBase} px-2.5 py-1 rounded-full disabled:opacity-40 transition-colors"
 						>
-							<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 {feedLoading ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
+							<svg viewBox="0 0 16 16" fill="none" class="w-3 h-3 {feedLoading ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
 								<path d="M13.5 8a5.5 5.5 0 1 1-1.4-3.6L14 2.5V6h-3.5l1.8-1.8A4 4 0 1 0 12 8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
 							</svg>
 							Refresh

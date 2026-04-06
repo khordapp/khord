@@ -56,7 +56,7 @@ src/
       ShareSongModal.svelte # search → Odesli resolve → AT Protocol record create; note field (300 char limit)
       SongCard.svelte       # feed card: platform links, selection, upnote, post-to-feed, resync metadata
       SongSearch.svelte     # iTunes-backed search input
-      StreamingPill.svelte  # branded pill + chevron dropdown; preferred platform first; shared by feed + setlists
+      StreamingPill.svelte  # branded pill + chevron dropdown; preferred platform first; play icon on primary; "Set default…" link to /settings; primary link navigates in same tab (no blank tab); shared by feed + setlists
       ServicePicker.svelte  # preferred platform picker used in /settings
     landing.svelte          # editable logged-out landing content (below hero); replace to customise per instance
     stores/
@@ -149,10 +149,11 @@ To add a new theme: create `src/lib/theme/mytheme.ts` implementing `Theme`, then
 - Album art: 48×48 thumbnail top-left (from `record.thumbnailUrl`); hidden if `albumArtDisabled` instance config is set or URL absent
 - Selected state: check icon overlays thumbnail (or plain circle if no art); clicking upper card area toggles selection
 - Preferred platform (set in `/settings`, stored in localStorage) shown first as a branded pill (bg/text/border inline styles) via `StreamingPill`; remaining platforms behind a chevron dropdown; song.link shown separately in link color
-- Action row (bottom-right): Resync (owner-only, icon expands on hover) → Post to AT Protocol feed → Upnote
+- Action row (bottom-right): Resync (owner-only) → Post to AT Protocol feed → Upnote; all buttons are pill-style (icon + always-visible label) with tooltips; no expand-on-hover layout shift
 - Resync: re-resolves `appleMusicUrl` via `/api/resolve`, does a `putRecord` to update the PDS record in place; updates card reactively
 - No per-card delete button — deletion is handled from the feed header
 - Note (optional, ≤300 chars) shown below metadata with dynamic left padding matching art/no-art alignment
+- Tooltips (`title` attribute) on all interactive elements: selection button, song.link, action row buttons
 
 ## Setlist detail page (`/s/[handle]/[rkey]`)
 
@@ -161,7 +162,7 @@ To add a new theme: create `src/lib/theme/mytheme.ts` implementing `Theme`, then
 - If a song record is missing (deleted), falls back to the embedded `snapshot` in the setlist item — renders identically
 - Drag-to-reorder via `svelte-dnd-action`; on drop, calls `updateSetlist` with reordered items array
 - Per-row streaming pill: preferred platform first (branded), chevron expands dropdown; song.link shown separately
-- Owner can: edit title inline, remove individual songs, delete the entire setlist (with confirm modal)
+- Owner can: edit title inline, remove individual songs, delete the entire setlist (with confirm modal); all owner actions use consistent pill-style buttons (icon + label)
 - Owner "Add song" panel: search → Odesli resolve → creates PDS record → appends to setlist; "Also share to feed" checkbox (default unchecked) controls `listed` field on the created song record
 - Share button opens a compose sheet pre-filled with setlist title + URL; URL gets a link facet; editable before posting
 - Non-owners see the setlist read-only (no drag, no remove, no edit)

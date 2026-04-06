@@ -30,17 +30,20 @@
 		<div class="flex items-stretch h-7">
 			<a
 				href={record[first.key] as string}
-				target="_blank"
-				rel="noopener noreferrer"
+				title="Listen on {first.label}"
 				style="background-color:{first.brand.bg}; color:{first.brand.text}; border-color:{first.brand.border}"
-				class="text-xs border flex items-center px-2.5 {rest.length > 0 ? 'rounded-l-full' : 'rounded-full'} hover:opacity-80 transition-opacity whitespace-nowrap"
+				class="text-xs border flex items-center gap-1.5 px-2.5 {rest.length > 0 ? 'rounded-l-full' : 'rounded-full'} hover:opacity-80 transition-opacity whitespace-nowrap"
 			>
+				<svg viewBox="0 0 10 10" fill="currentColor" class="w-2.5 h-2.5 shrink-0" xmlns="http://www.w3.org/2000/svg">
+					<path d="M2 1.5l6 3.5-6 3.5V1.5Z"/>
+				</svg>
 				{first.label}
 			</a>
 			{#if rest.length > 0}
 				<button
 					on:click={() => (open = !open)}
 					aria-label="More streaming options"
+					title="More streaming platforms"
 					style="background-color:{first.brand.bg}; color:{first.brand.text}; border-color:{first.brand.border}"
 					class="border border-l-0 flex items-center px-1.5 rounded-r-full hover:opacity-80 transition-opacity"
 				>
@@ -59,11 +62,21 @@
 						href={record[platform.key] as string}
 						target="_blank"
 						rel="noopener noreferrer"
+						title="Listen on {platform.label}"
 						class="flex items-center px-3 py-2 text-xs {t.textSecondary} {t.hoverText} {t.hoverBg} transition-colors"
 					>
 						{platform.label}
 					</a>
 				{/each}
+				<div class="border-t {t.borderBase}">
+					<a
+						href="/settings"
+						title="Set your preferred streaming service"
+						class="flex items-center px-3 py-2 text-xs {t.textFaint} {t.hoverText} {t.hoverBg} transition-colors"
+					>
+						Set default…
+					</a>
+				</div>
 			</div>
 		{/if}
 	</div>

@@ -169,6 +169,7 @@
 	<button
 		type="button"
 		aria-label={selected ? 'Deselect song' : 'Select song'}
+		title={selected ? 'Deselect' : 'Select for bulk actions (delete, create setlist)'}
 		on:click={() => onselect(uri)}
 		class="w-full text-left space-y-2"
 	>
@@ -234,6 +235,7 @@
 					href={songlink}
 					target="_blank"
 					rel="noopener noreferrer"
+					title="Open on song.link — see all available platforms"
 					class="text-xs {t.linkText} {t.linkTextHover} border {t.linkBorder} {t.linkBorderHover}
 						px-2.5 py-1 rounded-full transition-colors"
 				>
@@ -251,7 +253,8 @@
 					on:click={resync}
 					disabled={resyncing}
 					aria-label="Resync song metadata"
-					class="group flex items-center gap-1.5 h-7 px-2.5 rounded-full border transition-colors disabled:opacity-50
+					title="Re-fetch metadata and platform links from streaming services"
+					class="flex items-center gap-1.5 h-7 px-2.5 rounded-full border transition-colors disabled:opacity-50
 						{resynced
 							? `${t.textPrimary} ${t.elevatedBg} ${t.borderStrong}`
 							: `${t.textFaint} border-transparent ${t.hoverText} ${t.hoverBorderBase} ${t.hoverBg}`}"
@@ -267,7 +270,7 @@
 						<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
 							<path d="M12.5 7a5.5 5.5 0 1 1-1.1-3.3L13 2v3h-3l1.4-1.4A4 4 0 1 0 11 7" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
 						</svg>
-						<span class="text-xs hidden group-hover:inline">Resync</span>
+						<span class="text-xs">Sync</span>
 					{/if}
 				</button>
 			{/if}
@@ -276,7 +279,8 @@
 					on:click={openCompose}
 					disabled={posting}
 					aria-label="Post to {AUTH_PROVIDER_NAME}"
-					class="group flex items-center gap-1.5 h-7 px-2.5 rounded-full border transition-colors disabled:opacity-50
+					title="Share this song as a post on {AUTH_PROVIDER_NAME}"
+					class="flex items-center gap-1.5 h-7 px-2.5 rounded-full border transition-colors disabled:opacity-50
 						{posted
 							? `${t.textPrimary} ${t.elevatedBg} ${t.borderStrong}`
 							: `${t.textMuted} border-transparent ${t.hoverText} ${t.hoverBorderBase} ${t.hoverBg}`}"
@@ -292,7 +296,7 @@
 						<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
 							<path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
 						</svg>
-						<span class="text-xs hidden group-hover:inline">Post to {AUTH_PROVIDER_NAME}</span>
+						<span class="text-xs">Post</span>
 					{/if}
 				</button>
 			{/if}
@@ -300,7 +304,8 @@
 				on:click={toggleLike}
 				disabled={liking}
 				aria-label={liked ? 'Unlike' : 'Upnote'}
-				class="group flex items-center gap-1.5 h-7 px-2.5 rounded-full border transition-colors disabled:opacity-50
+				title={liked ? 'Remove your upnote' : 'Upnote this song'}
+				class="flex items-center gap-1.5 h-7 px-2.5 rounded-full border transition-colors disabled:opacity-50
 					{liked
 						? `${t.textPrimary} ${t.strongBg} ${t.borderStrong} ${t.hoverBgStrong}`
 						: `${t.textMuted} border-transparent ${t.hoverText} ${t.hoverBorderBase} ${t.hoverBg}`}"
@@ -312,9 +317,7 @@
 					{#if localCount > 0}
 						<span class="text-xs tabular-nums">{localCount}</span>
 					{/if}
-					<span class="text-xs {liked ? 'inline' : 'hidden group-hover:inline'}">
-						{liked ? 'Upnoted' : 'Upnote'}
-					</span>
+					<span class="text-xs">{liked ? 'Upnoted' : 'Upnote'}</span>
 				{/if}
 			</button>
 		</div>

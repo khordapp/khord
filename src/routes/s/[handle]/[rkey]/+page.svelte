@@ -600,8 +600,8 @@
 						maxlength="100"
 						class="flex-1 {t.elevatedBg} border {t.borderStrong} rounded-lg px-3 py-1.5 text-lg font-bold {t.textPrimary} focus:outline-none {t.hoverBorderStrong} transition-colors"
 					/>
-					<button type="submit" disabled={saving} class="text-xs {t.textSecondary} {t.hoverText} px-2 py-1 border {t.borderStrong} rounded-lg transition-colors disabled:opacity-50">Save</button>
-					<button type="button" on:click={() => (editingTitle = false)} class="text-xs {t.textMuted} {t.hoverTextSecondary}">Cancel</button>
+					<button type="submit" disabled={saving} class="text-xs {t.textSecondary} {t.hoverText} px-2.5 py-1 border {t.borderStrong} rounded-full transition-colors disabled:opacity-50">Save</button>
+					<button type="button" on:click={() => (editingTitle = false)} class="text-xs {t.textMuted} {t.hoverTextSecondary} border {t.borderBase} px-2.5 py-1 rounded-full transition-colors">Cancel</button>
 				</form>
 			{:else}
 				<div class="flex items-center gap-2 min-w-0">
@@ -622,29 +622,40 @@
 					{#if $session}
 						<button
 							on:click={openShare}
-							class="flex items-center gap-1.5 text-xs {sharePosted ? t.textPrimary : `${t.textMuted} ${t.hoverText}`} transition-colors"
 							aria-label="Share setlist"
+							title="Post this setlist to your feed"
+							class="flex items-center gap-1.5 text-xs border px-2.5 py-1 rounded-full transition-colors
+								{sharePosted
+									? `${t.textPrimary} ${t.elevatedBg} ${t.borderStrong}`
+									: `${t.textMuted} ${t.hoverText} ${t.borderBase} ${t.hoverBorderBase}`}"
 						>
 							{#if sharePosted}
-								<svg viewBox="0 0 14 14" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
+								<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
 									<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 								</svg>
-								<span>Posted</span>
+								Posted
 							{:else}
-								<svg viewBox="0 0 14 14" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
+								<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
 									<path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
 								</svg>
-								<span>Share</span>
+								Share
 							{/if}
 						</button>
 					{/if}
 
 					<!-- Delete button (owner only) -->
 					{#if isOwn}
-						<button on:click={() => (confirmDeleteOpen = true)} aria-label="Delete setlist" class="{t.textFaint} hover:text-red-400 transition-colors">
-							<svg viewBox="0 0 14 14" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
+						<button
+							on:click={() => (confirmDeleteOpen = true)}
+							aria-label="Delete setlist"
+							title="Permanently delete this setlist"
+							class="flex items-center gap-1.5 text-xs border px-2.5 py-1 rounded-full transition-colors
+								{t.textFaint} {t.borderBase} hover:text-red-400 hover:border-red-900"
+						>
+							<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
 								<path d="M2 4h10M5 4V2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V4M9 4v7.5a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5V4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
 							</svg>
+							Delete
 						</button>
 					{/if}
 				</div>
@@ -883,11 +894,14 @@
 						<button
 							on:click={() => dismissProposal(proposal.uri)}
 							aria-label="Dismiss proposal"
-							class="{t.textFaint} {t.hoverTextSecondary} transition-colors"
+							title="Hide this proposal"
+							class="flex items-center gap-1.5 text-xs border px-2.5 py-1 rounded-full transition-colors
+								{t.textFaint} {t.borderBase} {t.hoverTextSecondary} {t.hoverBorderBase}"
 						>
-							<svg viewBox="0 0 14 14" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
+							<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
 								<path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
 							</svg>
+							Dismiss
 						</button>
 					</div>
 				</div>
@@ -966,9 +980,10 @@
 						<button
 							on:click={() => removeItem(dndItem.id)}
 							aria-label="Remove from setlist"
-							class="{t.textFaint} hover:text-red-400 transition-colors shrink-0"
+							title="Remove this song from the setlist"
+							class="flex items-center justify-center w-7 h-7 rounded-full border {t.borderBase} {t.textFaint} hover:text-red-400 hover:border-red-900 transition-colors shrink-0"
 						>
-							<svg viewBox="0 0 14 14" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
+							<svg viewBox="0 0 14 14" fill="none" class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg">
 								<path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
 							</svg>
 						</button>
