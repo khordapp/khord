@@ -26,6 +26,9 @@ db.pragma('foreign_keys = ON');
 const schema = readFileSync(join(__dirname, 'schema.sql'), 'utf8');
 db.exec(schema);
 
+// Migrations — ALTER TABLE ignores errors for columns that already exist
+try { db.exec(`ALTER TABLE songs ADD COLUMN instance_url TEXT`); } catch { /* already exists */ }
+
 // ── Prepared statements ───────────────────────────────────────────────────────
 
 const upsertActor = db.prepare(`
@@ -38,12 +41,12 @@ const upsertSong = db.prepare(`
     uri, cid, actor_did, title, artist, album, isrc, odesli_key,
     spotify_url, apple_music_url, youtube_music_url, tidal_url,
     deezer_url, amazon_music_url, soundcloud_url, songlink_url,
-    note, listed, created_at
+    note, listed, instance_url, created_at
   ) VALUES(
     @uri, @cid, @actor_did, @title, @artist, @album, @isrc, @odesli_key,
     @spotify_url, @apple_music_url, @youtube_music_url, @tidal_url,
     @deezer_url, @amazon_music_url, @soundcloud_url, @songlink_url,
-    @note, @listed, @created_at
+    @note, @listed, @instance_url, @created_at
   )
   ON CONFLICT(uri) DO UPDATE SET
     cid             = excluded.cid,
@@ -54,6 +57,7 @@ const upsertSong = db.prepare(`
     apple_music_url = excluded.apple_music_url,
     songlink_url    = excluded.songlink_url,
     listed          = excluded.listed,
+    instance_url    = excluded.instance_url,
     indexed_at      = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
 `);
 
@@ -124,6 +128,7 @@ function handleEvent(evt) {
         songlink_url:      r.songlinkUrl  ?? null,
         note:              r.note         ?? null,
         listed:            r.listed === false ? 0 : 1,
+        instance_url:      r.instanceUrl  ?? null,
         created_at:        r.createdAt    ?? new Date().toISOString(),
       });
     } else if (action === 'delete') {

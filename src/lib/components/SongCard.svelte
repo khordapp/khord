@@ -265,12 +265,12 @@
 						<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
 							<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 						</svg>
-						<span class="text-xs">Synced</span>
+						<span class="text-xs hidden sm:inline">Synced</span>
 					{:else}
 						<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
 							<path d="M12.5 7a5.5 5.5 0 1 1-1.1-3.3L13 2v3h-3l1.4-1.4A4 4 0 1 0 11 7" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
 						</svg>
-						<span class="text-xs">Sync</span>
+						<span class="text-xs hidden sm:inline">Sync</span>
 					{/if}
 				</button>
 			{/if}
@@ -291,12 +291,12 @@
 						<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
 							<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 						</svg>
-						<span class="text-xs">Posted</span>
+						<span class="text-xs hidden sm:inline">Posted</span>
 					{:else}
 						<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
 							<path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
 						</svg>
-						<span class="text-xs">Post</span>
+						<span class="text-xs hidden sm:inline">Post</span>
 					{/if}
 				</button>
 			{/if}
@@ -317,7 +317,7 @@
 					{#if localCount > 0}
 						<span class="text-xs tabular-nums">{localCount}</span>
 					{/if}
-					<span class="text-xs">{liked ? 'Upnoted' : 'Upnote'}</span>
+					<span class="text-xs hidden sm:inline">{liked ? 'Upnoted' : 'Upnote'}</span>
 				{/if}
 			</button>
 		</div>

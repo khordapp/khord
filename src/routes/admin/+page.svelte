@@ -79,6 +79,7 @@
 	let albumArtDisabled = false;
 	let registrationClosed = false;
 	let maxUsers = 0;
+	let feedScoped = false;
 
 	async function loadSettings() {
 		const did = $session?.did;
@@ -92,6 +93,7 @@
 			albumArtDisabled = raw.album_art_disabled === 'true';
 			registrationClosed = raw.registration_closed === 'true';
 			maxUsers = parseInt(raw.max_users ?? '0', 10) || 0;
+			feedScoped = raw.feed_scoped === 'true';
 			settings = { album_art_disabled: albumArtDisabled, registration_closed: registrationClosed, max_users: maxUsers };
 		} catch {
 			settingsError = true;
@@ -113,7 +115,8 @@
 					settings: {
 						album_art_disabled: String(albumArtDisabled),
 						registration_closed: String(registrationClosed),
-						max_users: String(maxUsers)
+						max_users: String(maxUsers),
+						feed_scoped: String(feedScoped)
 					}
 				})
 			});
@@ -250,6 +253,10 @@
 	function formatDate(iso: string) {
 		return new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 	}
+
+	function formatCompact(n: number) {
+		return new Intl.NumberFormat(undefined, { notation: 'compact', maximumSignificantDigits: 3 }).format(n);
+	}
 </script>
 
 <svelte:head>
@@ -281,7 +288,7 @@
 			</div>
 			<div class="{t.surfaceBg} border {t.borderStrong} rounded-xl px-4 py-3 space-y-0.5">
 				<p class="text-xs {t.textMuted} uppercase tracking-wider font-medium">Cursor</p>
-				<p class="text-xl font-bold font-mono text-sm">{stats.cursorSeq.toLocaleString()}</p>
+				<p class="text-xl font-bold font-mono text-sm">{formatCompact(stats.cursorSeq)}</p>
 			</div>
 		{:else if statsError}
 			<div class="col-span-4 text-sm {t.textMuted}">Stats unavailable — database offline.</div>
@@ -487,6 +494,25 @@
 					>
 						<span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full {t.pageBg} shadow transition-transform
 							{!registrationClosed ? 'translate-x-4' : 'translate-x-0'}"></span>
+					</button>
+				</div>
+
+				<!-- Feed scoping -->
+				<div class="{t.surfaceBg} border {t.borderStrong} rounded-xl px-4 py-4 flex items-start justify-between gap-4">
+					<div>
+						<p class="text-sm font-medium {t.textPrimary}">Instance-scoped feed</p>
+						<p class="text-xs {t.textMuted} mt-0.5">Only show songs shared from this instance. Songs shared on other Khord instances by followed users will not appear.</p>
+					</div>
+					<button
+						role="switch"
+						aria-checked={feedScoped}
+						aria-label="Toggle instance-scoped feed"
+						on:click={() => (feedScoped = !feedScoped)}
+						class="relative shrink-0 w-10 h-6 rounded-full transition-colors
+							{feedScoped ? t.btnPrimaryBg : t.elevatedBg} border {t.borderStrong}"
+					>
+						<span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full {t.pageBg} shadow transition-transform
+							{feedScoped ? 'translate-x-4' : 'translate-x-0'}"></span>
 					</button>
 				</div>
 

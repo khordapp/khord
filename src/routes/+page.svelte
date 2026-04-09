@@ -35,6 +35,7 @@
 	let dailySelectedUris = new Set<string>();
 	let removing = false;
 	let confirmOpen = false;
+	let deletedUris = new Set<string>();
 	let createSetlistOpen = false;
 	let newSetlistTitle = '';
 	let creatingSetlist = false;
@@ -85,6 +86,7 @@
 					})
 				)
 			);
+			ownSelected.forEach((uri) => deletedUris.add(uri));
 			feedItems = feedItems.filter((i) => !ownSelected.includes(i.uri));
 			selectedUris = new Set([...selectedUris].filter((u) => !ownSelected.includes(u)));
 		} finally {
@@ -180,7 +182,8 @@
 		try {
 			const dids = [currentSession.did, ...follows.map((f) => f.did)];
 			const appViewItems = await loadFeedFromAppView(dids);
-			feedItems = (appViewItems && appViewItems.length > 0) ? appViewItems : await loadFeedFromPds(currentSession, follows);
+			const rawItems = (appViewItems && appViewItems.length > 0) ? appViewItems : await loadFeedFromPds(currentSession, follows);
+			feedItems = deletedUris.size > 0 ? rawItems.filter((i) => !deletedUris.has(i.uri)) : rawItems;
 			lastRefreshed = new Date();
 			loadVoteCounts(feedItems.map((i) => i.uri));
 		} catch (e) {
@@ -479,7 +482,7 @@
 				<p class="{t.textMuted} text-sm">Loading…</p>
 			{:else if dailyItems.length === 0}
 				<div class="rounded-xl border {t.borderBase} {t.surfaceBg} px-5 py-10 text-center space-y-2">
-					<p class="{t.textSecondary} text-sm font-medium">No songs shared this day</p>
+					<p class="{t.textSecondary} text-sm font-medium">No songs shared</p>
 					<p class="{t.textMuted} text-xs">Try a different date, or share something.</p>
 				</div>
 			{:else}

@@ -6,6 +6,7 @@
 	import { getAgent } from '$lib/atproto/agent';
 	import { session } from '$lib/stores/auth';
 	import { SONG_NSID, type KhordSongRecord } from '$lib/atproto/lexicons/song';
+	import { APP_URL } from '$lib/config';
 	import { theme as t } from '$lib/theme';
 
 	const NOTE_LIMIT = 300;
@@ -41,6 +42,7 @@
 				artist: selected.artist,
 				...(selected.album && { album: selected.album }),
 				...(trimmedNote && { note: trimmedNote }),
+				instanceUrl: APP_URL,
 				createdAt: new Date().toISOString()
 			};
 

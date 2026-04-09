@@ -6,6 +6,8 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
+import { getSetting } from '$lib/server/settings';
+import { APP_URL } from '$lib/config';
 
 export const GET: RequestHandler = ({ url }) => {
 	const db = getDb();
@@ -20,7 +22,13 @@ export const GET: RequestHandler = ({ url }) => {
 	const limit  = Math.min(parseInt(url.searchParams.get('limit') ?? '50'), 100);
 	const cursor = url.searchParams.get('cursor'); // ISO datetime — created_at of last item
 
+	const feedScoped = getSetting('feed_scoped', 'false') === 'true';
 	const placeholders = dids.map(() => '?').join(',');
+
+	const params: unknown[] = [...dids];
+	if (feedScoped) params.push(APP_URL);
+	if (cursor) params.push(cursor);
+	params.push(limit);
 
 	const rows = db.prepare(`
 		SELECT
@@ -34,10 +42,11 @@ export const GET: RequestHandler = ({ url }) => {
 		JOIN actors a ON a.did = s.actor_did
 		WHERE s.actor_did IN (${placeholders})
 		AND s.listed != 0
+		${feedScoped ? 'AND s.instance_url = ?' : ''}
 		${cursor ? 'AND s.created_at < ?' : ''}
 		ORDER BY s.created_at DESC
 		LIMIT ?
-	`).all(...dids, ...(cursor ? [cursor] : []), limit) as any[];
+	`).all(...params) as any[];
 
 	const items = rows.map((r) => ({
 		uri:    r.uri,

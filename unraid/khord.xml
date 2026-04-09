@@ -160,17 +160,6 @@
     Mask="false">Music, across every platform.</Config>
 
   <Config
-    Name="Theme"
-    Target="PUBLIC_THEME"
-    Default="dark"
-    Mode=""
-    Description="UI color theme. Options: dark, zinc, slate, gray, neutral, stone, light, zinc-light, slate-light, neutral-light, stone-light, navy, teal, emerald, rose, violet. Requires container restart to apply."
-    Type="Variable"
-    Display="advanced"
-    Required="false"
-    Mask="false">dark</Config>
-
-  <Config
     Name="Auth Provider Name"
     Target="PUBLIC_AUTH_PROVIDER_NAME"
     Default="Bluesky"

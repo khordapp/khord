@@ -17,6 +17,7 @@ export interface KhordSongRecord {
 	songlinkUrl?: string;
 	note?: string;
 	listed?: boolean;
+	instanceUrl?: string;
 	createdAt: string;
 }
 
