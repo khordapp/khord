@@ -180,7 +180,7 @@
 		try {
 			const dids = [currentSession.did, ...follows.map((f) => f.did)];
 			const appViewItems = await loadFeedFromAppView(dids);
-			feedItems = appViewItems ?? await loadFeedFromPds(currentSession, follows);
+			feedItems = (appViewItems && appViewItems.length > 0) ? appViewItems : await loadFeedFromPds(currentSession, follows);
 			lastRefreshed = new Date();
 			loadVoteCounts(feedItems.map((i) => i.uri));
 		} catch (e) {

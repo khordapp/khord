@@ -3,6 +3,9 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
+ARG PUBLIC_THEME=dark
+ENV PUBLIC_THEME=$PUBLIC_THEME
+
 COPY package*.json ./
 RUN npm ci
 

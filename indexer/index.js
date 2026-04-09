@@ -6,7 +6,7 @@ import Database from 'better-sqlite3';
 import { readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import { Firehose, parseCommit } from '@atproto/sync';
+import { Firehose } from '@atproto/sync';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -97,97 +97,92 @@ const setCursor  = db.prepare(`UPDATE cursor SET seq = @seq WHERE id = 1`);
 
 // ── Firehose handler ──────────────────────────────────────────────────────────
 
-function handleCommit(evt) {
-  const { repo: did, ops } = evt;
+function handleEvent(evt) {
+  const { did, collection, event: action, cid, record, seq } = evt;
+  const uri = evt.uri.toString();
 
-  for (const op of ops) {
-    const uri = `at://${did}/${op.path}`;
-    const collection = op.path.split('/')[0];
-
-    if (collection === SONG_NSID) {
-      if (op.action === 'create' || op.action === 'update') {
-        const r = op.record;
-        upsertActor.run({ did });
-        upsertSong.run({
-          uri,
-          cid:               op.cid,
-          actor_did:         did,
-          title:             r.title        ?? '',
-          artist:            r.artist       ?? '',
-          album:             r.album        ?? null,
-          isrc:              r.isrc         ?? null,
-          odesli_key:        r.odesliKey    ?? null,
-          spotify_url:       r.spotifyUrl   ?? null,
-          apple_music_url:   r.appleMusicUrl ?? null,
-          youtube_music_url: r.youtubeMusicUrl ?? null,
-          tidal_url:         r.tidalUrl     ?? null,
-          deezer_url:        r.deezerUrl    ?? null,
-          amazon_music_url:  r.amazonMusicUrl ?? null,
-          soundcloud_url:    r.soundcloudUrl ?? null,
-          songlink_url:      r.songlinkUrl  ?? null,
-          note:              r.note         ?? null,
-          listed:            r.listed === false ? 0 : 1,
-          created_at:        r.createdAt    ?? new Date().toISOString(),
-        });
-      } else if (op.action === 'delete') {
-        deleteSong.run({ uri });
-      }
-    }
-
-    if (collection === PROPOSAL_NSID) {
-      if (op.action === 'create' || op.action === 'update') {
-        const r = op.record;
-        const s = r.snapshot ?? {};
-        if (!r.setlistUri) continue;
-        upsertActor.run({ did });
-        upsertProposal.run({
-          uri,
-          cid:               op.cid,
-          proposer_did:      did,
-          setlist_uri:       r.setlistUri,
-          setlist_cid:       r.setlistCid ?? '',
-          title:             s.title      ?? '',
-          artist:            s.artist     ?? '',
-          album:             s.album      ?? null,
-          thumbnail_url:     s.thumbnailUrl   ?? null,
-          spotify_url:       s.spotifyUrl     ?? null,
-          apple_music_url:   s.appleMusicUrl  ?? null,
-          youtube_music_url: s.youtubeMusicUrl ?? null,
-          tidal_url:         s.tidalUrl        ?? null,
-          deezer_url:        s.deezerUrl       ?? null,
-          amazon_music_url:  s.amazonMusicUrl  ?? null,
-          soundcloud_url:    s.soundcloudUrl   ?? null,
-          songlink_url:      s.songlinkUrl     ?? null,
-          note:              r.note            ?? null,
-          created_at:        r.createdAt       ?? new Date().toISOString(),
-        });
-      } else if (op.action === 'delete') {
-        deleteProposal.run({ uri });
-      }
-    }
-
-    if (collection === VOTE_NSID) {
-      if (op.action === 'create' || op.action === 'update') {
-        const r = op.record;
-        const subject_uri = r.subject?.uri ?? null;
-        if (!subject_uri) continue;
-        upsertActor.run({ did });
-        upsertVote.run({
-          uri,
-          cid:         op.cid,
-          actor_did:   did,
-          subject_uri,
-          direction:   r.direction ?? 'up',
-          created_at:  r.createdAt ?? new Date().toISOString(),
-        });
-      } else if (op.action === 'delete') {
-        deleteVote.run({ uri });
-      }
+  if (collection === SONG_NSID) {
+    if (action === 'create' || action === 'update') {
+      const r = record;
+      upsertActor.run({ did });
+      upsertSong.run({
+        uri,
+        cid:               cid?.toString() ?? '',
+        actor_did:         did,
+        title:             r.title        ?? '',
+        artist:            r.artist       ?? '',
+        album:             r.album        ?? null,
+        isrc:              r.isrc         ?? null,
+        odesli_key:        r.odesliKey    ?? null,
+        spotify_url:       r.spotifyUrl   ?? null,
+        apple_music_url:   r.appleMusicUrl ?? null,
+        youtube_music_url: r.youtubeMusicUrl ?? null,
+        tidal_url:         r.tidalUrl     ?? null,
+        deezer_url:        r.deezerUrl    ?? null,
+        amazon_music_url:  r.amazonMusicUrl ?? null,
+        soundcloud_url:    r.soundcloudUrl ?? null,
+        songlink_url:      r.songlinkUrl  ?? null,
+        note:              r.note         ?? null,
+        listed:            r.listed === false ? 0 : 1,
+        created_at:        r.createdAt    ?? new Date().toISOString(),
+      });
+    } else if (action === 'delete') {
+      deleteSong.run({ uri });
     }
   }
 
-  // Persist cursor after each commit batch
-  if (evt.seq != null) setCursor.run({ seq: evt.seq });
+  if (collection === PROPOSAL_NSID) {
+    if (action === 'create' || action === 'update') {
+      const r = record;
+      const s = r.snapshot ?? {};
+      if (!r.setlistUri) return;
+      upsertActor.run({ did });
+      upsertProposal.run({
+        uri,
+        cid:               cid?.toString() ?? '',
+        proposer_did:      did,
+        setlist_uri:       r.setlistUri,
+        setlist_cid:       r.setlistCid ?? '',
+        title:             s.title      ?? '',
+        artist:            s.artist     ?? '',
+        album:             s.album      ?? null,
+        thumbnail_url:     s.thumbnailUrl   ?? null,
+        spotify_url:       s.spotifyUrl     ?? null,
+        apple_music_url:   s.appleMusicUrl  ?? null,
+        youtube_music_url: s.youtubeMusicUrl ?? null,
+        tidal_url:         s.tidalUrl        ?? null,
+        deezer_url:        s.deezerUrl       ?? null,
+        amazon_music_url:  s.amazonMusicUrl  ?? null,
+        soundcloud_url:    s.soundcloudUrl   ?? null,
+        songlink_url:      s.songlinkUrl     ?? null,
+        note:              r.note            ?? null,
+        created_at:        r.createdAt       ?? new Date().toISOString(),
+      });
+    } else if (action === 'delete') {
+      deleteProposal.run({ uri });
+    }
+  }
+
+  if (collection === VOTE_NSID) {
+    if (action === 'create' || action === 'update') {
+      const r = record;
+      const subject_uri = r.subject?.uri ?? null;
+      if (!subject_uri) return;
+      upsertActor.run({ did });
+      upsertVote.run({
+        uri,
+        cid:         cid?.toString() ?? '',
+        actor_did:   did,
+        subject_uri,
+        direction:   r.direction ?? 'up',
+        created_at:  r.createdAt ?? new Date().toISOString(),
+      });
+    } else if (action === 'delete') {
+      deleteVote.run({ uri });
+    }
+  }
+
+  if (seq != null) setCursor.run({ seq });
 }
 
 // ── Start ─────────────────────────────────────────────────────────────────────
@@ -198,11 +193,16 @@ console.log(`[indexer] starting from cursor seq=${seq}, relay=${RELAY}`);
 const firehose = new Firehose({
   relay: RELAY,
   cursor: seq > 0 ? seq : undefined,
-  onCommit(evt) {
+  unauthenticatedCommits: true,
+  excludeIdentity: true,
+  excludeAccount: true,
+  excludeSync: true,
+  async handleEvent(evt) {
+    if (!evt.collection) return; // skip identity/account/sync events
     try {
-      handleCommit(evt);
+      handleEvent(evt);
     } catch (e) {
-      console.error('[indexer] error handling commit:', e);
+      console.error('[indexer] error handling event:', e);
     }
   },
   onError(err) {
