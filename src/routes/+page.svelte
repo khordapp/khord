@@ -218,6 +218,7 @@
 	let setlists: KhordSetlist[] = [];
 	let setlistsLoading = false;
 	let setlistsLoaded = false;
+	let setlistsLastRefreshed: Date | null = null;
 
 	async function loadSetlists() {
 		if (!$session || setlistsLoading) return;
@@ -225,6 +226,7 @@
 		try {
 			setlists = await fetchSetlists($session.did);
 			setlistsLoaded = true;
+			setlistsLastRefreshed = new Date();
 		} finally {
 			setlistsLoading = false;
 		}
@@ -289,7 +291,7 @@
 						bind:value={newSetlistTitle}
 						placeholder="Name your setlist…"
 						maxlength="100"
-						class="w-full {t.elevatedBg} border {t.borderStrong} rounded-lg px-3 py-2 text-sm {t.textPrimary} placeholder:{t.textMuted} focus:outline-none {t.hoverBorderStrong} transition-colors"
+						class="w-full {t.elevatedBg} border {t.borderStrong} rounded-lg px-3 py-2 text-base sm:text-sm {t.textPrimary} placeholder:{t.textMuted} focus:outline-none {t.hoverBorderStrong} transition-colors"
 					/>
 				</div>
 				<ul class="space-y-1.5 max-h-40 overflow-y-auto">
@@ -326,89 +328,22 @@
 	<section class="space-y-4">
 		<!-- Sticky toolbar -->
 		<div class="sticky top-0 z-20 -mx-6 px-6 py-3 {t.headerBg} backdrop-blur-sm border-b {t.borderFaded}">
-			<!-- Tabs -->
-			<div class="flex items-center justify-between gap-4">
-				<nav class="flex items-center gap-1">
-					{#each [['feed', 'Feed'], ['daily', 'Daily'], ['setlists', 'Setlists']] as [tab, label]}
-						<button
-							on:click={() => switchTab(tab as Tab)}
-							class="px-3 py-1.5 text-sm rounded-full transition-colors
-								{activeTab === tab
-									? `${t.elevatedBg} ${t.textPrimary} font-medium`
-									: `${t.textMuted} ${t.hoverTextSecondary}`}"
-						>
-							{label}
-						</button>
-					{/each}
-				</nav>
+			<!-- Tabs row — tabs only, no inline actions -->
+			<nav class="flex items-center gap-1">
+				{#each [['feed', 'Feed'], ['daily', 'Daily'], ['setlists', 'Setlists']] as [tab, label]}
+					<button
+						on:click={() => switchTab(tab as Tab)}
+						class="px-3 py-1.5 text-sm rounded-full transition-colors
+							{activeTab === tab
+								? `${t.elevatedBg} ${t.textPrimary} font-medium`
+								: `${t.textMuted} ${t.hoverTextSecondary}`}"
+					>
+						{label}
+					</button>
+				{/each}
+			</nav>
 
-				<!-- Feed actions -->
-				{#if activeTab === 'feed'}
-					<div class="flex items-center gap-2">
-						{#if selectedUris.size > 0}
-							<button
-								on:click={() => openCreateSetlist(selectedUris)}
-								class="flex items-center gap-1.5 text-xs {t.accentText} {t.accentTextHover} border {t.accentBorder} {t.accentBorderHover}
-									{t.accentBg} px-2.5 py-1 rounded-full transition-colors"
-							>
-								<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
-									<path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-								</svg>
-								Setlist ({selectedUris.size})
-							</button>
-							<button
-								on:click={() => (confirmOpen = true)}
-								disabled={removing}
-								class="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 border border-red-900 hover:border-red-700
-									bg-red-950 px-2.5 py-1 rounded-full disabled:opacity-50 transition-colors"
-							>
-								<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
-									<path d="M2 4h10M5 4V2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V4M9 4v7.5a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5V4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-								Remove {selectedUris.size}
-							</button>
-						{/if}
-						<button
-							on:click={refreshFeed}
-							disabled={feedLoading}
-							aria-label="Refresh feed"
-							title="Reload songs from everyone you follow"
-							class="flex items-center gap-1.5 text-xs {t.textMuted} {t.hoverText} border {t.borderBase} {t.hoverBorderBase} px-2.5 py-1 rounded-full disabled:opacity-40 transition-colors"
-						>
-							<svg viewBox="0 0 16 16" fill="none" class="w-3 h-3 {feedLoading ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
-								<path d="M13.5 8a5.5 5.5 0 1 1-1.4-3.6L14 2.5V6h-3.5l1.8-1.8A4 4 0 1 0 12 8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-							</svg>
-							Refresh
-						</button>
-					</div>
-				{/if}
-
-				<!-- Daily actions -->
-				{#if activeTab === 'daily'}
-					<div class="flex items-center gap-2">
-						{#if dailyItems.length > 0}
-							<button
-								on:click={() => openCreateSetlist(dailySelectedUris.size > 0 ? dailySelectedUris : new Set(dailyItems.map(i => i.uri)))}
-								class="flex items-center gap-1.5 text-xs {t.accentText} {t.accentTextHover} border {t.accentBorder} {t.accentBorderHover}
-									{t.accentBg} px-2.5 py-1 rounded-full transition-colors"
-							>
-								<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
-									<path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-								</svg>
-								{dailySelectedUris.size > 0 ? `Setlist (${dailySelectedUris.size})` : 'Setlist all'}
-							</button>
-						{/if}
-						<input
-							type="date"
-							bind:value={dailyDate}
-							max={new Date().toISOString().slice(0, 10)}
-							class="bg-transparent text-xs {t.textSecondary} border {t.borderStrong} rounded-lg px-2 py-1 focus:outline-none {t.hoverBorderStrong} transition-colors"
-						/>
-					</div>
-				{/if}
-			</div>
-
-			<!-- Subtitle -->
+			<!-- Feed: subtitle + action buttons -->
 			{#if activeTab === 'feed'}
 				<p class="{t.textFaint} text-xs mt-1">
 					{#if lastRefreshed}
@@ -417,10 +352,105 @@
 						Songs shared by people you follow.
 					{/if}
 				</p>
+				<div class="flex items-center gap-2 mt-2">
+					<button
+						on:click={refreshFeed}
+						disabled={feedLoading}
+						aria-label="Refresh feed"
+						title="Reload songs from everyone you follow"
+						class="flex items-center gap-1.5 text-xs {t.textMuted} {t.hoverText} border {t.borderBase} {t.hoverBorderBase} px-2.5 py-1 rounded-full disabled:opacity-40 transition-colors"
+					>
+						<svg viewBox="0 0 16 16" fill="none" class="w-3 h-3 {feedLoading ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
+							<path d="M13.5 8a5.5 5.5 0 1 1-1.4-3.6L14 2.5V6h-3.5l1.8-1.8A4 4 0 1 0 12 8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+						Refresh
+					</button>
+					{#if selectedUris.size > 0}
+						<button
+							on:click={() => openCreateSetlist(selectedUris)}
+							class="flex items-center gap-1.5 text-xs {t.accentText} {t.accentTextHover} border {t.accentBorder} {t.accentBorderHover}
+								{t.accentBg} px-2.5 py-1 rounded-full transition-colors"
+						>
+							<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
+								<path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+							</svg>
+							Setlist ({selectedUris.size})
+						</button>
+						<button
+							on:click={() => (confirmOpen = true)}
+							disabled={removing}
+							class="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 border border-red-900 hover:border-red-700
+								bg-red-950 px-2.5 py-1 rounded-full disabled:opacity-50 transition-colors"
+						>
+							<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
+								<path d="M2 4h10M5 4V2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V4M9 4v7.5a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5V4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+							Remove {selectedUris.size}
+						</button>
+					{/if}
+				</div>
+
+			<!-- Daily: subtitle + refresh + date picker + setlist button -->
 			{:else if activeTab === 'daily'}
 				<p class="{t.textFaint} text-xs mt-1">
 					{dailyItems.length} {dailyItems.length === 1 ? 'song' : 'songs'} shared on {new Date(dailyDate + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
 				</p>
+				<div class="flex items-center gap-2 mt-2">
+					<button
+						on:click={refreshFeed}
+						disabled={feedLoading}
+						aria-label="Refresh"
+						title="Reload songs"
+						class="flex items-center gap-1.5 text-xs {t.textMuted} {t.hoverText} border {t.borderBase} {t.hoverBorderBase} px-2.5 py-1 rounded-full disabled:opacity-40 transition-colors"
+					>
+						<svg viewBox="0 0 16 16" fill="none" class="w-3 h-3 {feedLoading ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
+							<path d="M13.5 8a5.5 5.5 0 1 1-1.4-3.6L14 2.5V6h-3.5l1.8-1.8A4 4 0 1 0 12 8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+						Refresh
+					</button>
+					<input
+						type="date"
+						bind:value={dailyDate}
+						max={new Date().toISOString().slice(0, 10)}
+						class="bg-transparent text-xs {t.textSecondary} border {t.borderStrong} rounded-lg px-2 py-1 focus:outline-none {t.hoverBorderStrong} transition-colors"
+					/>
+					{#if dailyItems.length > 0}
+						<button
+							on:click={() => openCreateSetlist(dailySelectedUris.size > 0 ? dailySelectedUris : new Set(dailyItems.map(i => i.uri)))}
+							class="flex items-center gap-1.5 text-xs {t.accentText} {t.accentTextHover} border {t.accentBorder} {t.accentBorderHover}
+								{t.accentBg} px-2.5 py-1 rounded-full transition-colors"
+						>
+							<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
+								<path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+							</svg>
+							{dailySelectedUris.size > 0 ? `Setlist (${dailySelectedUris.size})` : 'Setlist all'}
+						</button>
+					{/if}
+				</div>
+
+			<!-- Setlists: subtitle + refresh -->
+			{:else if activeTab === 'setlists'}
+				<p class="{t.textFaint} text-xs mt-1">
+					{#if setlistsLastRefreshed}
+						Updated {setlistsLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+					{:else}
+						Your setlists.
+					{/if}
+				</p>
+				<div class="flex items-center gap-2 mt-2">
+					<button
+						on:click={loadSetlists}
+						disabled={setlistsLoading}
+						aria-label="Refresh setlists"
+						title="Reload your setlists"
+						class="flex items-center gap-1.5 text-xs {t.textMuted} {t.hoverText} border {t.borderBase} {t.hoverBorderBase} px-2.5 py-1 rounded-full disabled:opacity-40 transition-colors"
+					>
+						<svg viewBox="0 0 16 16" fill="none" class="w-3 h-3 {setlistsLoading ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
+							<path d="M13.5 8a5.5 5.5 0 1 1-1.4-3.6L14 2.5V6h-3.5l1.8-1.8A4 4 0 1 0 12 8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+						Refresh
+					</button>
+				</div>
 			{/if}
 		</div>
 
@@ -461,7 +491,7 @@
 					</ol>
 				</div>
 			{:else}
-				<div class="space-y-3">
+				<div class="space-y-0 sm:space-y-3">
 					{#each feedItems as item (item.uri)}
 						<SongCard
 							uri={item.uri}

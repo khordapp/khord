@@ -91,17 +91,18 @@
 	class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
 	aria-label="Close"
 	on:click={closeShareSong}
-/>
+></button>
 
 <!-- Modal -->
 <div
-	class="fixed z-50 bottom-0 left-0 right-0 sm:bottom-auto sm:top-20 sm:left-1/2 sm:-translate-x-1/2
-		w-full sm:max-w-md {t.surfaceBg} border {t.borderStrong} rounded-t-2xl sm:rounded-2xl shadow-2xl"
+	class="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 sm:left-1/2 sm:right-auto sm:top-20 sm:translate-y-0 sm:-translate-x-1/2
+		sm:w-full sm:max-w-md {t.surfaceBg} border {t.borderStrong} rounded-2xl shadow-2xl
+		max-h-[90dvh] flex flex-col"
 	role="dialog"
 	aria-modal="true"
 	aria-label="Share a song"
 >
-	<div class="px-5 py-4 border-b {t.borderBase} flex items-center justify-between">
+	<div class="px-5 py-4 border-b {t.borderBase} flex items-center justify-between shrink-0">
 		<h2 class="text-sm font-semibold {t.textPrimary}">Share a song</h2>
 		<button
 			on:click={closeShareSong}
@@ -112,7 +113,7 @@
 		</button>
 	</div>
 
-	<div class="p-5 space-y-4">
+	<div class="p-5 space-y-4 overflow-y-auto">
 		{#if shared}
 			<div class="py-6 text-center space-y-1">
 				<p class="{t.textPrimary} text-sm font-medium">Added to your lineup</p>
@@ -145,7 +146,7 @@
 					rows="3"
 					maxlength={NOTE_LIMIT}
 					disabled={sharing}
-					class="w-full {t.recessedBg} border {t.borderStrong} rounded-lg px-3 py-2 text-sm {t.textPrimary}
+					class="w-full {t.recessedBg} border {t.borderStrong} rounded-lg px-3 py-2 text-base sm:text-sm {t.textPrimary}
 						placeholder:{t.textFaint} focus:outline-none focus:ring-1 {t.focusRing}
 						resize-none disabled:opacity-50"
 				></textarea>

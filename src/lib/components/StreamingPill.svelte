@@ -7,13 +7,13 @@
 	export let record: KhordSongRecord;
 
 	const PLATFORMS: { key: PlatformKey; label: string; brand: { bg: string; text: string; border: string } }[] = [
-		{ key: 'spotifyUrl',      label: 'Spotify',       brand: { bg: '#1DB954', text: '#000000', border: '#1DB954' } },
-		{ key: 'appleMusicUrl',   label: 'Apple Music',   brand: { bg: '#FC3C44', text: '#ffffff', border: '#FC3C44' } },
-		{ key: 'youtubeMusicUrl', label: 'YouTube Music', brand: { bg: '#FF0000', text: '#ffffff', border: '#FF0000' } },
-		{ key: 'tidalUrl',        label: 'Tidal',         brand: { bg: '#000000', text: '#ffffff', border: '#ffffff' } },
-		{ key: 'deezerUrl',       label: 'Deezer',        brand: { bg: '#EF5466', text: '#ffffff', border: '#EF5466' } },
-		{ key: 'amazonMusicUrl',  label: 'Amazon Music',  brand: { bg: '#00A8E1', text: '#ffffff', border: '#00A8E1' } },
-		{ key: 'soundcloudUrl',   label: 'SoundCloud',    brand: { bg: '#FF5500', text: '#ffffff', border: '#FF5500' } },
+		{ key: 'spotifyUrl',      label: 'Spotify',     brand: { bg: '#1DB954', text: '#000000', border: '#1DB954' } },
+		{ key: 'appleMusicUrl',   label: 'Apple',       brand: { bg: '#FC3C44', text: '#ffffff', border: '#FC3C44' } },
+		{ key: 'youtubeMusicUrl', label: 'YouTube',     brand: { bg: '#FF0000', text: '#ffffff', border: '#FF0000' } },
+		{ key: 'tidalUrl',        label: 'Tidal',       brand: { bg: '#000000', text: '#ffffff', border: '#ffffff' } },
+		{ key: 'deezerUrl',       label: 'Deezer',      brand: { bg: '#EF5466', text: '#ffffff', border: '#EF5466' } },
+		{ key: 'amazonMusicUrl',  label: 'Amazon',      brand: { bg: '#00A8E1', text: '#ffffff', border: '#00A8E1' } },
+		{ key: 'soundcloudUrl',   label: 'SoundCloud',  brand: { bg: '#FF5500', text: '#ffffff', border: '#FF5500' } },
 	];
 
 	$: all = PLATFORMS.filter((p) => record[p.key]);
@@ -31,10 +31,10 @@
 			<a
 				href={record[first.key] as string}
 				title="Listen on {first.label}"
-				style="background-color:{first.brand.bg}; color:{first.brand.text}; border-color:{first.brand.border}"
-				class="text-xs border flex items-center gap-1.5 px-2.5 {rest.length > 0 ? 'rounded-l-full' : 'rounded-full'} hover:opacity-80 transition-opacity whitespace-nowrap"
+				style="color:{first.brand.bg}"
+				class="text-xs flex items-center gap-1.5 px-2.5 hover:opacity-70 transition-opacity whitespace-nowrap"
 			>
-				<svg viewBox="0 0 10 10" fill="currentColor" class="w-2.5 h-2.5 shrink-0" xmlns="http://www.w3.org/2000/svg">
+				<svg viewBox="0 0 10 10" fill="currentColor" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg">
 					<path d="M2 1.5l6 3.5-6 3.5V1.5Z"/>
 				</svg>
 				{first.label}
@@ -44,8 +44,8 @@
 					on:click={() => (open = !open)}
 					aria-label="More streaming options"
 					title="More streaming platforms"
-					style="background-color:{first.brand.bg}; color:{first.brand.text}; border-color:{first.brand.border}"
-					class="border border-l-0 flex items-center px-1.5 rounded-r-full hover:opacity-80 transition-opacity"
+					style="color:{first.brand.bg}"
+					class="flex items-center px-1.5 hover:opacity-70 transition-opacity"
 				>
 					<svg viewBox="0 0 10 10" fill="none" class="w-2.5 h-2.5" xmlns="http://www.w3.org/2000/svg">
 						<path d="M2 4l3 3 3-3" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>

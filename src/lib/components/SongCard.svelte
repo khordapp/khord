@@ -164,7 +164,7 @@
 	}
 </script>
 
-<article class="relative rounded-xl border {t.surfaceBg} px-5 py-4 space-y-3 transition-colors
+<article class="relative sm:rounded-xl border-b sm:border {t.surfaceBg} px-3 py-3 sm:px-5 sm:py-4 space-y-3 transition-colors
 	{selected ? 'border-zinc-400 ring-1 ring-zinc-400' : t.borderBase}">
 	<button
 		type="button"
@@ -227,105 +227,96 @@
 		<p class="text-sm {t.textSecondary} leading-snug" style="padding-left: {!$instanceConfig.albumArtDisabled && record.thumbnailUrl ? '3.75rem' : '1.75rem'}">{record.note}</p>
 	{/if}
 
-	<div class="flex items-center justify-between gap-2">
-		<div class="flex flex-wrap gap-1.5 items-center">
-			<StreamingPill {record} />
-			{#if songlink}
-				<a
-					href={songlink}
-					target="_blank"
-					rel="noopener noreferrer"
-					title="Open on song.link — see all available platforms"
-					class="text-xs {t.linkText} {t.linkTextHover} border {t.linkBorder} {t.linkBorderHover}
-						px-2.5 py-1 rounded-full transition-colors"
-				>
-					song.link
-				</a>
-			{/if}
-		</div>
-
-		<div class="flex items-center gap-1.5 shrink-0">
-			{#if isOwn && record.appleMusicUrl}
-				{#if resyncError}
-					<span class="text-xs text-red-400">{resyncError}</span>
-				{/if}
-				<button
-					on:click={resync}
-					disabled={resyncing}
-					aria-label="Resync song metadata"
-					title="Re-fetch metadata and platform links from streaming services"
-					class="flex items-center gap-1.5 h-7 px-2.5 rounded-full border transition-colors disabled:opacity-50
-						{resynced
-							? `${t.textPrimary} ${t.elevatedBg} ${t.borderStrong}`
-							: `${t.textFaint} border-transparent ${t.hoverText} ${t.hoverBorderBase} ${t.hoverBg}`}"
-				>
-					{#if resyncing}
-						<span class="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
-					{:else if resynced}
-						<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
-							<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
-						<span class="text-xs hidden sm:inline">Synced</span>
-					{:else}
-						<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
-							<path d="M12.5 7a5.5 5.5 0 1 1-1.1-3.3L13 2v3h-3l1.4-1.4A4 4 0 1 0 11 7" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
-						<span class="text-xs hidden sm:inline">Sync</span>
-					{/if}
-				</button>
-			{/if}
-			{#if $session && record.songlinkUrl}
-				<button
-					on:click={openCompose}
-					disabled={posting}
-					aria-label="Post to {AUTH_PROVIDER_NAME}"
-					title="Share this song as a post on {AUTH_PROVIDER_NAME}"
-					class="flex items-center gap-1.5 h-7 px-2.5 rounded-full border transition-colors disabled:opacity-50
-						{posted
-							? `${t.textPrimary} ${t.elevatedBg} ${t.borderStrong}`
-							: `${t.textMuted} border-transparent ${t.hoverText} ${t.hoverBorderBase} ${t.hoverBg}`}"
-				>
-					{#if posting}
-						<span class="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
-					{:else if posted}
-						<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
-							<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
-						<span class="text-xs hidden sm:inline">Posted</span>
-					{:else}
-						<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
-							<path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
-						<span class="text-xs hidden sm:inline">Post</span>
-					{/if}
-				</button>
-			{/if}
-			<button
-				on:click={toggleLike}
-				disabled={liking}
-				aria-label={liked ? 'Unlike' : 'Upnote'}
-				title={liked ? 'Remove your upnote' : 'Upnote this song'}
-				class="flex items-center gap-1.5 h-7 px-2.5 rounded-full border transition-colors disabled:opacity-50
-					{liked
-						? `${t.textPrimary} ${t.strongBg} ${t.borderStrong} ${t.hoverBgStrong}`
-						: `${t.textMuted} border-transparent ${t.hoverText} ${t.hoverBorderBase} ${t.hoverBg}`}"
+	<!-- Action row: all items centered, uniform gap -->
+	<div class="flex items-center justify-center gap-8">
+		{#if songlink}
+			<a
+				href={songlink}
+				target="_blank"
+				rel="noopener noreferrer"
+				title="Open on song.link — see all available platforms"
+				class="p-2 transition-colors {t.textFaint} {t.hoverTextSecondary}"
 			>
-				{#if liking}
-					<span class="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
+				<svg viewBox="0 0 14 14" fill="none" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
+					<path d="M6 2H2.5A.5.5 0 0 0 2 2.5v9a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5V8M8 2h4m0 0v4m0-4L6 8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+			</a>
+		{/if}
+		{#if $session && record.songlinkUrl}
+			<button
+				on:click={openCompose}
+				disabled={posting}
+				aria-label="Post to {AUTH_PROVIDER_NAME}"
+				title="Share this song as a post on {AUTH_PROVIDER_NAME}"
+				class="p-2 transition-colors disabled:opacity-50 {posted ? t.textPrimary : `${t.textFaint} ${t.hoverTextSecondary}`}"
+			>
+				{#if posting}
+					<span class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
+				{:else if posted}
+					<svg viewBox="0 0 14 14" fill="none" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
+						<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
 				{:else}
-					<span class="text-sm leading-none">♪</span>
-					{#if localCount > 0}
-						<span class="text-xs tabular-nums">{localCount}</span>
-					{/if}
-					<span class="text-xs hidden sm:inline">{liked ? 'Upnoted' : 'Upnote'}</span>
+					<svg viewBox="0 0 14 14" fill="none" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
+						<path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
 				{/if}
 			</button>
-		</div>
+		{/if}
+		<button
+			on:click={toggleLike}
+			disabled={liking}
+			aria-label={liked ? 'Unlike' : 'Upnote'}
+			title={liked ? 'Remove your upnote' : 'Upnote this song'}
+			class="p-2 flex items-center gap-1.5 transition-colors disabled:opacity-50 {liked ? t.accentText : `${t.textFaint} ${t.hoverTextSecondary}`}"
+		>
+			{#if liking}
+				<span class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
+			{:else}
+				<span class="text-lg leading-none">♪</span>
+				{#if localCount > 0}
+					<span class="text-sm tabular-nums">{localCount}</span>
+				{/if}
+			{/if}
+		</button>
+		{#if isOwn && record.appleMusicUrl}
+			<button
+				on:click={resync}
+				disabled={resyncing}
+				aria-label="Resync song metadata"
+				title="Re-fetch metadata and platform links from streaming services"
+				class="p-2 transition-colors disabled:opacity-50 {resynced ? t.textPrimary : resyncError ? 'text-red-400' : `${t.textFaint} ${t.hoverTextSecondary}`}"
+			>
+				{#if resyncing}
+					<span class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
+				{:else if resynced}
+					<svg viewBox="0 0 14 14" fill="none" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
+						<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+				{:else}
+					<svg viewBox="0 0 14 14" fill="none" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
+						<path d="M12.5 7a5.5 5.5 0 1 1-1.1-3.3L13 2v3h-3l1.4-1.4A4 4 0 1 0 11 7" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+				{/if}
+			</button>
+		{/if}
+		<StreamingPill {record} />
 	</div>
 </article>
 
+<style>
+	@media (max-width: 639px) {
+		article {
+			background-color: transparent;
+		}
+		article:last-child {
+			border-bottom-width: 0;
+		}
+	}
+</style>
+
 {#if composeOpen}
-	<div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
 		<button class="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-label="Cancel" on:click={() => (composeOpen = false)}></button>
 		<div class="relative w-full max-w-sm {t.surfaceBg} border {t.borderStrong} rounded-2xl shadow-2xl overflow-hidden">
 			<div class="px-4 pt-4 pb-2 border-b {t.borderBase} flex items-center justify-between">
@@ -360,7 +351,7 @@
 				<textarea
 					bind:value={composeNote}
 					rows="3"
-					class="w-full bg-transparent text-sm {t.textPrimary} placeholder:{t.textFaint} py-2.5 resize-none focus:outline-none"
+					class="w-full bg-transparent text-base sm:text-sm {t.textPrimary} placeholder:{t.textFaint} py-2.5 resize-none focus:outline-none"
 					placeholder="Add a note… (optional)"
 				></textarea>
 			</div>
