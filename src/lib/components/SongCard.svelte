@@ -164,8 +164,8 @@
 	}
 </script>
 
-<article class="relative sm:rounded-xl border-b sm:border {t.surfaceBg} px-3 py-3 sm:px-5 sm:py-4 space-y-3 transition-colors
-	{selected ? 'border-zinc-400 ring-1 ring-zinc-400' : t.borderBase}">
+<article class="relative sm:rounded-xl border-b sm:border {$t.surfaceBg} px-5 py-4 space-y-3 transition-colors
+	{selected ? 'border-zinc-400 ring-1 ring-zinc-400' : $t.borderBase}">
 	<button
 		type="button"
 		aria-label={selected ? 'Deselect song' : 'Select song'}
@@ -199,14 +199,14 @@
 								<path d="M4.5 8L7 10.5L11.5 6" stroke="#09090b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 							</svg>
 						{:else}
-							<div class="w-4 h-4 rounded-full border {t.borderStrong}"></div>
+							<div class="w-4 h-4 rounded-full border {$t.borderStrong}"></div>
 						{/if}
 					</div>
 				{/if}
 			</div>
 			<div>
-				<p class="text-base font-semibold {t.textPrimary} leading-snug">{record.title}</p>
-				<p class="text-sm {t.textMuted} mt-0.5">
+				<p class="text-base font-semibold {$t.textPrimary} leading-snug">{record.title}</p>
+				<p class="text-sm {$t.textMuted} mt-0.5">
 					{record.artist}{record.album ? ` · ${record.album}` : ''}
 				</p>
 			</div>
@@ -216,15 +216,15 @@
 			{#if sharedBy.avatar}
 				<img src={sharedBy.avatar} alt={sharedBy.handle} class="w-5 h-5 rounded-full object-cover shrink-0" />
 			{/if}
-			<p class="text-xs {t.textMuted} truncate">
-				<span class="{t.textSecondary}">{sharedBy.displayName ?? sharedBy.handle}</span>
+			<p class="text-xs {$t.textMuted} truncate">
+				<span class="{$t.textSecondary}">{sharedBy.displayName ?? sharedBy.handle}</span>
 				· {timeAgo(record.createdAt)}
 			</p>
 		</div>
 	</button>
 
 	{#if record.note}
-		<p class="text-sm {t.textSecondary} leading-snug" style="padding-left: {!$instanceConfig.albumArtDisabled && record.thumbnailUrl ? '3.75rem' : '1.75rem'}">{record.note}</p>
+		<p class="text-sm {$t.textSecondary} leading-snug" style="padding-left: {!$instanceConfig.albumArtDisabled && record.thumbnailUrl ? '3.75rem' : '1.75rem'}">{record.note}</p>
 	{/if}
 
 	<!-- Action row: all items centered, uniform gap -->
@@ -235,7 +235,7 @@
 				target="_blank"
 				rel="noopener noreferrer"
 				title="Open on song.link — see all available platforms"
-				class="p-2 transition-colors {t.textFaint} {t.hoverTextSecondary}"
+				class="p-2 transition-colors {$t.textFaint} {$t.hoverTextSecondary}"
 			>
 				<svg viewBox="0 0 14 14" fill="none" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
 					<path d="M6 2H2.5A.5.5 0 0 0 2 2.5v9a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5V8M8 2h4m0 0v4m0-4L6 8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
@@ -248,7 +248,7 @@
 				disabled={posting}
 				aria-label="Post to {AUTH_PROVIDER_NAME}"
 				title="Share this song as a post on {AUTH_PROVIDER_NAME}"
-				class="p-2 transition-colors disabled:opacity-50 {posted ? t.textPrimary : `${t.textFaint} ${t.hoverTextSecondary}`}"
+				class="p-2 transition-colors disabled:opacity-50 {posted ? $t.textPrimary : `${$t.textFaint} ${$t.hoverTextSecondary}`}"
 			>
 				{#if posting}
 					<span class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
@@ -268,7 +268,7 @@
 			disabled={liking}
 			aria-label={liked ? 'Unlike' : 'Upnote'}
 			title={liked ? 'Remove your upnote' : 'Upnote this song'}
-			class="p-2 flex items-center gap-1.5 transition-colors disabled:opacity-50 {liked ? t.accentText : `${t.textFaint} ${t.hoverTextSecondary}`}"
+			class="p-2 flex items-center gap-1.5 transition-colors disabled:opacity-50 {liked ? $t.accentText : `${$t.textFaint} ${$t.hoverTextSecondary}`}"
 		>
 			{#if liking}
 				<span class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
@@ -285,7 +285,7 @@
 				disabled={resyncing}
 				aria-label="Resync song metadata"
 				title="Re-fetch metadata and platform links from streaming services"
-				class="p-2 transition-colors disabled:opacity-50 {resynced ? t.textPrimary : resyncError ? 'text-red-400' : `${t.textFaint} ${t.hoverTextSecondary}`}"
+				class="p-2 transition-colors disabled:opacity-50 {resynced ? $t.textPrimary : resyncError ? 'text-red-400' : `${$t.textFaint} ${$t.hoverTextSecondary}`}"
 			>
 				{#if resyncing}
 					<span class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
@@ -318,10 +318,10 @@
 {#if composeOpen}
 	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
 		<button class="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-label="Cancel" on:click={() => (composeOpen = false)}></button>
-		<div class="relative w-full max-w-sm {t.surfaceBg} border {t.borderStrong} rounded-2xl shadow-2xl overflow-hidden">
-			<div class="px-4 pt-4 pb-2 border-b {t.borderBase} flex items-center justify-between">
-				<span class="text-sm font-semibold {t.textPrimary}">Post to {AUTH_PROVIDER_NAME}</span>
-				<button on:click={() => (composeOpen = false)} aria-label="Close" class="{t.textMuted} {t.hoverTextSecondary} transition-colors">
+		<div class="relative w-full max-w-sm {$t.surfaceBg} border {$t.borderStrong} rounded-2xl shadow-2xl overflow-hidden">
+			<div class="px-4 pt-4 pb-2 border-b {$t.borderBase} flex items-center justify-between">
+				<span class="text-sm font-semibold {$t.textPrimary}">Post to {AUTH_PROVIDER_NAME}</span>
+				<button on:click={() => (composeOpen = false)} aria-label="Close" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">
 					<svg viewBox="0 0 14 14" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
 						<path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
 					</svg>
@@ -333,32 +333,32 @@
 					{#if $session.avatar}
 						<img src={$session.avatar} alt={$session.handle} class="w-8 h-8 rounded-full object-cover shrink-0" />
 					{:else}
-						<div class="w-8 h-8 rounded-full {t.elevatedBg} flex items-center justify-center text-xs font-semibold {t.textSecondary} shrink-0">
+						<div class="w-8 h-8 rounded-full {$t.elevatedBg} flex items-center justify-center text-xs font-semibold {$t.textSecondary} shrink-0">
 							{($session.handle ?? '?')[0].toUpperCase()}
 						</div>
 					{/if}
-					<span class="text-xs {t.textMuted}">@{$session.handle}</span>
+					<span class="text-xs {$t.textMuted}">@{$session.handle}</span>
 				</div>
 			{/if}
 
 			<!-- Fixed: title + artist -->
 			<div class="px-4 pt-3 pb-2">
-				<p class="text-sm font-medium {t.textPrimary}">{composeTitleText}</p>
+				<p class="text-sm font-medium {$t.textPrimary}">{composeTitleText}</p>
 			</div>
 
 			<!-- Editable: optional note -->
-			<div class="px-4 pb-2 border-y {t.borderBase}">
+			<div class="px-4 pb-2 border-y {$t.borderBase}">
 				<textarea
 					bind:value={composeNote}
 					rows="3"
-					class="w-full bg-transparent text-base sm:text-sm {t.textPrimary} placeholder:{t.textFaint} py-2.5 resize-none focus:outline-none"
+					class="w-full bg-transparent text-base sm:text-sm {$t.textPrimary} placeholder:{$t.textFaint} py-2.5 resize-none focus:outline-none"
 					placeholder="Add a note… (optional)"
 				></textarea>
 			</div>
 
 			<!-- Fixed: shared from footer -->
 			<div class="px-4 pt-2 pb-1">
-				<p class="text-xs {t.textFaint}">{composeFooter}</p>
+				<p class="text-xs {$t.textFaint}">{composeFooter}</p>
 			</div>
 
 			{#if !$instanceConfig.albumArtDisabled && record.thumbnailUrl}
@@ -369,31 +369,31 @@
 						aria-checked={includeArt}
 						on:click={() => (includeArt = !includeArt)}
 						aria-label="Include album art"
-						class="relative w-8 h-5 rounded-full transition-colors shrink-0 {includeArt ? t.btnPrimaryBg : t.elevatedBg}"
+						class="relative w-8 h-5 rounded-full transition-colors shrink-0 {includeArt ? $t.btnPrimaryBg : $t.elevatedBg}"
 					>
-						<span class="absolute top-0.5 left-0.5 w-3.5 h-3.5 rounded-full {t.recessedBg} transition-transform {includeArt ? 'translate-x-3.5' : 'translate-x-0'}"></span>
+						<span class="absolute top-0.5 left-0.5 w-3.5 h-3.5 rounded-full {$t.recessedBg} transition-transform {includeArt ? 'translate-x-3.5' : 'translate-x-0'}"></span>
 					</button>
 					<div class="flex items-center gap-2 min-w-0">
 						{#if includeArt}
 							<img src={record.thumbnailUrl} alt="" aria-hidden="true" class="w-6 h-6 rounded object-cover shrink-0" />
 						{/if}
-						<span class="text-xs {t.textMuted}">Include album art</span>
+						<span class="text-xs {$t.textMuted}">Include album art</span>
 					</div>
 				</div>
 			{/if}
 
 			<div class="flex items-center justify-between px-4 pb-3">
-				<span class="text-xs {composeOver ? 'text-red-400' : composeCharsLeft <= 20 ? 'text-amber-400' : t.textFaint}">
+				<span class="text-xs {composeOver ? 'text-red-400' : composeCharsLeft <= 20 ? 'text-amber-400' : $t.textFaint}">
 					{composeCharsLeft}
 				</span>
 				<div class="flex items-center gap-2">
-					<button on:click={() => (composeOpen = false)} class="text-xs {t.textMuted} {t.hoverTextSecondary} px-3 py-1.5 transition-colors">
+					<button on:click={() => (composeOpen = false)} class="text-xs {$t.textMuted} {$t.hoverTextSecondary} px-3 py-1.5 transition-colors">
 						Cancel
 					</button>
 					<button
 						on:click={submitPost}
 						disabled={posting || composeOver}
-						class="text-xs font-semibold {t.btnPrimaryBg} {t.btnPrimaryText} px-3 py-1.5 rounded-full {t.btnPrimaryHover} transition-colors disabled:opacity-40"
+						class="text-xs font-semibold {$t.btnPrimaryBg} {$t.btnPrimaryText} px-3 py-1.5 rounded-full {$t.btnPrimaryHover} transition-colors disabled:opacity-40"
 					>
 						{#if posting}
 							<span class="inline-flex items-center gap-1.5">

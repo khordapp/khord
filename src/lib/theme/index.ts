@@ -1,7 +1,9 @@
-// Theme selection — set PUBLIC_THEME in your .env to switch palettes.
-// A rebuild (or dev server restart) is required when changing PUBLIC_THEME.
-// Add new themes by creating a file in this directory and registering it below.
+// Theme selection — set PUBLIC_THEME in your .env to pick the instance default.
+// Users can toggle between the dark and light counterpart via settings.
+// Preference is stored in localStorage under 'khord_theme'.
 
+import { writable } from 'svelte/store';
+import { browser } from '$app/environment';
 import { PUBLIC_THEME } from '$env/static/public';
 import type { Theme } from './types';
 
@@ -51,5 +53,75 @@ const themes: Record<string, Theme> = {
 	violet: violetTheme,
 };
 
-export const theme: Theme = themes[PUBLIC_THEME ?? 'dark'] ?? zinc;
+// Dark ↔ light counterpart pairs. Chromatic themes have no pairing.
+const pairs: Record<string, string> = {
+	'dark':          'zinc-light',
+	'zinc':          'zinc-light',
+	'zinc-light':    'dark',
+	'slate':         'slate-light',
+	'slate-light':   'slate',
+	'gray':          'light',
+	'light':         'gray',
+	'gray-light':    'gray',
+	'neutral':       'neutral-light',
+	'neutral-light': 'neutral',
+	'stone':         'stone-light',
+	'stone-light':   'stone',
+};
+
+const STORAGE_KEY = 'khord_theme';
+const instanceDefault = PUBLIC_THEME ?? 'dark';
+
+function resolveTheme(name: string): Theme {
+	return themes[name] ?? themes[instanceDefault] ?? zinc;
+}
+
+function loadInitialName(): string {
+	if (browser) {
+		const stored = localStorage.getItem(STORAGE_KEY);
+		if (stored && themes[stored]) return stored;
+	}
+	return instanceDefault;
+}
+
+function createThemeStore() {
+	let currentName = loadInitialName();
+	const { subscribe, set } = writable<Theme>(resolveTheme(currentName));
+
+	return {
+		subscribe,
+
+		/** Returns the name of the counterpart theme, or null for chromatic themes. */
+		counterpart(): string | null {
+			return pairs[currentName] ?? null;
+		},
+
+		/** True if this theme has a dark/light counterpart. */
+		hasPair(): boolean {
+			return currentName in pairs;
+		},
+
+		/** True if the current theme is a light variant. */
+		isLight(): boolean {
+			return currentName.endsWith('-light') || currentName === 'light';
+		},
+
+		toggle() {
+			const next = pairs[currentName];
+			if (!next) return;
+			currentName = next;
+			if (browser) localStorage.setItem(STORAGE_KEY, currentName);
+			set(resolveTheme(currentName));
+		},
+
+		setTheme(name: string) {
+			if (!themes[name]) return;
+			currentName = name;
+			if (browser) localStorage.setItem(STORAGE_KEY, currentName);
+			set(resolveTheme(currentName));
+		},
+	};
+}
+
+export const theme = createThemeStore();
 export type { Theme };

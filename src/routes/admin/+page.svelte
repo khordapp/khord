@@ -266,48 +266,48 @@
 <div class="space-y-8 max-w-2xl">
 	<div>
 		<h1 class="text-2xl font-bold">Admin</h1>
-		<p class="text-sm {t.textSecondary} mt-1">Instance management</p>
+		<p class="text-sm {$t.textSecondary} mt-1">Instance management</p>
 	</div>
 
 	<!-- Stats row -->
 	<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
 		{#if stats}
-			<div class="{t.surfaceBg} border {t.borderStrong} rounded-xl px-4 py-3 space-y-0.5">
-				<p class="text-xs {t.textMuted} uppercase tracking-wider font-medium">Users</p>
+			<div class="{$t.surfaceBg} border {$t.borderStrong} rounded-xl px-4 py-3 space-y-0.5">
+				<p class="text-xs {$t.textMuted} uppercase tracking-wider font-medium">Users</p>
 				<p class="text-xl font-bold">
-					{stats.registeredCount}{#if stats.maxUsers > 0}<span class="text-sm font-normal {t.textMuted}"> / {stats.maxUsers}</span>{/if}
+					{stats.registeredCount}{#if stats.maxUsers > 0}<span class="text-sm font-normal {$t.textMuted}"> / {stats.maxUsers}</span>{/if}
 				</p>
 			</div>
-			<div class="{t.surfaceBg} border {t.borderStrong} rounded-xl px-4 py-3 space-y-0.5">
-				<p class="text-xs {t.textMuted} uppercase tracking-wider font-medium">Songs</p>
+			<div class="{$t.surfaceBg} border {$t.borderStrong} rounded-xl px-4 py-3 space-y-0.5">
+				<p class="text-xs {$t.textMuted} uppercase tracking-wider font-medium">Songs</p>
 				<p class="text-xl font-bold">{stats.songsCount.toLocaleString()}</p>
 			</div>
-			<div class="{t.surfaceBg} border {t.borderStrong} rounded-xl px-4 py-3 space-y-0.5">
-				<p class="text-xs {t.textMuted} uppercase tracking-wider font-medium">Banned</p>
+			<div class="{$t.surfaceBg} border {$t.borderStrong} rounded-xl px-4 py-3 space-y-0.5">
+				<p class="text-xs {$t.textMuted} uppercase tracking-wider font-medium">Banned</p>
 				<p class="text-xl font-bold">{stats.bannedCount}</p>
 			</div>
-			<div class="{t.surfaceBg} border {t.borderStrong} rounded-xl px-4 py-3 space-y-0.5">
-				<p class="text-xs {t.textMuted} uppercase tracking-wider font-medium">Cursor</p>
+			<div class="{$t.surfaceBg} border {$t.borderStrong} rounded-xl px-4 py-3 space-y-0.5">
+				<p class="text-xs {$t.textMuted} uppercase tracking-wider font-medium">Cursor</p>
 				<p class="text-xl font-bold font-mono text-sm">{formatCompact(stats.cursorSeq)}</p>
 			</div>
 		{:else if statsError}
-			<div class="col-span-4 text-sm {t.textMuted}">Stats unavailable — database offline.</div>
+			<div class="col-span-4 text-sm {$t.textMuted}">Stats unavailable — database offline.</div>
 		{:else}
 			{#each [0, 1, 2, 3] as _}
-				<div class="{t.surfaceBg} border {t.borderBase} rounded-xl px-4 py-3 animate-pulse h-16"></div>
+				<div class="{$t.surfaceBg} border {$t.borderBase} rounded-xl px-4 py-3 animate-pulse h-16"></div>
 			{/each}
 		{/if}
 	</div>
 
 	<!-- Tab bar -->
-	<div class="flex gap-1 border-b {t.borderBase}">
+	<div class="flex gap-1 border-b {$t.borderBase}">
 		{#each [['users', 'Users'], ['bans', 'Bans'], ['settings', 'Settings']] as [id, label]}
 			<button
 				on:click={() => (activeTab = id as Tab)}
 				class="px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px
 					{activeTab === id
-						? `border-current ${t.textPrimary}`
-						: `border-transparent ${t.textMuted} ${t.hoverText}`}"
+						? `border-current ${$t.textPrimary}`
+						: `border-transparent ${$t.textMuted} ${$t.hoverText}`}"
 			>
 				{label}{#if id === 'bans' && stats?.bannedCount}&nbsp;({stats.bannedCount}){/if}
 			</button>
@@ -318,21 +318,21 @@
 	{#if activeTab === 'users'}
 		<div class="space-y-3">
 			{#if usersError}
-				<p class="text-sm {t.textMuted}">Could not load users — database offline.</p>
+				<p class="text-sm {$t.textMuted}">Could not load users — database offline.</p>
 			{:else if users.length === 0 && usersLoading}
 				<div class="space-y-2">
 					{#each [0, 1, 2, 3] as _}
-						<div class="{t.surfaceBg} border {t.borderBase} rounded-lg h-14 animate-pulse"></div>
+						<div class="{$t.surfaceBg} border {$t.borderBase} rounded-lg h-14 animate-pulse"></div>
 					{/each}
 				</div>
 			{:else if users.length === 0}
-				<p class="text-sm {t.textMuted}">No registered users yet.</p>
+				<p class="text-sm {$t.textMuted}">No registered users yet.</p>
 			{:else}
 				<div class="space-y-1">
 					{#each users as user (user.did)}
-						<div class="flex items-center gap-3 {t.surfaceBg} border {t.borderBase} rounded-lg px-3 py-2.5">
+						<div class="flex items-center gap-3 {$t.surfaceBg} border {$t.borderBase} rounded-lg px-3 py-2.5">
 							<!-- Avatar -->
-							<div class="w-8 h-8 rounded-full overflow-hidden shrink-0 {t.elevatedBg} flex items-center justify-center text-xs font-semibold {t.textMuted}">
+							<div class="w-8 h-8 rounded-full overflow-hidden shrink-0 {$t.elevatedBg} flex items-center justify-center text-xs font-semibold {$t.textMuted}">
 								{#if user.avatar}
 									<img src="/api/thumbnail?url={encodeURIComponent(user.avatar)}" alt="" class="w-full h-full object-cover" />
 								{:else}
@@ -341,10 +341,10 @@
 							</div>
 							<!-- Identity -->
 							<div class="flex-1 min-w-0">
-								<p class="text-sm font-medium {t.textPrimary} truncate">
+								<p class="text-sm font-medium {$t.textPrimary} truncate">
 									{#if user.handle}@{user.handle}{:else}<span class="font-mono text-xs">{truncateDid(user.did)}</span>{/if}
 								</p>
-								<p class="text-xs {t.textFaint} truncate">{formatDate(user.registeredAt)}</p>
+								<p class="text-xs {$t.textFaint} truncate">{formatDate(user.registeredAt)}</p>
 							</div>
 							<!-- Ban button — don't show for self -->
 							{#if user.did !== $session?.did}
@@ -353,7 +353,7 @@
 										const reason = prompt(`Reason for banning ${user.handle ?? user.did} (optional):`);
 										if (reason !== null) banUser(user.did, reason);
 									}}
-									class="text-xs px-2.5 py-1 rounded border {t.borderStrong} {t.textMuted} {t.hoverText} {t.hoverBg} transition-colors shrink-0"
+									class="text-xs px-2.5 py-1 rounded border {$t.borderStrong} {$t.textMuted} {$t.hoverText} {$t.hoverBg} transition-colors shrink-0"
 								>
 									Ban
 								</button>
@@ -365,7 +365,7 @@
 					<button
 						on:click={() => loadUsers(true)}
 						disabled={usersLoading}
-						class="w-full text-sm py-2 rounded-lg border {t.borderBase} {t.textMuted} {t.hoverBg} transition-colors disabled:opacity-50"
+						class="w-full text-sm py-2 rounded-lg border {$t.borderBase} {$t.textMuted} {$t.hoverBg} transition-colors disabled:opacity-50"
 					>
 						{usersLoading ? 'Loading…' : 'Load more'}
 					</button>
@@ -378,18 +378,18 @@
 	{#if activeTab === 'bans'}
 		<div class="space-y-6">
 			<!-- Add ban form -->
-			<div class="{t.surfaceBg} border {t.borderStrong} rounded-xl p-4 space-y-3">
-				<p class="text-sm font-medium {t.textSecondary}">Ban a user</p>
+			<div class="{$t.surfaceBg} border {$t.borderStrong} rounded-xl p-4 space-y-3">
+				<p class="text-sm font-medium {$t.textSecondary}">Ban a user</p>
 				<div class="space-y-2">
 					<input
 						bind:value={banDid}
 						placeholder="did:plc:…"
-						class="w-full text-sm font-mono {t.surfaceBg} border {t.borderStrong} rounded-lg px-3 py-2 {t.textPrimary} placeholder:{t.textFaint} focus:outline-none focus:ring-1 focus:ring-current"
+						class="w-full text-sm font-mono {$t.surfaceBg} border {$t.borderStrong} rounded-lg px-3 py-2 {$t.textPrimary} placeholder:{$t.textFaint} focus:outline-none focus:ring-1 focus:ring-current"
 					/>
 					<input
 						bind:value={banReason}
 						placeholder="Reason (optional)"
-						class="w-full text-sm {t.surfaceBg} border {t.borderStrong} rounded-lg px-3 py-2 {t.textPrimary} placeholder:{t.textFaint} focus:outline-none focus:ring-1 focus:ring-current"
+						class="w-full text-sm {$t.surfaceBg} border {$t.borderStrong} rounded-lg px-3 py-2 {$t.textPrimary} placeholder:{$t.textFaint} focus:outline-none focus:ring-1 focus:ring-current"
 					/>
 					{#if banFormError}
 						<p class="text-xs text-red-400">{banFormError}</p>
@@ -397,7 +397,7 @@
 					<button
 						on:click={submitBanForm}
 						disabled={banSubmitting}
-						class="text-sm font-medium px-4 py-2 rounded-lg {t.btnPrimaryBg} {t.btnPrimaryText} {t.btnPrimaryHover} transition-colors disabled:opacity-50"
+						class="text-sm font-medium px-4 py-2 rounded-lg {$t.btnPrimaryBg} {$t.btnPrimaryText} {$t.btnPrimaryHover} transition-colors disabled:opacity-50"
 					>
 						{banSubmitting ? 'Banning…' : 'Ban user'}
 					</button>
@@ -406,20 +406,20 @@
 
 			<!-- Current bans -->
 			{#if bansError}
-				<p class="text-sm {t.textMuted}">Could not load bans — database offline.</p>
+				<p class="text-sm {$t.textMuted}">Could not load bans — database offline.</p>
 			{:else if bans.length === 0 && bansLoading}
 				<div class="space-y-2">
 					{#each [0, 1] as _}
-						<div class="{t.surfaceBg} border {t.borderBase} rounded-lg h-14 animate-pulse"></div>
+						<div class="{$t.surfaceBg} border {$t.borderBase} rounded-lg h-14 animate-pulse"></div>
 					{/each}
 				</div>
 			{:else if bans.length === 0}
-				<p class="text-sm {t.textMuted}">No banned users.</p>
+				<p class="text-sm {$t.textMuted}">No banned users.</p>
 			{:else}
 				<div class="space-y-1">
 					{#each bans as ban (ban.did)}
-						<div class="flex items-center gap-3 {t.surfaceBg} border {t.borderBase} rounded-lg px-3 py-2.5">
-							<div class="w-8 h-8 rounded-full overflow-hidden shrink-0 {t.elevatedBg} flex items-center justify-center text-xs font-semibold {t.textMuted}">
+						<div class="flex items-center gap-3 {$t.surfaceBg} border {$t.borderBase} rounded-lg px-3 py-2.5">
+							<div class="w-8 h-8 rounded-full overflow-hidden shrink-0 {$t.elevatedBg} flex items-center justify-center text-xs font-semibold {$t.textMuted}">
 								{#if ban.avatar}
 									<img src="/api/thumbnail?url={encodeURIComponent(ban.avatar)}" alt="" class="w-full h-full object-cover" />
 								{:else}
@@ -427,16 +427,16 @@
 								{/if}
 							</div>
 							<div class="flex-1 min-w-0">
-								<p class="text-sm font-medium {t.textPrimary} truncate">
+								<p class="text-sm font-medium {$t.textPrimary} truncate">
 									{#if ban.handle}@{ban.handle}{:else}<span class="font-mono text-xs">{truncateDid(ban.did)}</span>{/if}
 								</p>
-								<p class="text-xs {t.textFaint} truncate">
+								<p class="text-xs {$t.textFaint} truncate">
 									{formatDate(ban.bannedAt)}{#if ban.reason} · {ban.reason}{/if}
 								</p>
 							</div>
 							<button
 								on:click={() => unbanUser(ban.did)}
-								class="text-xs px-2.5 py-1 rounded border {t.borderStrong} {t.textMuted} {t.hoverText} {t.hoverBg} transition-colors shrink-0"
+								class="text-xs px-2.5 py-1 rounded border {$t.borderStrong} {$t.textMuted} {$t.hoverText} {$t.hoverBg} transition-colors shrink-0"
 							>
 								Unban
 							</button>
@@ -451,19 +451,19 @@
 	{#if activeTab === 'settings'}
 		<div class="space-y-6 max-w-md">
 			{#if settingsError}
-				<p class="text-sm {t.textMuted}">Could not load settings — database offline.</p>
+				<p class="text-sm {$t.textMuted}">Could not load settings — database offline.</p>
 			{:else if settingsLoading && !settings}
 				<div class="space-y-3">
 					{#each [0, 1, 2] as _}
-						<div class="{t.surfaceBg} border {t.borderBase} rounded-xl h-16 animate-pulse"></div>
+						<div class="{$t.surfaceBg} border {$t.borderBase} rounded-xl h-16 animate-pulse"></div>
 					{/each}
 				</div>
 			{:else}
 				<!-- Album art -->
-				<div class="{t.surfaceBg} border {t.borderStrong} rounded-xl px-4 py-4 flex items-start justify-between gap-4">
+				<div class="{$t.surfaceBg} border {$t.borderStrong} rounded-xl px-4 py-4 flex items-start justify-between gap-4">
 					<div>
-						<p class="text-sm font-medium {t.textPrimary}">Album art</p>
-						<p class="text-xs {t.textMuted} mt-0.5">Show thumbnail images on song cards.</p>
+						<p class="text-sm font-medium {$t.textPrimary}">Album art</p>
+						<p class="text-xs {$t.textMuted} mt-0.5">Show thumbnail images on song cards.</p>
 					</div>
 					<button
 						role="switch"
@@ -471,18 +471,18 @@
 						aria-label="Toggle album art"
 						on:click={() => (albumArtDisabled = !albumArtDisabled)}
 						class="relative shrink-0 w-10 h-6 rounded-full transition-colors
-							{!albumArtDisabled ? t.btnPrimaryBg : t.elevatedBg} border {t.borderStrong}"
+							{!albumArtDisabled ? $t.btnPrimaryBg : $t.elevatedBg} border {$t.borderStrong}"
 					>
-						<span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full {t.pageBg} shadow transition-transform
+						<span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full {$t.pageBg} shadow transition-transform
 							{!albumArtDisabled ? 'translate-x-4' : 'translate-x-0'}"></span>
 					</button>
 				</div>
 
 				<!-- Registration -->
-				<div class="{t.surfaceBg} border {t.borderStrong} rounded-xl px-4 py-4 flex items-start justify-between gap-4">
+				<div class="{$t.surfaceBg} border {$t.borderStrong} rounded-xl px-4 py-4 flex items-start justify-between gap-4">
 					<div>
-						<p class="text-sm font-medium {t.textPrimary}">Open registration</p>
-						<p class="text-xs {t.textMuted} mt-0.5">Allow new users to sign up. Existing users are unaffected.</p>
+						<p class="text-sm font-medium {$t.textPrimary}">Open registration</p>
+						<p class="text-xs {$t.textMuted} mt-0.5">Allow new users to sign up. Existing users are unaffected.</p>
 					</div>
 					<button
 						role="switch"
@@ -490,18 +490,18 @@
 						aria-label="Toggle open registration"
 						on:click={() => (registrationClosed = !registrationClosed)}
 						class="relative shrink-0 w-10 h-6 rounded-full transition-colors
-							{!registrationClosed ? t.btnPrimaryBg : t.elevatedBg} border {t.borderStrong}"
+							{!registrationClosed ? $t.btnPrimaryBg : $t.elevatedBg} border {$t.borderStrong}"
 					>
-						<span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full {t.pageBg} shadow transition-transform
+						<span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full {$t.pageBg} shadow transition-transform
 							{!registrationClosed ? 'translate-x-4' : 'translate-x-0'}"></span>
 					</button>
 				</div>
 
 				<!-- Feed scoping -->
-				<div class="{t.surfaceBg} border {t.borderStrong} rounded-xl px-4 py-4 flex items-start justify-between gap-4">
+				<div class="{$t.surfaceBg} border {$t.borderStrong} rounded-xl px-4 py-4 flex items-start justify-between gap-4">
 					<div>
-						<p class="text-sm font-medium {t.textPrimary}">Instance-scoped feed</p>
-						<p class="text-xs {t.textMuted} mt-0.5">Only show songs shared from this instance. Songs shared on other Khord instances by followed users will not appear.</p>
+						<p class="text-sm font-medium {$t.textPrimary}">Instance-scoped feed</p>
+						<p class="text-xs {$t.textMuted} mt-0.5">Only show songs shared from this instance. Songs shared on other Khord instances by followed users will not appear.</p>
 					</div>
 					<button
 						role="switch"
@@ -509,28 +509,28 @@
 						aria-label="Toggle instance-scoped feed"
 						on:click={() => (feedScoped = !feedScoped)}
 						class="relative shrink-0 w-10 h-6 rounded-full transition-colors
-							{feedScoped ? t.btnPrimaryBg : t.elevatedBg} border {t.borderStrong}"
+							{feedScoped ? $t.btnPrimaryBg : $t.elevatedBg} border {$t.borderStrong}"
 					>
-						<span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full {t.pageBg} shadow transition-transform
+						<span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full {$t.pageBg} shadow transition-transform
 							{feedScoped ? 'translate-x-4' : 'translate-x-0'}"></span>
 					</button>
 				</div>
 
 				<!-- Max users -->
-				<div class="{t.surfaceBg} border {t.borderStrong} rounded-xl px-4 py-4 space-y-3">
+				<div class="{$t.surfaceBg} border {$t.borderStrong} rounded-xl px-4 py-4 space-y-3">
 					<div>
-						<p class="text-sm font-medium {t.textPrimary}">User cap</p>
-						<p class="text-xs {t.textMuted} mt-0.5">Maximum registered users. Set to 0 for unlimited.</p>
+						<p class="text-sm font-medium {$t.textPrimary}">User cap</p>
+						<p class="text-xs {$t.textMuted} mt-0.5">Maximum registered users. Set to 0 for unlimited.</p>
 					</div>
 					<input
 						type="number"
 						min="0"
 						bind:value={maxUsers}
-						class="w-32 text-sm {t.surfaceBg} border {t.borderStrong} rounded-lg px-3 py-2
-							{t.textPrimary} focus:outline-none focus:ring-1 focus:ring-current"
+						class="w-32 text-sm {$t.surfaceBg} border {$t.borderStrong} rounded-lg px-3 py-2
+							{$t.textPrimary} focus:outline-none focus:ring-1 focus:ring-current"
 					/>
 					{#if stats && maxUsers > 0}
-						<p class="text-xs {t.textMuted}">{stats.registeredCount} / {maxUsers} currently registered</p>
+						<p class="text-xs {$t.textMuted}">{stats.registeredCount} / {maxUsers} currently registered</p>
 					{/if}
 				</div>
 
@@ -541,7 +541,7 @@
 					class="text-sm font-medium px-5 py-2 rounded-lg transition-colors disabled:opacity-50
 						{settingsSaved
 							? 'bg-green-900 text-green-300 border border-green-700'
-							: `${t.btnPrimaryBg} ${t.btnPrimaryText} ${t.btnPrimaryHover}`}"
+							: `${$t.btnPrimaryBg} ${$t.btnPrimaryText} ${$t.btnPrimaryHover}`}"
 				>
 					{settingsSaving ? 'Saving…' : settingsSaved ? 'Saved!' : 'Save settings'}
 				</button>

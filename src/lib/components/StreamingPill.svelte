@@ -56,23 +56,23 @@
 
 		{#if open}
 			<button class="fixed inset-0 z-10" aria-label="Close" on:click={() => (open = false)}></button>
-			<div class="absolute left-0 top-full mt-1.5 z-20 {t.surfaceBg} border {t.borderStrong} rounded-xl shadow-xl overflow-hidden min-w-[140px]">
+			<div class="absolute left-0 top-full mt-1.5 z-20 {$t.surfaceBg} border {$t.borderStrong} rounded-xl shadow-xl overflow-hidden min-w-[140px]">
 				{#each rest as platform}
 					<a
 						href={record[platform.key] as string}
 						target="_blank"
 						rel="noopener noreferrer"
 						title="Listen on {platform.label}"
-						class="flex items-center px-3 py-2 text-xs {t.textSecondary} {t.hoverText} {t.hoverBg} transition-colors"
+						class="flex items-center px-3 py-2 text-xs {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors"
 					>
 						{platform.label}
 					</a>
 				{/each}
-				<div class="border-t {t.borderBase}">
+				<div class="border-t {$t.borderBase}">
 					<a
 						href="/settings"
 						title="Set your preferred streaming service"
-						class="flex items-center px-3 py-2 text-xs {t.textFaint} {t.hoverText} {t.hoverBg} transition-colors"
+						class="flex items-center px-3 py-2 text-xs {$t.textFaint} {$t.hoverText} {$t.hoverBg} transition-colors"
 					>
 						Set default…
 					</a>

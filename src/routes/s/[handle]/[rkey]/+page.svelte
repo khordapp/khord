@@ -501,15 +501,15 @@
 {#if confirmDeleteOpen}
 	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
 		<button class="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-label="Cancel" on:click={() => (confirmDeleteOpen = false)}></button>
-		<div class="relative w-full max-w-sm {t.surfaceBg} border {t.borderStrong} rounded-2xl shadow-2xl overflow-hidden">
+		<div class="relative w-full max-w-sm {$t.surfaceBg} border {$t.borderStrong} rounded-2xl shadow-2xl overflow-hidden">
 			<div class="px-5 pt-5 pb-4 space-y-2">
-				<h2 class="text-sm font-semibold {t.textPrimary}">Delete setlist?</h2>
-				<p class="text-xs {t.textMuted}">"{setlist?.value.title}" will be permanently deleted from your AT Protocol account.</p>
+				<h2 class="text-sm font-semibold {$t.textPrimary}">Delete setlist?</h2>
+				<p class="text-xs {$t.textMuted}">"{setlist?.value.title}" will be permanently deleted from your AT Protocol account.</p>
 			</div>
-			<div class="flex border-t {t.borderBase}">
-				<button on:click={() => (confirmDeleteOpen = false)} class="flex-1 px-4 py-3 text-sm {t.textMuted} {t.hoverText} {t.hoverBg} transition-colors">Cancel</button>
+			<div class="flex border-t {$t.borderBase}">
+				<button on:click={() => (confirmDeleteOpen = false)} class="flex-1 px-4 py-3 text-sm {$t.textMuted} {$t.hoverText} {$t.hoverBg} transition-colors">Cancel</button>
 				<button on:click={handleDelete} disabled={deleting}
-					class="flex-1 px-4 py-3 text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-950 border-l {t.borderBase} transition-colors disabled:opacity-50">
+					class="flex-1 px-4 py-3 text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-950 border-l {$t.borderBase} transition-colors disabled:opacity-50">
 					{#if deleting}<span class="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></span>{:else}Delete{/if}
 				</button>
 			</div>
@@ -521,10 +521,10 @@
 {#if shareOpen}
 	<div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
 		<button class="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-label="Cancel" on:click={() => (shareOpen = false)}></button>
-		<div class="relative w-full max-w-sm {t.surfaceBg} border {t.borderStrong} rounded-2xl shadow-2xl overflow-hidden">
-			<div class="px-4 pt-4 pb-2 border-b {t.borderBase} flex items-center justify-between">
-				<span class="text-sm font-semibold {t.textPrimary}">Share setlist</span>
-				<button on:click={() => (shareOpen = false)} aria-label="Close" class="{t.textMuted} {t.hoverTextSecondary} transition-colors">
+		<div class="relative w-full max-w-sm {$t.surfaceBg} border {$t.borderStrong} rounded-2xl shadow-2xl overflow-hidden">
+			<div class="px-4 pt-4 pb-2 border-b {$t.borderBase} flex items-center justify-between">
+				<span class="text-sm font-semibold {$t.textPrimary}">Share setlist</span>
+				<button on:click={() => (shareOpen = false)} aria-label="Close" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">
 					<svg viewBox="0 0 14 14" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
 						<path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
 					</svg>
@@ -535,43 +535,43 @@
 					{#if $session.avatar}
 						<img src={$session.avatar} alt={$session.handle} class="w-8 h-8 rounded-full object-cover shrink-0" />
 					{:else}
-						<div class="w-8 h-8 rounded-full {t.elevatedBg} flex items-center justify-center text-xs font-semibold {t.textSecondary} shrink-0">
+						<div class="w-8 h-8 rounded-full {$t.elevatedBg} flex items-center justify-center text-xs font-semibold {$t.textSecondary} shrink-0">
 							{($session.handle ?? '?')[0].toUpperCase()}
 						</div>
 					{/if}
-					<span class="text-xs {t.textMuted}">@{$session.handle}</span>
+					<span class="text-xs {$t.textMuted}">@{$session.handle}</span>
 				</div>
 			{/if}
 			<!-- Fixed: setlist title as link -->
 			<div class="px-4 pt-3 pb-2">
-				<a href={setlistUrl} target="_blank" rel="noopener noreferrer" class="text-sm font-medium {t.textPrimary} hover:underline">{shareTitleText}</a>
+				<a href={setlistUrl} target="_blank" rel="noopener noreferrer" class="text-sm font-medium {$t.textPrimary} hover:underline">{shareTitleText}</a>
 			</div>
 
 			<!-- Editable: optional note -->
-			<div class="px-4 pb-2 border-y {t.borderBase}">
+			<div class="px-4 pb-2 border-y {$t.borderBase}">
 				<textarea
 					bind:value={shareNote}
 					rows="3"
-					class="w-full bg-transparent text-sm {t.textPrimary} placeholder:{t.textFaint} py-2.5 resize-none focus:outline-none"
+					class="w-full bg-transparent text-sm {$t.textPrimary} placeholder:{$t.textFaint} py-2.5 resize-none focus:outline-none"
 					placeholder="Add a note… (optional)"
 				></textarea>
 			</div>
 
 			<!-- Fixed: footer -->
 			<div class="px-4 pt-2 pb-1">
-				<p class="text-xs {t.textFaint}">{shareFooter}</p>
+				<p class="text-xs {$t.textFaint}">{shareFooter}</p>
 			</div>
 
 			<div class="flex items-center justify-between px-4 pb-3">
-				<span class="text-xs {shareOver ? 'text-red-400' : shareCharsLeft <= 20 ? 'text-amber-400' : t.textFaint}">
+				<span class="text-xs {shareOver ? 'text-red-400' : shareCharsLeft <= 20 ? 'text-amber-400' : $t.textFaint}">
 					{shareCharsLeft}
 				</span>
 				<div class="flex items-center gap-2">
-					<button on:click={() => (shareOpen = false)} class="text-xs {t.textMuted} {t.hoverTextSecondary} px-3 py-1.5 transition-colors">Cancel</button>
+					<button on:click={() => (shareOpen = false)} class="text-xs {$t.textMuted} {$t.hoverTextSecondary} px-3 py-1.5 transition-colors">Cancel</button>
 					<button
 						on:click={submitShare}
 						disabled={sharePosting || shareOver}
-						class="text-xs font-semibold {t.btnPrimaryBg} {t.btnPrimaryText} px-3 py-1.5 rounded-full {t.btnPrimaryHover} transition-colors disabled:opacity-40"
+						class="text-xs font-semibold {$t.btnPrimaryBg} {$t.btnPrimaryText} px-3 py-1.5 rounded-full {$t.btnPrimaryHover} transition-colors disabled:opacity-40"
 					>
 						{#if sharePosting}
 							<span class="inline-flex items-center gap-1.5">
@@ -598,16 +598,16 @@
 						bind:this={titleInputEl}
 						bind:value={titleDraft}
 						maxlength="100"
-						class="flex-1 {t.elevatedBg} border {t.borderStrong} rounded-lg px-3 py-1.5 text-lg font-bold {t.textPrimary} focus:outline-none {t.hoverBorderStrong} transition-colors"
+						class="flex-1 {$t.elevatedBg} border {$t.borderStrong} rounded-lg px-3 py-1.5 text-lg font-bold {$t.textPrimary} focus:outline-none {$t.hoverBorderStrong} transition-colors"
 					/>
-					<button type="submit" disabled={saving} class="text-xs {t.textSecondary} {t.hoverText} px-2.5 py-1 border {t.borderStrong} rounded-full transition-colors disabled:opacity-50">Save</button>
-					<button type="button" on:click={() => (editingTitle = false)} class="text-xs {t.textMuted} {t.hoverTextSecondary} border {t.borderBase} px-2.5 py-1 rounded-full transition-colors">Cancel</button>
+					<button type="submit" disabled={saving} class="text-xs {$t.textSecondary} {$t.hoverText} px-2.5 py-1 border {$t.borderStrong} rounded-full transition-colors disabled:opacity-50">Save</button>
+					<button type="button" on:click={() => (editingTitle = false)} class="text-xs {$t.textMuted} {$t.hoverTextSecondary} border {$t.borderBase} px-2.5 py-1 rounded-full transition-colors">Cancel</button>
 				</form>
 			{:else}
 				<div class="flex items-center gap-2 min-w-0">
 					<h1 class="text-xl font-bold truncate">{setlist?.value.title ?? '…'}</h1>
 					{#if isOwn && !loading}
-						<button on:click={startEditTitle} aria-label="Edit title" class="{t.textFaint} {t.hoverTextSecondary} transition-colors shrink-0">
+						<button on:click={startEditTitle} aria-label="Edit title" class="{$t.textFaint} {$t.hoverTextSecondary} transition-colors shrink-0">
 							<svg viewBox="0 0 14 14" fill="none" class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg">
 								<path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5Z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/>
 							</svg>
@@ -626,8 +626,8 @@
 							title="Post this setlist to your feed"
 							class="flex items-center gap-1.5 text-xs border px-2.5 py-1 rounded-full transition-colors
 								{sharePosted
-									? `${t.textPrimary} ${t.elevatedBg} ${t.borderStrong}`
-									: `${t.textMuted} ${t.hoverText} ${t.borderBase} ${t.hoverBorderBase}`}"
+									? `${$t.textPrimary} ${$t.elevatedBg} ${$t.borderStrong}`
+									: `${$t.textMuted} ${$t.hoverText} ${$t.borderBase} ${$t.hoverBorderBase}`}"
 						>
 							{#if sharePosted}
 								<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
@@ -650,7 +650,7 @@
 							aria-label="Delete setlist"
 							title="Permanently delete this setlist"
 							class="flex items-center gap-1.5 text-xs border px-2.5 py-1 rounded-full transition-colors
-								{t.textFaint} {t.borderBase} hover:text-red-400 hover:border-red-900"
+								{$t.textFaint} {$t.borderBase} hover:text-red-400 hover:border-red-900"
 						>
 							<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
 								<path d="M2 4h10M5 4V2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V4M9 4v7.5a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5V4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
@@ -663,17 +663,17 @@
 		</div>
 
 		{#if setlist}
-			<p class="text-xs {t.textMuted}">
+			<p class="text-xs {$t.textMuted}">
 				{setlist.value.items.length} {setlist.value.items.length === 1 ? 'song' : 'songs'}
 				· by @{handle}
 				· {timeAgo(setlist.value.createdAt)}
-				{#if saving}<span class="{t.textFaint} ml-1">Saving…</span>{/if}
+				{#if saving}<span class="{$t.textFaint} ml-1">Saving…</span>{/if}
 			</p>
 		{/if}
 	</div>
 
 	<div class="flex items-center justify-between gap-4">
-		<a href="/" class="inline-flex items-center gap-1.5 text-xs {t.textMuted} {t.hoverText} transition-colors">
+		<a href="/" class="inline-flex items-center gap-1.5 text-xs {$t.textMuted} {$t.hoverText} transition-colors">
 			<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3" xmlns="http://www.w3.org/2000/svg">
 				<path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 			</svg>
@@ -683,7 +683,7 @@
 		{#if isOwn && !loading}
 			<button
 				on:click={() => (addOpen = !addOpen)}
-				class="flex items-center gap-1.5 text-xs {addOpen ? `${t.textPrimary} ${t.elevatedBg} ${t.borderStrong}` : `${t.textMuted} ${t.hoverText} border-transparent`}
+				class="flex items-center gap-1.5 text-xs {addOpen ? `${$t.textPrimary} ${$t.elevatedBg} ${$t.borderStrong}` : `${$t.textMuted} ${$t.hoverText} border-transparent`}
 					border px-2.5 py-1 rounded-full transition-colors"
 			>
 				<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0 transition-transform {addOpen ? 'rotate-45' : ''}" xmlns="http://www.w3.org/2000/svg">
@@ -694,7 +694,7 @@
 		{:else if $session && !isOwn && !loading}
 			<button
 				on:click={() => (proposeOpen = !proposeOpen)}
-				class="flex items-center gap-1.5 text-xs {proposeOpen ? `${t.textPrimary} ${t.elevatedBg} ${t.borderStrong}` : `${t.textMuted} ${t.hoverText} border-transparent`}
+				class="flex items-center gap-1.5 text-xs {proposeOpen ? `${$t.textPrimary} ${$t.elevatedBg} ${$t.borderStrong}` : `${$t.textMuted} ${$t.hoverText} border-transparent`}
 					border px-2.5 py-1 rounded-full transition-colors"
 			>
 				<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0 transition-transform {proposeOpen ? 'rotate-45' : ''}" xmlns="http://www.w3.org/2000/svg">
@@ -706,7 +706,7 @@
 	</div>
 
 	{#if addOpen && isOwn}
-		<div class="{t.surfaceBg} border {t.borderBase} rounded-xl px-4 py-3 space-y-2">
+		<div class="{$t.surfaceBg} border {$t.borderBase} rounded-xl px-4 py-3 space-y-2">
 			<div class="relative">
 				<input
 					type="search"
@@ -714,13 +714,13 @@
 					placeholder="Search for a song…"
 					disabled={addResolving}
 					use:focusEl
-					class="w-full {t.elevatedBg} border {t.borderStrong} rounded-lg pl-8 pr-3 py-2 text-sm {t.textPrimary}
-						placeholder:{t.textMuted} focus:outline-none {t.hoverBorderStrong} transition-colors disabled:opacity-50"
+					class="w-full {$t.elevatedBg} border {$t.borderStrong} rounded-lg pl-8 pr-3 py-2 text-sm {$t.textPrimary}
+						placeholder:{$t.textMuted} focus:outline-none {$t.hoverBorderStrong} transition-colors disabled:opacity-50"
 				/>
-				<span class="absolute left-2.5 top-1/2 -translate-y-1/2 {t.textMuted} text-sm pointer-events-none">♪</span>
+				<span class="absolute left-2.5 top-1/2 -translate-y-1/2 {$t.textMuted} text-sm pointer-events-none">♪</span>
 				{#if addSearching || addResolving}
 					<span class="absolute right-3 top-1/2 -translate-y-1/2">
-						<span class="block w-3.5 h-3.5 border-2 {t.borderStrong} border-t-white rounded-full animate-spin"></span>
+						<span class="block w-3.5 h-3.5 border-2 {$t.borderStrong} border-t-white rounded-full animate-spin"></span>
 					</span>
 				{/if}
 			</div>
@@ -730,13 +730,13 @@
 			{/if}
 
 			{#if addQuery.trim().length >= 2}
-				<div class="rounded-lg border {t.borderBase} {t.recessedBg} overflow-hidden max-h-52 overflow-y-auto">
+				<div class="rounded-lg border {$t.borderBase} {$t.recessedBg} overflow-hidden max-h-52 overflow-y-auto">
 					{#if addSearching && addResults.length === 0}
 						<div class="px-4 py-3 space-y-2.5">
 							{#each [1, 2, 3] as _}
 								<div class="space-y-1.5">
-									<div class="h-3.5 w-2/3 {t.elevatedBg} rounded animate-pulse"></div>
-									<div class="h-3 w-1/3 {t.elevatedBg} rounded animate-pulse"></div>
+									<div class="h-3.5 w-2/3 {$t.elevatedBg} rounded animate-pulse"></div>
+									<div class="h-3 w-1/3 {$t.elevatedBg} rounded animate-pulse"></div>
 								</div>
 							{/each}
 						</div>
@@ -750,11 +750,11 @@
 									<button
 										on:click={() => !alreadyAdded && addSongToSetlist(result)}
 										disabled={alreadyAdded || addResolving}
-										class="w-full text-left px-4 py-3 border-b {t.borderBase} last:border-0 transition-colors
-											{alreadyAdded ? 'opacity-40 cursor-default' : t.hoverBg}"
+										class="w-full text-left px-4 py-3 border-b {$t.borderBase} last:border-0 transition-colors
+											{alreadyAdded ? 'opacity-40 cursor-default' : $t.hoverBg}"
 									>
-										<p class="text-sm {t.textPrimary} truncate">{result.title}</p>
-										<p class="text-xs {t.textMuted} truncate">
+										<p class="text-sm {$t.textPrimary} truncate">{result.title}</p>
+										<p class="text-xs {$t.textMuted} truncate">
 											{result.artist}{result.album ? ` · ${result.album}` : ''}
 										</p>
 									</button>
@@ -762,25 +762,25 @@
 							{/each}
 						</ul>
 					{:else if !addSearching}
-						<div class="px-4 py-4 text-center {t.textMuted} text-sm">No results found.</div>
+						<div class="px-4 py-4 text-center {$t.textMuted} text-sm">No results found.</div>
 					{/if}
 				</div>
 			{/if}
 
 			<label class="flex items-center gap-2 cursor-pointer select-none pt-1">
 				<input type="checkbox" bind:checked={addShareToFeed} class="rounded accent-violet-500" />
-				<span class="text-xs {t.textMuted}">Also share to feed</span>
+				<span class="text-xs {$t.textMuted}">Also share to feed</span>
 			</label>
 		</div>
 	{/if}
 
 	<!-- Propose panel (non-owner) -->
 	{#if proposeOpen && $session && !isOwn}
-		<div class="{t.surfaceBg} border {t.borderBase} rounded-xl px-4 py-3 space-y-2">
+		<div class="{$t.surfaceBg} border {$t.borderBase} rounded-xl px-4 py-3 space-y-2">
 			{#if proposeSubmitted}
 				<div class="py-4 text-center space-y-1">
-					<p class="text-sm font-medium {t.textPrimary}">Proposal submitted!</p>
-					<p class="text-xs {t.textMuted}">The setlist owner will review your suggestion.</p>
+					<p class="text-sm font-medium {$t.textPrimary}">Proposal submitted!</p>
+					<p class="text-xs {$t.textMuted}">The setlist owner will review your suggestion.</p>
 				</div>
 			{:else}
 				<div class="relative">
@@ -789,13 +789,13 @@
 						bind:value={proposeQuery}
 						placeholder="Search for a song to propose…"
 						disabled={proposeResolving}
-						class="w-full {t.elevatedBg} border {t.borderStrong} rounded-lg pl-8 pr-3 py-2 text-sm {t.textPrimary}
-							placeholder:{t.textMuted} focus:outline-none {t.hoverBorderStrong} transition-colors disabled:opacity-50"
+						class="w-full {$t.elevatedBg} border {$t.borderStrong} rounded-lg pl-8 pr-3 py-2 text-sm {$t.textPrimary}
+							placeholder:{$t.textMuted} focus:outline-none {$t.hoverBorderStrong} transition-colors disabled:opacity-50"
 					/>
-					<span class="absolute left-2.5 top-1/2 -translate-y-1/2 {t.textMuted} text-sm pointer-events-none">♪</span>
+					<span class="absolute left-2.5 top-1/2 -translate-y-1/2 {$t.textMuted} text-sm pointer-events-none">♪</span>
 					{#if proposeSearching || proposeResolving}
 						<span class="absolute right-3 top-1/2 -translate-y-1/2">
-							<span class="block w-3.5 h-3.5 border-2 {t.borderStrong} border-t-white rounded-full animate-spin"></span>
+							<span class="block w-3.5 h-3.5 border-2 {$t.borderStrong} border-t-white rounded-full animate-spin"></span>
 						</span>
 					{/if}
 				</div>
@@ -805,13 +805,13 @@
 				{/if}
 
 				{#if proposeQuery.trim().length >= 2}
-					<div class="rounded-lg border {t.borderBase} {t.recessedBg} overflow-hidden max-h-52 overflow-y-auto">
+					<div class="rounded-lg border {$t.borderBase} {$t.recessedBg} overflow-hidden max-h-52 overflow-y-auto">
 						{#if proposeSearching && proposeResults.length === 0}
 							<div class="px-4 py-3 space-y-2.5">
 								{#each [1, 2, 3] as _}
 									<div class="space-y-1.5">
-										<div class="h-3.5 w-2/3 {t.elevatedBg} rounded animate-pulse"></div>
-										<div class="h-3 w-1/3 {t.elevatedBg} rounded animate-pulse"></div>
+										<div class="h-3.5 w-2/3 {$t.elevatedBg} rounded animate-pulse"></div>
+										<div class="h-3 w-1/3 {$t.elevatedBg} rounded animate-pulse"></div>
 									</div>
 								{/each}
 							</div>
@@ -822,10 +822,10 @@
 										<button
 											on:click={() => submitProposal(result)}
 											disabled={proposeResolving}
-											class="w-full text-left px-4 py-3 border-b {t.borderBase} last:border-0 {t.hoverBg} transition-colors disabled:opacity-50"
+											class="w-full text-left px-4 py-3 border-b {$t.borderBase} last:border-0 {$t.hoverBg} transition-colors disabled:opacity-50"
 										>
-											<p class="text-sm {t.textPrimary} truncate">{result.title}</p>
-											<p class="text-xs {t.textMuted} truncate">
+											<p class="text-sm {$t.textPrimary} truncate">{result.title}</p>
+											<p class="text-xs {$t.textMuted} truncate">
 												{result.artist}{result.album ? ` · ${result.album}` : ''}
 											</p>
 										</button>
@@ -833,7 +833,7 @@
 								{/each}
 							</ul>
 						{:else if !proposeSearching}
-							<div class="px-4 py-4 text-center {t.textMuted} text-sm">No results found.</div>
+							<div class="px-4 py-4 text-center {$t.textMuted} text-sm">No results found.</div>
 						{/if}
 					</div>
 				{/if}
@@ -844,8 +844,8 @@
 					rows="2"
 					maxlength="300"
 					disabled={proposeResolving}
-					class="w-full {t.elevatedBg} border {t.borderStrong} rounded-lg px-3 py-2 text-sm {t.textPrimary}
-						placeholder:{t.textMuted} focus:outline-none resize-none disabled:opacity-50"
+					class="w-full {$t.elevatedBg} border {$t.borderStrong} rounded-lg px-3 py-2 text-sm {$t.textPrimary}
+						placeholder:{$t.textMuted} focus:outline-none resize-none disabled:opacity-50"
 				></textarea>
 			{/if}
 		</div>
@@ -855,25 +855,25 @@
 	{#if isOwn && !loading && (proposalsLoading || proposals.length > 0)}
 		<div class="space-y-2">
 			<div class="flex items-center gap-2">
-				<h2 class="text-xs font-semibold {t.textMuted} uppercase tracking-wider">Proposals</h2>
+				<h2 class="text-xs font-semibold {$t.textMuted} uppercase tracking-wider">Proposals</h2>
 				{#if proposalsLoading}
-					<span class="w-3 h-3 border-2 {t.borderStrong} border-t-transparent rounded-full animate-spin"></span>
+					<span class="w-3 h-3 border-2 {$t.borderStrong} border-t-transparent rounded-full animate-spin"></span>
 				{:else}
-					<span class="text-xs {t.textFaint}">{proposals.length}</span>
+					<span class="text-xs {$t.textFaint}">{proposals.length}</span>
 				{/if}
 			</div>
 
 			{#each proposals as proposal (proposal.uri)}
 				{@const s = proposal.value.snapshot}
-				<div class="rounded-xl border {t.borderBase} {t.surfaceBg} px-4 py-3 flex items-center gap-3">
+				<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} px-4 py-3 flex items-center gap-3">
 					{#if !$instanceConfig.albumArtDisabled && s.thumbnailUrl}
 						<img src={s.thumbnailUrl} alt="" aria-hidden="true" class="w-10 h-10 rounded-md object-cover shrink-0" />
 					{/if}
 
 					<div class="flex-1 min-w-0">
-						<p class="text-sm font-semibold {t.textPrimary} truncate">{s.title}</p>
-						<p class="text-xs {t.textMuted} truncate">{s.artist}{s.album ? ` · ${s.album}` : ''}</p>
-						<p class="text-xs {t.textFaint} truncate mt-0.5">
+						<p class="text-sm font-semibold {$t.textPrimary} truncate">{s.title}</p>
+						<p class="text-xs {$t.textMuted} truncate">{s.artist}{s.album ? ` · ${s.album}` : ''}</p>
+						<p class="text-xs {$t.textFaint} truncate mt-0.5">
 							proposed by @{proposal.proposerHandle ?? proposal.proposerDid}
 							{#if proposal.value.note}· "{proposal.value.note}"{/if}
 						</p>
@@ -883,7 +883,7 @@
 						<button
 							on:click={() => acceptProposal(proposal)}
 							disabled={!!acceptingUri}
-							class="text-xs font-medium px-3 py-1.5 rounded-full {t.btnPrimaryBg} {t.btnPrimaryText} {t.btnPrimaryHover} transition-colors disabled:opacity-40"
+							class="text-xs font-medium px-3 py-1.5 rounded-full {$t.btnPrimaryBg} {$t.btnPrimaryText} {$t.btnPrimaryHover} transition-colors disabled:opacity-40"
 						>
 							{#if acceptingUri === proposal.uri}
 								<span class="inline-block w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
@@ -896,7 +896,7 @@
 							aria-label="Dismiss proposal"
 							title="Hide this proposal"
 							class="flex items-center gap-1.5 text-xs border px-2.5 py-1 rounded-full transition-colors
-								{t.textFaint} {t.borderBase} {t.hoverTextSecondary} {t.hoverBorderBase}"
+								{$t.textFaint} {$t.borderBase} {$t.hoverTextSecondary} {$t.hoverBorderBase}"
 						>
 							<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
 								<path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -910,17 +910,17 @@
 	{/if}
 
 	{#if loading}
-		<p class="{t.textMuted} text-sm">Loading…</p>
+		<p class="{$t.textMuted} text-sm">Loading…</p>
 	{:else if error}
 		<p class="text-red-400 text-sm">{error}</p>
 	{:else if dndItems.length === 0}
-		<div class="rounded-xl border {t.borderBase} {t.surfaceBg} px-5 py-10 text-center space-y-2">
-			<p class="{t.textSecondary} text-sm font-medium">This setlist is empty</p>
-			<p class="{t.textMuted} text-xs">Select songs in the Feed tab and add them to a setlist.</p>
+		<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-10 text-center space-y-2">
+			<p class="{$t.textSecondary} text-sm font-medium">This setlist is empty</p>
+			<p class="{$t.textMuted} text-xs">Select songs in the Feed tab and add them to a setlist.</p>
 		</div>
 	{:else}
 		{#if isOwn && dndItems.length > 1}
-			<p class="text-xs {t.textFaint} flex items-center gap-1.5">
+			<p class="text-xs {$t.textFaint} flex items-center gap-1.5">
 				<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
 					<path d="M2 4h10M2 7h10M2 10h10" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
 				</svg>
@@ -936,11 +936,11 @@
 		>
 			{#each dndItems as dndItem (dndItem.id)}
 				<div animate:flip={{ duration: 150 }}
-					class="flex items-center gap-3 rounded-xl border {t.borderBase} {t.surfaceBg} px-4 py-3
+					class="flex items-center gap-3 rounded-xl border {$t.borderBase} {$t.surfaceBg} px-4 py-3
 						{isOwn ? 'cursor-grab active:cursor-grabbing' : ''}"
 				>
 					{#if isOwn}
-						<svg viewBox="0 0 14 14" fill="none" class="w-4 h-4 {t.textFaint} shrink-0" xmlns="http://www.w3.org/2000/svg">
+						<svg viewBox="0 0 14 14" fill="none" class="w-4 h-4 {$t.textFaint} shrink-0" xmlns="http://www.w3.org/2000/svg">
 							<path d="M2 4h10M2 7h10M2 10h10" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
 						</svg>
 					{/if}
@@ -951,15 +951,15 @@
 
 					<div class="flex-1 min-w-0">
 						{#if dndItem.record}
-							<p class="text-sm font-semibold {t.textPrimary} truncate">{dndItem.record.title}</p>
-							<p class="text-xs {t.textMuted} truncate">{dndItem.record.artist}{dndItem.record.album ? ` · ${dndItem.record.album}` : ''}</p>
+							<p class="text-sm font-semibold {$t.textPrimary} truncate">{dndItem.record.title}</p>
+							<p class="text-xs {$t.textMuted} truncate">{dndItem.record.artist}{dndItem.record.album ? ` · ${dndItem.record.album}` : ''}</p>
 						{:else}
-							<p class="text-sm {t.textMuted} truncate">{dndItem.id}</p>
+							<p class="text-sm {$t.textMuted} truncate">{dndItem.id}</p>
 						{/if}
 					</div>
 
 					{#if (voteCounts.get(dndItem.id) ?? 0) > 0}
-						<span class="text-xs {t.textMuted} shrink-0 tabular-nums">♪ {voteCounts.get(dndItem.id)}</span>
+						<span class="text-xs {$t.textMuted} shrink-0 tabular-nums">♪ {voteCounts.get(dndItem.id)}</span>
 					{/if}
 
 					{#if dndItem.record}
@@ -969,7 +969,7 @@
 								href={dndItem.record.songlinkUrl}
 								target="_blank"
 								rel="noopener noreferrer"
-								class="text-xs {t.linkText} {t.linkTextHover} border {t.linkBorder} {t.linkBorderHover} px-2.5 py-1 rounded-full transition-colors shrink-0"
+								class="text-xs {$t.linkText} {$t.linkTextHover} border {$t.linkBorder} {$t.linkBorderHover} px-2.5 py-1 rounded-full transition-colors shrink-0"
 							>
 								song.link
 							</a>
@@ -981,7 +981,7 @@
 							on:click={() => removeItem(dndItem.id)}
 							aria-label="Remove from setlist"
 							title="Remove this song from the setlist"
-							class="flex items-center justify-center w-7 h-7 rounded-full border {t.borderBase} {t.textFaint} hover:text-red-400 hover:border-red-900 transition-colors shrink-0"
+							class="flex items-center justify-center w-7 h-7 rounded-full border {$t.borderBase} {$t.textFaint} hover:text-red-400 hover:border-red-900 transition-colors shrink-0"
 						>
 							<svg viewBox="0 0 14 14" fill="none" class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg">
 								<path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -995,8 +995,8 @@
 
 	<!-- DEV ONLY: seed a test proposal from your own session so you can see the owner proposals UI -->
 	{#if import.meta.env.DEV && isOwn && setlist && $session}
-		<div class="mt-8 pt-6 border-t {t.borderBase}">
-			<p class="text-xs {t.textFaint} mb-2">Dev tools</p>
+		<div class="mt-8 pt-6 border-t {$t.borderBase}">
+			<p class="text-xs {$t.textFaint} mb-2">Dev tools</p>
 			<button
 				on:click={async () => {
 					try {
@@ -1018,7 +1018,7 @@
 						alert(e instanceof Error ? e.message : 'Seed failed');
 					}
 				}}
-				class="text-xs {t.textMuted} border {t.borderBase} px-3 py-1.5 rounded-lg {t.hoverBg} transition-colors"
+				class="text-xs {$t.textMuted} border {$t.borderBase} px-3 py-1.5 rounded-lg {$t.hoverBg} transition-colors"
 			>
 				+ Seed test proposal
 			</button>

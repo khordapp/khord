@@ -43,11 +43,11 @@
 <div class="flex flex-col items-center justify-center py-24 space-y-4 text-center">
 	{#if error}
 		<p class="text-red-400 text-sm max-w-sm">{error}</p>
-		<a href="/settings" class="text-sm {t.textMuted} {t.hoverText} transition-colors">
+		<a href="/settings" class="text-sm {$t.textMuted} {$t.hoverText} transition-colors">
 			← Back to settings
 		</a>
 	{:else}
-		<div class="w-6 h-6 border-2 {t.borderStrong} border-t-white rounded-full animate-spin"></div>
-		<p class="{t.textMuted} text-sm">Connecting Spotify…</p>
+		<div class="w-6 h-6 border-2 {$t.borderStrong} border-t-white rounded-full animate-spin"></div>
+		<p class="{$t.textMuted} text-sm">Connecting Spotify…</p>
 	{/if}
 </div>
