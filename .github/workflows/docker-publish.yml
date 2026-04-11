@@ -1,12 +1,14 @@
-name: Publish Docker images
+name: Publish Docker image
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
+    tags: ['v*']
 
 env:
   REGISTRY: ghcr.io
-  APP_IMAGE: ghcr.io/${{ github.repository_owner }}/khord
-  INDEXER_IMAGE: ghcr.io/${{ github.repository_owner }}/khord-indexer
+  IMAGE: ghcr.io/${{ github.repository_owner }}/khord
 
 jobs:
   build-and-push:
@@ -32,44 +34,23 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata — app
-        id: meta-app
+      - name: Extract metadata
+        id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.APP_IMAGE }}
+          images: ${{ env.IMAGE }}
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Extract metadata — indexer
-        id: meta-indexer
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.INDEXER_IMAGE }}
-          tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push app image
+      - name: Build and push image
         uses: docker/build-push-action@v5
         with:
           context: .
           dockerfile: Dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta-app.outputs.tags }}
-          labels: ${{ steps.meta-app.outputs.labels }}
-
-      - name: Build and push indexer image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          dockerfile: indexer/Dockerfile
-          push: true
-          platforms: linux/amd64,linux/arm64
-          tags: ${{ steps.meta-indexer.outputs.tags }}
-          labels: ${{ steps.meta-indexer.outputs.labels }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

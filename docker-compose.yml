@@ -17,9 +17,7 @@ services:
       - indexer
 
   indexer:
-    build:
-      context: .
-      dockerfile: indexer/Dockerfile
+    image: ghcr.io/khordapp/khord-indexer:latest
     restart: unless-stopped
     environment:
       INDEXER_DB_PATH: /data/khord.db
