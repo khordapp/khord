@@ -32,47 +32,53 @@
 	}
 
 	async function handleShare() {
-		if (!selected || !$session) return;
+		if (!selected || !$session || sharing) return;
 		sharing = true;
 		shareError = '';
+
+		// Capture everything before the modal closes
+		const track = selected;
+		const trimmedNote = note.trim();
+		const agent = getAgent();
+		const did = $session.did;
+
+		// Show success immediately, then close — resolution continues in the background
+		shared = true;
+		setTimeout(closeShareSong, 800);
+
 		try {
-			const trimmedNote = note.trim();
 			let record: KhordSongRecord = {
-				title: selected.title,
-				artist: selected.artist,
-				...(selected.album && { album: selected.album }),
+				title: track.title,
+				artist: track.artist,
+				...(track.album && { album: track.album }),
 				...(trimmedNote && { note: trimmedNote }),
 				instanceUrl: APP_URL,
 				createdAt: new Date().toISOString()
 			};
 
-			if (selected.appleMusicUrl) {
-				const res = await fetch(`/api/resolve?url=${encodeURIComponent(selected.appleMusicUrl)}`);
+			if (track.appleMusicUrl) {
+				const res = await fetch(`/api/resolve?url=${encodeURIComponent(track.appleMusicUrl)}`);
 				if (!res.ok) throw new Error(`Could not resolve song links (${res.status})`);
 				const odesliResult: OdesliResponse = await res.json();
 				const platformUrls = extractPlatformUrls(odesliResult);
 				const entity = getCanonicalEntity(odesliResult);
 				record = {
 					...record,
-					title: entity?.title ?? selected.title,
-					artist: entity?.artistName ?? selected.artist,
+					title: entity?.title ?? track.title,
+					artist: entity?.artistName ?? track.artist,
 					...platformUrls
 				};
 			}
 
-			const res = await getAgent().com.atproto.repo.createRecord({
-				repo: $session.did,
+			const res = await agent.com.atproto.repo.createRecord({
+				repo: did,
 				collection: SONG_NSID,
 				record: { $type: SONG_NSID, ...record }
 			});
 
 			lastSharedSong.set({ uri: res.data.uri, cid: res.data.cid, value: record });
-			shared = true;
-			setTimeout(closeShareSong, 1500);
 		} catch (e) {
-			shareError = e instanceof Error ? e.message : 'Failed to share. Please try again.';
-		} finally {
-			sharing = false;
+			console.error('[ShareSong] background resolution failed:', e);
 		}
 	}
 
@@ -115,9 +121,10 @@
 
 	<div class="p-5 space-y-4 overflow-y-auto">
 		{#if shared}
-			<div class="py-6 text-center space-y-1">
+			<div class="py-6 text-center space-y-2">
 				<p class="{$t.textPrimary} text-sm font-medium">Added to your lineup</p>
 				<p class="{$t.textMuted} text-xs">{selected?.title} · {selected?.artist}</p>
+				<p class="{$t.textFaint} text-xs">Resolving streaming links in the background…</p>
 			</div>
 		{:else if !selected}
 			<SongSearch autofocus on:select={handleSelect} />

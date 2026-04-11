@@ -82,7 +82,7 @@
 					type="text"
 					autocomplete="username"
 					placeholder="you.bsky.social"
-					class="w-full {$t.surfaceBg} border {$t.borderStrong} rounded-md px-3 py-2 text-sm {$t.textPrimary}
+					class="w-full {$t.surfaceBg} border {$t.borderStrong} rounded-md px-3 py-2 text-base sm:text-sm {$t.textPrimary}
 						focus:outline-none focus:ring-1 {$t.focusRing} placeholder:{$t.textFaint}"
 				/>
 				{#if isEmail}

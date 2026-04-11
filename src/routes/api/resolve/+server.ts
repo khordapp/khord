@@ -32,17 +32,24 @@ export const GET: RequestHandler = async ({ url }) => {
 	}
 
 	try {
+		const t0 = performance.now();
 		const result = await resolveUrl(cleanUrl);
+		const tOdesli = performance.now() - t0;
 
 		// Odesli omits Spotify and YouTube Music — look them up directly.
 		const entity = getCanonicalEntity(result);
+		let tSpotify = 0;
+		let tYoutube = 0;
 		if (entity?.title && entity?.artistName) {
 			const spotifyEnabled = getSetting('spotify_enabled', 'true') === 'true';
 			const youtubeMusicEnabled = getSetting('youtube_music_enabled', 'false') === 'true';
+			const tLookup = performance.now();
 			const [spotifyUrl, youtubeMusicUrl] = await Promise.all([
 				spotifyEnabled ? findSpotifyUrl(entity.title, entity.artistName) : Promise.resolve(null),
 				youtubeMusicEnabled ? findYoutubeMusicUrl(entity.title, entity.artistName) : Promise.resolve(null)
 			]);
+			tSpotify = spotifyEnabled ? performance.now() - tLookup : 0;
+			tYoutube = youtubeMusicEnabled ? performance.now() - tLookup : 0;
 			if (spotifyUrl) {
 				result.linksByPlatform['spotify'] = { country: 'US', url: spotifyUrl, entityUniqueId: '' };
 			}
@@ -50,6 +57,9 @@ export const GET: RequestHandler = async ({ url }) => {
 				result.linksByPlatform['youtubeMusic'] = { country: 'US', url: youtubeMusicUrl, entityUniqueId: '' };
 			}
 		}
+
+		const tTotal = performance.now() - t0;
+		console.log(`[resolve] odesli=${tOdesli.toFixed(0)}ms spotify=${tSpotify.toFixed(0)}ms youtube=${tYoutube.toFixed(0)}ms total=${tTotal.toFixed(0)}ms url=${cleanUrl}`);
 
 		cache.set(cleanUrl, result);
 		return json(result);

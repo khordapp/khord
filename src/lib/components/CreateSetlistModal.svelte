@@ -153,7 +153,7 @@
 
 <svelte:window on:keydown={handleKeydown} />
 
-<div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
 	<button class="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-label="Close" on:click={closeCreateSetlist}></button>
 
 	<div class="relative w-full max-w-md {$t.surfaceBg} border {$t.borderStrong} rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
@@ -176,7 +176,7 @@
 					on:blur={() => (titleFocused = false)}
 					placeholder="Setlist name…"
 					maxlength={TITLE_LIMIT}
-					class="w-full {$t.elevatedBg} border {$t.borderStrong} rounded-lg px-3 py-2 text-sm {$t.textPrimary}
+					class="w-full {$t.elevatedBg} border {$t.borderStrong} rounded-lg px-3 py-2 text-base sm:text-sm {$t.textPrimary}
 						placeholder:{$t.textMuted} focus:outline-none {$t.hoverBorderStrong} transition-colors"
 				/>
 				{#if titleFocused || title.length > TITLE_LIMIT * 0.8}
@@ -194,7 +194,7 @@
 						bind:value={query}
 						placeholder="Search for a song…"
 						disabled={resolving}
-						class="w-full {$t.elevatedBg} border {$t.borderStrong} rounded-lg pl-9 pr-3 py-2 text-sm {$t.textPrimary}
+						class="w-full {$t.elevatedBg} border {$t.borderStrong} rounded-lg pl-9 pr-3 py-2 text-base sm:text-sm {$t.textPrimary}
 							placeholder:{$t.textMuted} focus:outline-none {$t.hoverBorderStrong} transition-colors disabled:opacity-50"
 					/>
 					<span class="absolute left-3 top-1/2 -translate-y-1/2 {$t.textMuted} text-sm pointer-events-none">♪</span>

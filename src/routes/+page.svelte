@@ -207,6 +207,8 @@
 		const incoming = $lastSharedSong;
 		if (!feedItems.some((i) => i.uri === incoming.uri)) {
 			feedItems = [{ uri: incoming.uri, cid: incoming.cid, record: incoming.value, sharedBy: self }, ...feedItems];
+			switchTab('feed');
+			window.scrollTo({ top: 0, behavior: 'smooth' });
 		}
 	}
 

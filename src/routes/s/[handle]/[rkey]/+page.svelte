@@ -10,7 +10,8 @@
 	import { dndzone } from 'svelte-dnd-action';
 	import { flip } from 'svelte/animate';
 	import { goto } from '$app/navigation';
-	import { APP_NAME, APP_URL } from '$lib/config';
+	import { APP_NAME, APP_URL, AUTH_PROVIDER_NAME } from '$lib/config';
+	import { votes } from '$lib/stores/votes';
 	import { instanceConfig } from '$lib/stores/instance';
 	import StreamingPill from '$lib/components/StreamingPill.svelte';
 	import { theme as t } from '$lib/theme';
@@ -30,7 +31,7 @@
 	let dndItems: DndItem[] = [];
 	let loading = true;
 	let error = '';
-	let voteCounts = new Map<string, number>();
+	let editMode = false;
 	let saving = false;
 	let deleting = false;
 	let confirmDeleteOpen = false;
@@ -319,6 +320,113 @@
 		proposals = proposals.filter((p) => p.uri !== uri);
 	}
 
+	// Vote counts
+	let voteCounts = new Map<string, number>();
+
+	// Per-card like
+	let liking = new Set<string>();
+	$: likedUris = $votes;
+
+	async function toggleSongLike(uri: string, cid: string) {
+		if (!$session || liking.has(uri)) return;
+		liking.add(uri); liking = liking;
+		const wasLiked = likedUris.has(uri);
+		voteCounts.set(uri, Math.max(0, (voteCounts.get(uri) ?? 0) + (wasLiked ? -1 : 1)));
+		voteCounts = voteCounts;
+		try {
+			if (wasLiked) await votes.unlike($session.did, uri);
+			else await votes.like($session.did, uri, cid);
+		} catch {
+			voteCounts.set(uri, Math.max(0, (voteCounts.get(uri) ?? 0) + (wasLiked ? 1 : -1)));
+			voteCounts = voteCounts;
+		} finally {
+			liking.delete(uri); liking = liking;
+		}
+	}
+
+	// Per-card resync
+	let resyncing = new Set<string>();
+	let resynced = new Set<string>();
+	let resyncErrors = new Map<string, string>();
+
+	async function resyncSong(dndItem: DndItem) {
+		const uri = dndItem.id;
+		const record = dndItem.record;
+		if (!$session || !record?.appleMusicUrl || resyncing.has(uri)) return;
+		resyncing.add(uri); resyncing = resyncing;
+		resyncErrors.delete(uri); resyncErrors = resyncErrors;
+		try {
+			const res = await fetch(`/api/resolve?url=${encodeURIComponent(record.appleMusicUrl)}`);
+			if (!res.ok) throw new Error(`Resolve failed (${res.status})`);
+			const odesliResult: OdesliResponse = await res.json();
+			const platformUrls = extractPlatformUrls(odesliResult);
+			const entity = getCanonicalEntity(odesliResult);
+			const updated: KhordSongRecord = { ...record, title: entity?.title ?? record.title, artist: entity?.artistName ?? record.artist, ...platformUrls };
+			const itemRkey = uri.split('/').pop()!;
+			await getAgent().com.atproto.repo.putRecord({ repo: $session.did, collection: SONG_NSID, rkey: itemRkey, record: { $type: SONG_NSID, ...updated } });
+			dndItems = dndItems.map(d => d.id === uri ? { ...d, record: updated } : d);
+			resynced.add(uri); resynced = resynced;
+			setTimeout(() => { resynced.delete(uri); resynced = resynced; }, 3000);
+		} catch (e) {
+			resyncErrors.set(uri, e instanceof Error ? e.message : 'Resync failed.'); resyncErrors = resyncErrors;
+			setTimeout(() => { resyncErrors.delete(uri); resyncErrors = resyncErrors; }, 4000);
+		} finally {
+			resyncing.delete(uri); resyncing = resyncing;
+		}
+	}
+
+	// Per-card post compose
+	let songComposeUri: string | null = null;
+	let songComposeRecord: KhordSongRecord | null = null;
+	let songComposeNote = '';
+	let songComposeIncludeArt = false;
+	let songComposePosting = false;
+	let songComposePosted = new Set<string>();
+
+	$: songComposeTitleText = songComposeRecord ? `${songComposeRecord.title}${songComposeRecord.artist ? ` by ${songComposeRecord.artist}` : ''}` : '';
+	$: songComposeFooter = `Shared from ${APP_NAME}`;
+	$: songComposeFullText = [songComposeTitleText, ...(songComposeNote.trim() ? [songComposeNote.trim()] : []), songComposeFooter].join('\n\n');
+	$: songComposeCharsLeft = POST_LIMIT - [...songComposeFullText].length;
+	$: songComposeOver = songComposeCharsLeft < 0;
+
+	function openSongCompose(uri: string, record: KhordSongRecord) {
+		if (!record.songlinkUrl) return;
+		songComposeUri = uri;
+		songComposeRecord = record;
+		songComposeNote = record.note ?? '';
+		songComposeIncludeArt = !$instanceConfig.albumArtDisabled && !!record.thumbnailUrl;
+	}
+
+	async function submitSongPost() {
+		if (!$session || !songComposeRecord?.songlinkUrl || songComposePosting || songComposeOver) return;
+		songComposePosting = true;
+		const uri = songComposeUri!;
+		try {
+			const encoder = new TextEncoder();
+			const titleByteEnd = encoder.encode(songComposeTitleText).length;
+			const facets = [{ index: { byteStart: 0, byteEnd: titleByteEnd }, features: [{ $type: 'app.bsky.richtext.facet#link', uri: songComposeRecord.songlinkUrl }] }];
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
+			let embed: any;
+			if (songComposeIncludeArt && songComposeRecord.thumbnailUrl) {
+				const proxyRes = await fetch(`/api/thumbnail?url=${encodeURIComponent(songComposeRecord.thumbnailUrl)}`);
+				if (proxyRes.ok) {
+					const blob = await proxyRes.blob();
+					const upload = await getAgent().uploadBlob(blob, { encoding: blob.type });
+					embed = { $type: 'app.bsky.embed.external', external: { uri: songComposeRecord.songlinkUrl, title: songComposeTitleText, description: songComposeNote.trim(), thumb: upload.data.blob } };
+				}
+			}
+			await getAgent().app.bsky.feed.post.create(
+				{ repo: $session.did },
+				{ $type: 'app.bsky.feed.post', text: songComposeFullText, ...(facets.length ? { facets } : {}), ...(embed ? { embed } : {}), createdAt: new Date().toISOString() }
+			);
+			songComposeUri = null; songComposeRecord = null;
+			songComposePosted.add(uri); songComposePosted = songComposePosted;
+			setTimeout(() => { songComposePosted.delete(uri); songComposePosted = songComposePosted; }, 3000);
+		} finally {
+			songComposePosting = false;
+		}
+	}
+
 	// Share compose
 	const POST_LIMIT = 300;
 	let shareOpen = false;
@@ -393,6 +501,7 @@
 				return { id: item.songUri, item, record };
 			});
 
+			// Vote counts
 			const uris = setlist.value.items.map((i) => i.songUri);
 			if (uris.length > 0) {
 				try {
@@ -401,9 +510,7 @@
 						const data = await res.json();
 						voteCounts = new Map(Object.entries(data.counts as Record<string, number>));
 					}
-				} catch {
-					// non-fatal
-				}
+				} catch { /* non-fatal */ }
 			}
 
 			// Load proposals for the owner after setlist is available
@@ -552,7 +659,7 @@
 				<textarea
 					bind:value={shareNote}
 					rows="3"
-					class="w-full bg-transparent text-sm {$t.textPrimary} placeholder:{$t.textFaint} py-2.5 resize-none focus:outline-none"
+					class="w-full bg-transparent text-base sm:text-sm {$t.textPrimary} placeholder:{$t.textFaint} py-2.5 resize-none focus:outline-none"
 					placeholder="Add a note… (optional)"
 				></textarea>
 			</div>
@@ -588,26 +695,116 @@
 	</div>
 {/if}
 
+<!-- Song post compose modal -->
+{#if songComposeUri && songComposeRecord}
+	<div class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
+		<button class="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-label="Cancel" on:click={() => { songComposeUri = null; songComposeRecord = null; }}></button>
+		<div class="relative w-full max-w-sm {$t.surfaceBg} border {$t.borderStrong} rounded-2xl shadow-2xl overflow-hidden">
+			<div class="px-4 pt-4 pb-2 border-b {$t.borderBase} flex items-center justify-between">
+				<span class="text-sm font-semibold {$t.textPrimary}">Post to {AUTH_PROVIDER_NAME}</span>
+				<button on:click={() => { songComposeUri = null; songComposeRecord = null; }} aria-label="Close" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">
+					<svg viewBox="0 0 14 14" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
+						<path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+					</svg>
+				</button>
+			</div>
+			{#if $session?.avatar || $session?.handle}
+				<div class="flex items-center gap-2.5 px-4 pt-3">
+					{#if $session.avatar}
+						<img src={$session.avatar} alt={$session.handle} class="w-8 h-8 rounded-full object-cover shrink-0" />
+					{:else}
+						<div class="w-8 h-8 rounded-full {$t.elevatedBg} flex items-center justify-center text-xs font-semibold {$t.textSecondary} shrink-0">
+							{($session.handle ?? '?')[0].toUpperCase()}
+						</div>
+					{/if}
+					<span class="text-xs {$t.textMuted}">@{$session.handle}</span>
+				</div>
+			{/if}
+			<div class="px-4 pt-3 pb-2">
+				<p class="text-sm font-medium {$t.textPrimary}">{songComposeTitleText}</p>
+			</div>
+			<div class="px-4 pb-2 border-y {$t.borderBase}">
+				<textarea
+					bind:value={songComposeNote}
+					rows="3"
+					class="w-full bg-transparent text-base sm:text-sm {$t.textPrimary} placeholder:{$t.textFaint} py-2.5 resize-none focus:outline-none"
+					placeholder="Add a note… (optional)"
+				></textarea>
+			</div>
+			<div class="px-4 pt-2 pb-1">
+				<p class="text-xs {$t.textFaint}">{songComposeFooter}</p>
+			</div>
+			{#if !$instanceConfig.albumArtDisabled && songComposeRecord.thumbnailUrl}
+				<div class="px-4 pb-2 flex items-center gap-3">
+					<button
+						type="button"
+						role="switch"
+						aria-checked={songComposeIncludeArt}
+						aria-label="Include album art"
+						on:click={() => (songComposeIncludeArt = !songComposeIncludeArt)}
+						class="relative w-8 h-5 rounded-full transition-colors shrink-0 {songComposeIncludeArt ? $t.btnPrimaryBg : $t.elevatedBg}"
+					>
+						<span class="absolute top-0.5 left-0.5 w-3.5 h-3.5 rounded-full {$t.recessedBg} transition-transform {songComposeIncludeArt ? 'translate-x-3.5' : 'translate-x-0'}"></span>
+					</button>
+					<div class="flex items-center gap-2 min-w-0">
+						{#if songComposeIncludeArt}
+							<img src={songComposeRecord.thumbnailUrl} alt="" aria-hidden="true" class="w-6 h-6 rounded object-cover shrink-0" />
+						{/if}
+						<span class="text-xs {$t.textMuted}">Include album art</span>
+					</div>
+				</div>
+			{/if}
+			<div class="flex items-center justify-between px-4 pb-3">
+				<span class="text-xs {songComposeOver ? 'text-red-400' : songComposeCharsLeft <= 20 ? 'text-amber-400' : $t.textFaint}">{songComposeCharsLeft}</span>
+				<div class="flex items-center gap-2">
+					<button on:click={() => { songComposeUri = null; songComposeRecord = null; }} class="text-xs {$t.textMuted} {$t.hoverTextSecondary} px-3 py-1.5 transition-colors">Cancel</button>
+					<button
+						on:click={submitSongPost}
+						disabled={songComposePosting || songComposeOver}
+						class="text-xs font-semibold {$t.btnPrimaryBg} {$t.btnPrimaryText} px-3 py-1.5 rounded-full {$t.btnPrimaryHover} transition-colors disabled:opacity-40"
+					>
+						{#if songComposePosting}
+							<span class="inline-flex items-center gap-1.5">
+								<span class="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
+								Posting…
+							</span>
+						{:else}
+							Post
+						{/if}
+					</button>
+				</div>
+			</div>
+		</div>
+	</div>
+{/if}
+
 <section class="space-y-6">
 	<!-- Header -->
 	<div class="sticky top-0 z-20 -mx-6 px-6 py-3 {$t.headerBg} backdrop-blur-sm border-b {$t.borderFaded} space-y-1.5">
-		<div class="flex items-start gap-4">
+		<!-- Title row: back link left | title center | edit right -->
+		<div class="grid grid-cols-3 items-center">
+			<a href="/" aria-label="Back to feed" title="Back to feed" class="inline-flex items-center gap-1.5 text-sm {$t.textMuted} {$t.hoverTextSecondary} transition-colors">
+				<svg viewBox="0 0 14 14" fill="none" class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg">
+					<path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+				Feed
+			</a>
 			{#if editingTitle && isOwn}
-				<form on:submit|preventDefault={saveTitle} class="flex items-center gap-2 flex-1">
+				<form on:submit|preventDefault={saveTitle} class="col-span-2 flex items-center gap-2">
 					<input
 						bind:this={titleInputEl}
 						bind:value={titleDraft}
 						maxlength="100"
-						class="flex-1 {$t.elevatedBg} border {$t.borderStrong} rounded-lg px-3 py-1.5 text-lg font-bold {$t.textPrimary} focus:outline-none {$t.hoverBorderStrong} transition-colors"
+						class="flex-1 min-w-0 {$t.elevatedBg} border {$t.borderStrong} rounded-lg px-3 py-1.5 text-lg font-bold {$t.textPrimary} focus:outline-none {$t.hoverBorderStrong} transition-colors"
 					/>
 					<button type="submit" disabled={saving} class="text-xs {$t.textSecondary} {$t.hoverText} px-2.5 py-1 border {$t.borderStrong} rounded-full transition-colors disabled:opacity-50">Save</button>
 					<button type="button" on:click={() => (editingTitle = false)} class="text-xs {$t.textMuted} {$t.hoverTextSecondary} border {$t.borderBase} px-2.5 py-1 rounded-full transition-colors">Cancel</button>
 				</form>
 			{:else}
-				<div class="flex items-center gap-2 min-w-0">
-					<h1 class="text-xl font-bold truncate">{setlist?.value.title ?? '…'}</h1>
+				<h1 class="text-xl font-bold truncate text-center">{setlist?.value.title ?? '…'}</h1>
+				<div class="flex justify-end">
 					{#if isOwn && !loading}
-						<button on:click={startEditTitle} aria-label="Edit title" class="{$t.textFaint} {$t.hoverTextSecondary} transition-colors shrink-0">
+						<button on:click={startEditTitle} aria-label="Edit title" class="{$t.textFaint} {$t.hoverTextSecondary} transition-colors">
 							<svg viewBox="0 0 14 14" fill="none" class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg">
 								<path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5Z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/>
 							</svg>
@@ -628,14 +825,6 @@
 
 		{#if !loading}
 			<div class="flex items-center gap-2">
-				<!-- Back to feed -->
-				<a href="/" class="inline-flex items-center gap-1.5 text-xs {$t.textMuted} {$t.hoverText} border {$t.borderBase} {$t.hoverBorderBase} px-2.5 py-1 rounded-full transition-colors">
-					<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
-						<path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
-					Back to feed
-				</a>
-
 				<!-- Share button -->
 				{#if $session}
 					<button
@@ -714,7 +903,7 @@
 					placeholder="Search for a song…"
 					disabled={addResolving}
 					use:focusEl
-					class="w-full {$t.elevatedBg} border {$t.borderStrong} rounded-lg pl-8 pr-3 py-2 text-sm {$t.textPrimary}
+					class="w-full {$t.elevatedBg} border {$t.borderStrong} rounded-lg pl-8 pr-3 py-2 text-base sm:text-sm {$t.textPrimary}
 						placeholder:{$t.textMuted} focus:outline-none {$t.hoverBorderStrong} transition-colors disabled:opacity-50"
 				/>
 				<span class="absolute left-2.5 top-1/2 -translate-y-1/2 {$t.textMuted} text-sm pointer-events-none">♪</span>
@@ -789,7 +978,7 @@
 						bind:value={proposeQuery}
 						placeholder="Search for a song to propose…"
 						disabled={proposeResolving}
-						class="w-full {$t.elevatedBg} border {$t.borderStrong} rounded-lg pl-8 pr-3 py-2 text-sm {$t.textPrimary}
+						class="w-full {$t.elevatedBg} border {$t.borderStrong} rounded-lg pl-8 pr-3 py-2 text-base sm:text-sm {$t.textPrimary}
 							placeholder:{$t.textMuted} focus:outline-none {$t.hoverBorderStrong} transition-colors disabled:opacity-50"
 					/>
 					<span class="absolute left-2.5 top-1/2 -translate-y-1/2 {$t.textMuted} text-sm pointer-events-none">♪</span>
@@ -844,7 +1033,7 @@
 					rows="2"
 					maxlength="300"
 					disabled={proposeResolving}
-					class="w-full {$t.elevatedBg} border {$t.borderStrong} rounded-lg px-3 py-2 text-sm {$t.textPrimary}
+					class="w-full {$t.elevatedBg} border {$t.borderStrong} rounded-lg px-3 py-2 text-base sm:text-sm {$t.textPrimary}
 						placeholder:{$t.textMuted} focus:outline-none resize-none disabled:opacity-50"
 				></textarea>
 			{/if}
@@ -919,78 +1108,159 @@
 			<p class="{$t.textMuted} text-xs">Select songs in the Feed tab and add them to a setlist.</p>
 		</div>
 	{:else}
-		{#if isOwn && dndItems.length > 1}
-			<p class="text-xs {$t.textFaint} flex items-center gap-1.5 -mt-3">
-				<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
-					<path d="M2 4h10M2 7h10M2 10h10" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
-				</svg>
-				Drag to reorder
-			</p>
+		{#if isOwn}
+			<div class="flex items-center gap-3 -mt-3">
+				<label class="flex items-center gap-2 cursor-pointer select-none">
+					<button
+						role="switch"
+						aria-checked={editMode}
+						aria-label="Edit mode"
+						on:click={() => (editMode = !editMode)}
+						class="relative w-8 h-4.5 rounded-full transition-colors duration-200 focus-visible:outline-none
+							{editMode ? 'bg-violet-600' : $t.elevatedBg} border {editMode ? 'border-violet-500' : $t.borderStrong}"
+						style="height:18px;width:32px;"
+					>
+						<span
+							class="absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all duration-200"
+							style="left: {editMode ? '15px' : '2px'};"
+						></span>
+					</button>
+					<span class="text-xs {editMode ? $t.textSecondary : $t.textFaint}">Edit</span>
+				</label>
+				{#if editMode && dndItems.length > 1}
+					<span class="text-xs {$t.textFaint} flex items-center gap-1.5">
+						<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
+							<path d="M2 4h10M2 7h10M2 10h10" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+						</svg>
+						Drag to reorder
+					</span>
+				{/if}
+			</div>
 		{/if}
 
 		<div
-			use:dndzone={{ items: dndItems, flipDurationMs: 150, dragDisabled: !isOwn }}
+			use:dndzone={{ items: dndItems, flipDurationMs: 150, dragDisabled: !isOwn || !editMode }}
 			on:consider={handleDndConsider}
 			on:finalize={handleDndFinalize}
 			class="space-y-2"
 		>
 			{#each dndItems as dndItem (dndItem.id)}
 				<div animate:flip={{ duration: 150 }}
-					class="flex items-center gap-3 rounded-xl border {$t.borderBase} {$t.surfaceBg} px-4 py-3 overflow-hidden
-						{isOwn ? 'cursor-grab active:cursor-grabbing' : ''}"
+					class="rounded-xl border {$t.borderBase} {$t.surfaceBg} px-4 py-3 overflow-hidden
+						{isOwn && editMode ? 'cursor-grab active:cursor-grabbing' : ''}"
 				>
-					{#if isOwn}
-						<svg viewBox="0 0 14 14" fill="none" class="w-4 h-4 {$t.textFaint} shrink-0" xmlns="http://www.w3.org/2000/svg">
-							<path d="M2 4h10M2 7h10M2 10h10" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
-						</svg>
-					{/if}
+					<!-- Row 1: drag handle + art + title/artist + remove -->
+					<div class="flex items-center gap-3">
+						{#if isOwn && editMode}
+							<svg viewBox="0 0 14 14" fill="none" class="w-4 h-4 {$t.textFaint} shrink-0" xmlns="http://www.w3.org/2000/svg">
+								<path d="M2 4h10M2 7h10M2 10h10" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+							</svg>
+						{/if}
 
-					{#if !$instanceConfig.albumArtDisabled && dndItem.record?.thumbnailUrl}
-						<img src={dndItem.record.thumbnailUrl} alt="" aria-hidden="true" class="w-10 h-10 rounded-md object-cover shrink-0" />
-					{/if}
+						{#if !$instanceConfig.albumArtDisabled && dndItem.record?.thumbnailUrl}
+							<img src={dndItem.record.thumbnailUrl} alt="" aria-hidden="true" class="w-10 h-10 rounded-md object-cover shrink-0" />
+						{/if}
 
-					<div class="flex-1 min-w-0">
-						{#if dndItem.record}
-							<p class="text-sm font-semibold {$t.textPrimary} truncate">{dndItem.record.title}</p>
-							<p class="text-xs {$t.textMuted} truncate">{dndItem.record.artist}</p>
-						{:else}
-							<p class="text-sm {$t.textMuted} truncate">{dndItem.id}</p>
+						<div class="flex-1 min-w-0">
+							{#if dndItem.record}
+								<p class="text-sm font-semibold {$t.textPrimary} truncate">{dndItem.record.title}</p>
+								<p class="text-xs {$t.textMuted} truncate">{dndItem.record.artist}</p>
+							{:else}
+								<p class="text-sm {$t.textMuted} truncate">{dndItem.id}</p>
+							{/if}
+						</div>
+
+						{#if isOwn && editMode}
+							<button
+								on:click={() => removeItem(dndItem.id)}
+								aria-label="Remove from setlist"
+								title="Remove this song from the setlist"
+								class="flex items-center justify-center w-7 h-7 rounded-full border {$t.borderBase} {$t.textFaint} hover:text-red-400 hover:border-red-900 transition-colors shrink-0"
+							>
+								<svg viewBox="0 0 14 14" fill="none" class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg">
+									<path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+								</svg>
+							</button>
 						{/if}
 					</div>
 
-					{#if (voteCounts.get(dndItem.id) ?? 0) > 0}
-						<span class="text-xs {$t.textMuted} shrink-0 tabular-nums">♪ {voteCounts.get(dndItem.id)}</span>
-					{/if}
-
+					<!-- Row 2: actions (matches feed card order) -->
 					{#if dndItem.record}
-						<StreamingPill record={dndItem.record} />
-						{#if dndItem.record.songlinkUrl}
-							<a
-								href={dndItem.record.songlinkUrl}
-								target="_blank"
-								rel="noopener noreferrer"
-								title="Open on song.link — see all available platforms"
-								class="p-1.5 transition-colors {$t.textFaint} {$t.hoverTextSecondary} shrink-0"
-							>
-								<svg viewBox="0 0 24 24" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
-									<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-									<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-							</a>
-						{/if}
-					{/if}
-
-					{#if isOwn}
-						<button
-							on:click={() => removeItem(dndItem.id)}
-							aria-label="Remove from setlist"
-							title="Remove this song from the setlist"
-							class="flex items-center justify-center w-7 h-7 rounded-full border {$t.borderBase} {$t.textFaint} hover:text-red-400 hover:border-red-900 transition-colors shrink-0"
-						>
-							<svg viewBox="0 0 14 14" fill="none" class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg">
-								<path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-							</svg>
-						</button>
+						{@const uri = dndItem.id}
+						{@const rec = dndItem.record}
+						{@const liked = likedUris.has(uri)}
+						{@const count = voteCounts.get(uri) ?? 0}
+						<div class="flex items-center justify-center gap-8 mt-2">
+							<!-- song.link -->
+							{#if rec.songlinkUrl}
+								<a href={rec.songlinkUrl} target="_blank" rel="noopener noreferrer"
+									title="Open on song.link — see all available platforms"
+									class="p-2 transition-colors {$t.textFaint} {$t.hoverTextSecondary}">
+									<svg viewBox="0 0 24 24" fill="none" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
+										<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+										<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+									</svg>
+								</a>
+							{/if}
+							<!-- Post to feed -->
+							{#if $session && rec.songlinkUrl}
+								<button on:click={() => openSongCompose(uri, rec)}
+									disabled={songComposePosting}
+									aria-label="Post to {AUTH_PROVIDER_NAME}"
+									title="Share this song as a post on {AUTH_PROVIDER_NAME}"
+									class="p-2 transition-colors disabled:opacity-50 {songComposePosted.has(uri) ? $t.textPrimary : `${$t.textFaint} ${$t.hoverTextSecondary}`}">
+									{#if songComposePosted.has(uri)}
+										<svg viewBox="0 0 14 14" fill="none" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
+											<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+										</svg>
+									{:else}
+										<svg viewBox="0 0 24 24" fill="none" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
+											<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+										</svg>
+									{/if}
+								</button>
+							{/if}
+							<!-- Upnote -->
+							<button on:click={() => toggleSongLike(uri, dndItem.item.songCid)}
+								disabled={liking.has(uri)}
+								aria-label={liked ? 'Unlike' : 'Upnote'}
+								title={liked ? 'Remove your upnote' : 'Upnote this song'}
+								class="p-2 flex items-center gap-1.5 transition-colors disabled:opacity-50 {liked ? $t.accentText : `${$t.textFaint} ${$t.hoverTextSecondary}`}">
+								{#if liking.has(uri)}
+									<span class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
+								{:else}
+									<span class="flex items-center gap-0.5">
+										<svg viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
+											<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+										</svg>
+										<span class="text-base leading-none -mt-0.5">♪</span>
+									</span>
+									{#if count > 0}<span class="text-sm tabular-nums">{count}</span>{/if}
+								{/if}
+							</button>
+							<!-- Resync (owner only) -->
+							{#if isOwn && rec.appleMusicUrl}
+								<button on:click={() => resyncSong(dndItem)}
+									disabled={resyncing.has(uri)}
+									aria-label="Resync song metadata"
+									title="Re-fetch metadata and platform links from streaming services"
+									class="p-2 transition-colors disabled:opacity-50 {resynced.has(uri) ? $t.textPrimary : resyncErrors.has(uri) ? 'text-red-400' : `${$t.textFaint} ${$t.hoverTextSecondary}`}">
+									{#if resyncing.has(uri)}
+										<span class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
+									{:else if resynced.has(uri)}
+										<svg viewBox="0 0 14 14" fill="none" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
+											<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+										</svg>
+									{:else}
+										<svg viewBox="0 0 24 24" fill="none" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
+											<path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+										</svg>
+									{/if}
+								</button>
+							{/if}
+							<!-- StreamingPill -->
+							<StreamingPill record={rec} />
+						</div>
 					{/if}
 				</div>
 			{/each}

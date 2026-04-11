@@ -51,7 +51,7 @@
 			bind:value={query}
 			placeholder={placeholder}
 			autofocus={autofocus}
-			class="w-full {$t.recessedBg} border {$t.borderStrong} rounded-lg pl-9 pr-3 py-2.5 text-sm {$t.textPrimary}
+			class="w-full {$t.recessedBg} border {$t.borderStrong} rounded-lg pl-9 pr-3 py-2.5 text-base sm:text-sm {$t.textPrimary}
 				focus:outline-none focus:ring-1 {$t.focusRing} placeholder:{$t.textFaint}"
 		/>
 		<span class="absolute left-3 top-1/2 -translate-y-1/2 {$t.textMuted} text-sm pointer-events-none">♪</span>
