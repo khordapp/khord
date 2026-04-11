@@ -590,8 +590,8 @@
 
 <section class="space-y-6">
 	<!-- Header -->
-	<div class="space-y-1">
-		<div class="flex items-start justify-between gap-4">
+	<div class="sticky top-0 z-20 -mx-6 px-6 py-3 {$t.headerBg} backdrop-blur-sm border-b {$t.borderFaded} space-y-1.5">
+		<div class="flex items-start gap-4">
 			{#if editingTitle && isOwn}
 				<form on:submit|preventDefault={saveTitle} class="flex items-center gap-2 flex-1">
 					<input
@@ -615,51 +615,6 @@
 					{/if}
 				</div>
 			{/if}
-
-			{#if !loading}
-				<div class="flex items-center gap-2 shrink-0">
-					<!-- Share button -->
-					{#if $session}
-						<button
-							on:click={openShare}
-							aria-label="Share setlist"
-							title="Post this setlist to your feed"
-							class="flex items-center gap-1.5 text-xs border px-2.5 py-1 rounded-full transition-colors
-								{sharePosted
-									? `${$t.textPrimary} ${$t.elevatedBg} ${$t.borderStrong}`
-									: `${$t.textMuted} ${$t.hoverText} ${$t.borderBase} ${$t.hoverBorderBase}`}"
-						>
-							{#if sharePosted}
-								<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
-									<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-								Posted
-							{:else}
-								<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
-									<path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-								Share
-							{/if}
-						</button>
-					{/if}
-
-					<!-- Delete button (owner only) -->
-					{#if isOwn}
-						<button
-							on:click={() => (confirmDeleteOpen = true)}
-							aria-label="Delete setlist"
-							title="Permanently delete this setlist"
-							class="flex items-center gap-1.5 text-xs border px-2.5 py-1 rounded-full transition-colors
-								{$t.textFaint} {$t.borderBase} hover:text-red-400 hover:border-red-900"
-						>
-							<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
-								<path d="M2 4h10M5 4V2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V4M9 4v7.5a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5V4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-							</svg>
-							Delete
-						</button>
-					{/if}
-				</div>
-			{/if}
 		</div>
 
 		{#if setlist}
@@ -670,38 +625,83 @@
 				{#if saving}<span class="{$t.textFaint} ml-1">Saving…</span>{/if}
 			</p>
 		{/if}
-	</div>
 
-	<div class="flex items-center justify-between gap-4">
-		<a href="/" class="inline-flex items-center gap-1.5 text-xs {$t.textMuted} {$t.hoverText} transition-colors">
-			<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3" xmlns="http://www.w3.org/2000/svg">
-				<path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-			</svg>
-			Back to feed
-		</a>
+		{#if !loading}
+			<div class="flex items-center gap-2">
+				<!-- Back to feed -->
+				<a href="/" class="inline-flex items-center gap-1.5 text-xs {$t.textMuted} {$t.hoverText} border {$t.borderBase} {$t.hoverBorderBase} px-2.5 py-1 rounded-full transition-colors">
+					<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
+						<path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+					Back to feed
+				</a>
 
-		{#if isOwn && !loading}
-			<button
-				on:click={() => (addOpen = !addOpen)}
-				class="flex items-center gap-1.5 text-xs {addOpen ? `${$t.textPrimary} ${$t.elevatedBg} ${$t.borderStrong}` : `${$t.textMuted} ${$t.hoverText} border-transparent`}
-					border px-2.5 py-1 rounded-full transition-colors"
-			>
-				<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0 transition-transform {addOpen ? 'rotate-45' : ''}" xmlns="http://www.w3.org/2000/svg">
-					<path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-				</svg>
-				Add song
-			</button>
-		{:else if $session && !isOwn && !loading}
-			<button
-				on:click={() => (proposeOpen = !proposeOpen)}
-				class="flex items-center gap-1.5 text-xs {proposeOpen ? `${$t.textPrimary} ${$t.elevatedBg} ${$t.borderStrong}` : `${$t.textMuted} ${$t.hoverText} border-transparent`}
-					border px-2.5 py-1 rounded-full transition-colors"
-			>
-				<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0 transition-transform {proposeOpen ? 'rotate-45' : ''}" xmlns="http://www.w3.org/2000/svg">
-					<path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-				</svg>
-				Propose a song
-			</button>
+				<!-- Share button -->
+				{#if $session}
+					<button
+						on:click={openShare}
+						aria-label="Share setlist"
+						title="Post this setlist to your feed"
+						class="flex items-center gap-1.5 text-xs border px-2.5 py-1 rounded-full transition-colors
+							{sharePosted
+								? `${$t.textPrimary} ${$t.elevatedBg} ${$t.borderStrong}`
+								: `${$t.textMuted} ${$t.hoverText} ${$t.borderBase} ${$t.hoverBorderBase}`}"
+					>
+						{#if sharePosted}
+							<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
+								<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+							Posted
+						{:else}
+							<svg viewBox="0 0 24 24" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
+								<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+							Share
+						{/if}
+					</button>
+				{/if}
+
+				<!-- Add song / Propose a song -->
+				{#if isOwn}
+					<button
+						on:click={() => (addOpen = !addOpen)}
+						class="flex items-center gap-1.5 text-xs border px-2.5 py-1 rounded-full transition-colors
+							{addOpen ? `${$t.textPrimary} ${$t.elevatedBg} ${$t.borderStrong}` : `${$t.textMuted} ${$t.hoverText} ${$t.borderBase} ${$t.hoverBorderBase}`}"
+					>
+						<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0 transition-transform {addOpen ? 'rotate-45' : ''}" xmlns="http://www.w3.org/2000/svg">
+							<path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+						</svg>
+						Add song
+					</button>
+				{:else if $session}
+					<button
+						on:click={() => (proposeOpen = !proposeOpen)}
+						class="flex items-center gap-1.5 text-xs border px-2.5 py-1 rounded-full transition-colors
+							{proposeOpen ? `${$t.textPrimary} ${$t.elevatedBg} ${$t.borderStrong}` : `${$t.textMuted} ${$t.hoverText} ${$t.borderBase} ${$t.hoverBorderBase}`}"
+					>
+						<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0 transition-transform {proposeOpen ? 'rotate-45' : ''}" xmlns="http://www.w3.org/2000/svg">
+							<path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+						</svg>
+						Propose a song
+					</button>
+				{/if}
+
+				<!-- Delete button (owner only), pushed to the right -->
+				{#if isOwn}
+					<button
+						on:click={() => (confirmDeleteOpen = true)}
+						aria-label="Delete setlist"
+						title="Permanently delete this setlist"
+						class="ml-auto flex items-center gap-1.5 text-xs border px-2.5 py-1 rounded-full transition-colors
+							text-red-400 hover:text-red-300 border-red-900 hover:border-red-700 bg-red-950"
+					>
+						<svg viewBox="0 0 24 24" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
+							<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+						Delete
+					</button>
+				{/if}
+			</div>
 		{/if}
 	</div>
 
@@ -920,7 +920,7 @@
 		</div>
 	{:else}
 		{#if isOwn && dndItems.length > 1}
-			<p class="text-xs {$t.textFaint} flex items-center gap-1.5">
+			<p class="text-xs {$t.textFaint} flex items-center gap-1.5 -mt-3">
 				<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
 					<path d="M2 4h10M2 7h10M2 10h10" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
 				</svg>
@@ -952,7 +952,7 @@
 					<div class="flex-1 min-w-0">
 						{#if dndItem.record}
 							<p class="text-sm font-semibold {$t.textPrimary} truncate">{dndItem.record.title}</p>
-							<p class="text-xs {$t.textMuted} truncate">{dndItem.record.artist}{dndItem.record.album ? ` · ${dndItem.record.album}` : ''}</p>
+							<p class="text-xs {$t.textMuted} truncate">{dndItem.record.artist}</p>
 						{:else}
 							<p class="text-sm {$t.textMuted} truncate">{dndItem.id}</p>
 						{/if}
@@ -969,9 +969,13 @@
 								href={dndItem.record.songlinkUrl}
 								target="_blank"
 								rel="noopener noreferrer"
-								class="text-xs {$t.linkText} {$t.linkTextHover} border {$t.linkBorder} {$t.linkBorderHover} px-2.5 py-1 rounded-full transition-colors shrink-0"
+								title="Open on song.link — see all available platforms"
+								class="p-1.5 transition-colors {$t.textFaint} {$t.hoverTextSecondary} shrink-0"
 							>
-								song.link
+								<svg viewBox="0 0 24 24" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
+									<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+									<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
 							</a>
 						{/if}
 					{/if}

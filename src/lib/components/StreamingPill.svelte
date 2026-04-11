@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import type { KhordSongRecord } from '$lib/atproto/lexicons/song';
 	import { prefs } from '$lib/stores/prefs';
 	import type { PlatformKey } from '$lib/stores/prefs';
@@ -22,6 +23,15 @@
 	$: rest = all.filter((p) => p !== first);
 
 	let open = false;
+	let isMobile = false;
+
+	onMount(() => {
+		const mq = window.matchMedia('(max-width: 639px)');
+		isMobile = mq.matches;
+		const handler = (e: MediaQueryListEvent) => { isMobile = e.matches; };
+		mq.addEventListener('change', handler);
+		return () => mq.removeEventListener('change', handler);
+	});
 </script>
 
 {#if first}
@@ -54,7 +64,7 @@
 			{/if}
 		</div>
 
-		{#if open}
+		{#if open && !isMobile}
 			<button class="fixed inset-0 z-10" aria-label="Close" on:click={() => (open = false)}></button>
 			<div class="absolute left-0 top-full mt-1.5 z-20 {$t.surfaceBg} border {$t.borderStrong} rounded-xl shadow-xl overflow-hidden min-w-[140px]">
 				{#each rest as platform}
@@ -77,6 +87,40 @@
 						Set default…
 					</a>
 				</div>
+			</div>
+		{/if}
+
+		{#if open && isMobile}
+			<button class="fixed inset-0 z-40 bg-black/50" aria-label="Close" on:click={() => (open = false)}></button>
+			<div class="fixed inset-x-0 bottom-0 z-50 {$t.surfaceBg} border-t {$t.borderStrong} rounded-t-2xl shadow-2xl overflow-hidden">
+				<div class="flex items-center justify-between px-4 pt-4 pb-3 border-b {$t.borderBase}">
+					<span class="text-sm font-semibold {$t.textPrimary}">Listen on…</span>
+					<button on:click={() => (open = false)} aria-label="Close" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">
+						<svg viewBox="0 0 14 14" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
+							<path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+						</svg>
+					</button>
+				</div>
+				{#each rest as platform}
+					<a
+						href={record[platform.key] as string}
+						target="_blank"
+						rel="noopener noreferrer"
+						on:click={() => (open = false)}
+						class="flex items-center gap-3 px-4 py-3.5 {$t.textSecondary} {$t.hoverBg} transition-colors border-b {$t.borderFaded}"
+					>
+						<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {platform.brand.bg}"></span>
+						{platform.label}
+					</a>
+				{/each}
+				<a
+					href="/settings"
+					on:click={() => (open = false)}
+					class="flex items-center px-4 py-3.5 text-sm {$t.textFaint} {$t.hoverText} {$t.hoverBg} transition-colors"
+				>
+					Set default streaming service…
+				</a>
+				<div class="h-6"></div>
 			</div>
 		{/if}
 	</div>

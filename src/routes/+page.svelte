@@ -11,6 +11,7 @@
 	import { APP_NAME, APP_TAGLINE, AUTH_PROVIDER_NAME } from '$lib/config';
 	import { getAgent } from '$lib/atproto/agent';
 	import { goto } from '$app/navigation';
+	import { onMount, tick } from 'svelte';
 	import { theme as t } from '$lib/theme';
 	import LandingContent from '$lib/landing.svelte';
 
@@ -232,10 +233,26 @@
 		}
 	}
 
+	let tabEls: (HTMLButtonElement | null)[] = [];
+	let indicatorLeft = 0;
+	let indicatorWidth = 0;
+
+	function updateIndicator() {
+		const idx = (['feed', 'daily', 'setlists'] as Tab[]).indexOf(activeTab);
+		const el = tabEls[idx];
+		if (el) {
+			indicatorLeft = el.offsetLeft;
+			indicatorWidth = el.offsetWidth;
+		}
+	}
+
 	function switchTab(tab: Tab) {
 		activeTab = tab;
 		if (tab === 'setlists' && !setlistsLoaded) loadSetlists();
+		tick().then(updateIndicator);
 	}
+
+	onMount(() => { updateIndicator(); });
 </script>
 
 <svelte:head>
@@ -328,19 +345,22 @@
 	<section class="space-y-4">
 		<!-- Sticky toolbar -->
 		<div class="sticky top-0 z-20 -mx-6 px-6 py-3 {$t.headerBg} backdrop-blur-sm border-b {$t.borderFaded}">
-			<!-- Tabs row — tabs only, no inline actions -->
-			<nav class="flex items-center gap-1">
-				{#each [['feed', 'Feed'], ['daily', 'Daily'], ['setlists', 'Setlists']] as [tab, label]}
+			<!-- Tabs row — underline style with animated indicator -->
+			<nav class="relative flex items-center border-b {$t.borderFaded}">
+				{#each [['feed', 'Feed'], ['daily', 'Daily'], ['setlists', 'Setlists']] as [tab, label], i}
 					<button
+						bind:this={tabEls[i]}
 						on:click={() => switchTab(tab as Tab)}
-						class="px-3 py-1.5 text-sm rounded-full transition-colors
-							{activeTab === tab
-								? `${$t.elevatedBg} ${$t.textPrimary} font-medium`
-								: `${$t.textMuted} ${$t.hoverTextSecondary}`}"
+						class="px-4 py-2 text-base font-medium transition-colors whitespace-nowrap
+							{activeTab === tab ? $t.textPrimary : `${$t.textMuted} ${$t.hoverTextSecondary}`}"
 					>
 						{label}
 					</button>
 				{/each}
+				<div
+					class="absolute bottom-0 h-0.5 {$t.btnPrimaryBg} rounded-full transition-all duration-200 ease-out pointer-events-none"
+					style="left: {indicatorLeft}px; width: {indicatorWidth}px"
+				></div>
 			</nav>
 
 			<!-- Feed: subtitle + action buttons -->
@@ -360,8 +380,8 @@
 						title="Reload songs from everyone you follow"
 						class="flex items-center gap-1.5 text-xs {$t.textMuted} {$t.hoverText} border {$t.borderBase} {$t.hoverBorderBase} px-2.5 py-1 rounded-full disabled:opacity-40 transition-colors"
 					>
-						<svg viewBox="0 0 16 16" fill="none" class="w-3 h-3 {feedLoading ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
-							<path d="M13.5 8a5.5 5.5 0 1 1-1.4-3.6L14 2.5V6h-3.5l1.8-1.8A4 4 0 1 0 12 8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+						<svg viewBox="0 0 24 24" fill="none" class="w-3.5 h-3.5 {feedLoading ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
+							<path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 						</svg>
 						Refresh
 					</button>
@@ -382,8 +402,8 @@
 							class="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 border border-red-900 hover:border-red-700
 								bg-red-950 px-2.5 py-1 rounded-full disabled:opacity-50 transition-colors"
 						>
-							<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
-								<path d="M2 4h10M5 4V2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V4M9 4v7.5a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5V4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+							<svg viewBox="0 0 24 24" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
+								<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 							</svg>
 							Remove {selectedUris.size}
 						</button>
@@ -403,8 +423,8 @@
 						title="Reload songs"
 						class="flex items-center gap-1.5 text-xs {$t.textMuted} {$t.hoverText} border {$t.borderBase} {$t.hoverBorderBase} px-2.5 py-1 rounded-full disabled:opacity-40 transition-colors"
 					>
-						<svg viewBox="0 0 16 16" fill="none" class="w-3 h-3 {feedLoading ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
-							<path d="M13.5 8a5.5 5.5 0 1 1-1.4-3.6L14 2.5V6h-3.5l1.8-1.8A4 4 0 1 0 12 8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+						<svg viewBox="0 0 24 24" fill="none" class="w-3.5 h-3.5 {feedLoading ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
+							<path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 						</svg>
 						Refresh
 					</button>
@@ -445,8 +465,8 @@
 						title="Reload your setlists"
 						class="flex items-center gap-1.5 text-xs {$t.textMuted} {$t.hoverText} border {$t.borderBase} {$t.hoverBorderBase} px-2.5 py-1 rounded-full disabled:opacity-40 transition-colors"
 					>
-						<svg viewBox="0 0 16 16" fill="none" class="w-3 h-3 {setlistsLoading ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
-							<path d="M13.5 8a5.5 5.5 0 1 1-1.4-3.6L14 2.5V6h-3.5l1.8-1.8A4 4 0 1 0 12 8" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+						<svg viewBox="0 0 24 24" fill="none" class="w-3.5 h-3.5 {setlistsLoading ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
+							<path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 						</svg>
 						Refresh
 					</button>
