@@ -95,10 +95,6 @@ lexicons/
   app.khord.vote.json
   app.khord.setlist.json    # setlist lexicon — ordered items[], snapshot per item, collaborators[], open flag
   app.khord.setlist.proposal.json  # proposal lexicon — setlistUri, setlistCid, snapshot, note
-indexer/
-  index.js                  # AT Protocol firehose subscriber — writes songs/votes/proposals to SQLite
-  schema.sql                # SQLite schema — actors, songs, votes, proposals, cursor, registered_users, banned_users, instance_settings
-  Dockerfile                # includes python3/make/g++ for better-sqlite3 native bindings
 ```
 
 ## AT Protocol lexicons
@@ -227,7 +223,7 @@ When a song is added to a setlist (via CreateSetlistModal, feed selection, or da
 - App name, tagline, and auth provider name all configurable via env vars (`PUBLIC_APP_NAME`, `PUBLIC_APP_TAGLINE`, `PUBLIC_AUTH_PROVIDER_NAME`)
 - Access control: `OWNER_DIDS` (admin), `BANNED_DIDS` (denylist), `ALLOWED_DIDS` (allowlist), `MAX_USERS` (cap) env vars; all enforced at OAuth callback via `/api/auth/check`. `isOwner` resolved at session load via `/api/auth/status?did=` and stored in `instanceConfig`. Dynamic bans also supported via `banned_users` SQLite table (no restart needed). All server-side env var reads use `$env/dynamic/private` (not `process.env`) — required for SvelteKit/Vite dev to pick up `.env` values correctly.
 - Admin panel at `/admin` (owner-only): registered users list (paginated, LEFT JOIN actors), ban management (add/remove), instance settings (album art toggle, registration open/closed, user cap). Settings stored in `instance_settings` SQLite table via `src/lib/server/settings.ts`; DB values override env var defaults without restart. All `/api/admin/*` routes verify `isOwner(did)` server-side; return 503 when DB unavailable. Admin nav link gated on `$instanceConfig.isOwner`. Auth guard waits for `instanceConfig.loaded` (set after the layout's status fetch) to avoid false redirects during boot.
-- SQLite AppView indexer scaffolded — feed/votes API routes exist but app still falls back to PDS fetch when DB unavailable
+- SQLite AppView indexer lives in a separate repo (github.com/khordapp/khord-indexer); feed/votes API routes exist but app falls back to PDS fetch when DB unavailable (returns 503)
 - Setlists are creator-only writes in v1; collaborator contribution (proposal pattern or delegated writes) is v2
 - `svelte-dnd-action` used for drag-to-reorder on setlist detail page
 - Theme uses `$env/static/public` (not dynamic) — baked at build time so server and client always agree, preventing hydration mismatches
@@ -256,8 +252,7 @@ When a song is added to a setlist (via CreateSetlistModal, feed selection, or da
 | `ALLOWED_DIDS` | Comma-separated AT Protocol DIDs allowed to sign in; unset = open |
 | `MAX_USERS` | Max registered users (0 = unlimited); enforced via SQLite `registered_users` count |
 | `DISABLE_ALBUM_ART` | Set to `true` to hide album art thumbnails on song cards |
-| `INDEXER_DB_PATH` | Path to SQLite DB (default: `/data/khord.db`) |
-| `FIREHOSE_RELAY` | AT Protocol firehose relay URL (default: `wss://bsky.network`) |
+| `INDEXER_DB_PATH` | Path to SQLite DB (default: `/data/khord.db`) — must match the path used by khord-indexer |
 
 ## Deployment architecture
 
@@ -276,16 +271,15 @@ Firehose indexer (long-running Node process)
 | File | Purpose |
 |---|---|
 | `Dockerfile` | SvelteKit app image (multi-stage, Node 22 alpine) |
-| `indexer/Dockerfile` | Firehose indexer image |
-| `indexer/index.js` | AT Protocol firehose subscriber — writes songs/votes to SQLite |
-| `indexer/schema.sql` | SQLite schema — actors, songs, votes, cursor tables |
-| `docker-compose.yml` | Orchestrates app + indexer + Caddy, shared `sqlite_data` volume |
+| `docker-compose.yml` | Orchestrates app + indexer (pulled from ghcr.io/khordapp/khord-indexer) + Caddy |
 | `Caddyfile` | Reverse proxy config — replace `khord.app` with your domain |
+
+The firehose indexer is a separate image (`ghcr.io/khordapp/khord-indexer`); its source lives in github.com/khordapp/khord-indexer.
 
 **Deploying:**
 ```bash
 # On the server
-git clone https://github.com/you/khord && cd khord
+git clone https://github.com/khordapp/khord && cd khord
 cp .env.example .env   # fill in values
 docker compose up -d
 ```
