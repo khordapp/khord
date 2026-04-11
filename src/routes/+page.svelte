@@ -16,7 +16,7 @@
 	import { theme as t } from '$lib/theme';
 	import LandingContent from '$lib/landing.svelte';
 
-	type Tab = 'feed' | 'daily' | 'setlists';
+	type Tab = 'all' | 'following' | 'daily' | 'setlists';
 
 	interface FeedItem {
 		uri: string;
@@ -25,9 +25,15 @@
 		sharedBy: FollowedUser;
 	}
 
-	let activeTab: Tab = 'feed';
+	let activeTab: Tab = 'all';
 
-	// ── Feed ──────────────────────────────────────────────────────────────────
+	// ── All Songs ─────────────────────────────────────────────────────────────
+	let allItems: FeedItem[] = [];
+	let allLoading = false;
+	let allError = '';
+	let allLastRefreshed: Date | null = null;
+
+	// ── Following ─────────────────────────────────────────────────────────────
 	let feedItems: FeedItem[] = [];
 	let feedLoading = false;
 	let feedError = '';
@@ -89,6 +95,7 @@
 				)
 			);
 			ownSelected.forEach((uri) => deletedUris.add(uri));
+			allItems = allItems.filter((i) => !ownSelected.includes(i.uri));
 			feedItems = feedItems.filter((i) => !ownSelected.includes(i.uri));
 			selectedUris = new Set([...selectedUris].filter((u) => !ownSelected.includes(u)));
 		} finally {
@@ -134,6 +141,25 @@
 			goto(`/s/${$session.handle}/${rkey}`);
 		} finally {
 			creatingSetlist = false;
+		}
+	}
+
+	async function loadAllSongs() {
+		if (allLoading) return;
+		allLoading = true;
+		allError = '';
+		try {
+			const res = await fetch('/api/feed?all=true&limit=50');
+			if (!res.ok) { allError = 'Could not load songs.'; return; }
+			const data = await res.json();
+			const raw = data.items as FeedItem[];
+			allItems = deletedUris.size > 0 ? raw.filter((i) => !deletedUris.has(i.uri)) : raw;
+			allLastRefreshed = new Date();
+			loadVoteCounts(allItems.map((i) => i.uri));
+		} catch (e) {
+			allError = e instanceof Error ? e.message : 'Could not load songs.';
+		} finally {
+			allLoading = false;
 		}
 	}
 
@@ -200,16 +226,21 @@
 		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
 
+	$: if (browser && $session) loadAllSongs();
 	$: if (browser && $followingLoaded) loadFeed($session, $following);
 
 	$: if ($lastSharedSong && $session) {
 		const self: FollowedUser = { did: $session.did, handle: $session.handle };
 		const incoming = $lastSharedSong;
+		lastSharedSong.set(null);
+		if (!allItems.some((i) => i.uri === incoming.uri)) {
+			allItems = [{ uri: incoming.uri, cid: incoming.cid, record: incoming.value, sharedBy: self }, ...allItems];
+		}
 		if (!feedItems.some((i) => i.uri === incoming.uri)) {
 			feedItems = [{ uri: incoming.uri, cid: incoming.cid, record: incoming.value, sharedBy: self }, ...feedItems];
-			switchTab('feed');
-			window.scrollTo({ top: 0, behavior: 'smooth' });
 		}
+		switchTab('all');
+		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
 
 	// ── Daily ─────────────────────────────────────────────────────────────────
@@ -241,7 +272,7 @@
 	let indicatorWidth = 0;
 
 	function updateIndicator() {
-		const idx = (['feed', 'daily', 'setlists'] as Tab[]).indexOf(activeTab);
+		const idx = (['all', 'following', 'daily', 'setlists'] as Tab[]).indexOf(activeTab);
 		const el = tabEls[idx];
 		if (el) {
 			indicatorLeft = el.offsetLeft;
@@ -350,7 +381,7 @@
 		<div class="sticky top-0 z-20 -mx-6 px-6 py-3 {$t.headerBg} backdrop-blur-sm border-b {$t.borderFaded}">
 			<!-- Tabs row — underline style with animated indicator -->
 			<nav class="relative flex items-center border-b {$t.borderFaded}">
-				{#each [['feed', 'Feed'], ['daily', 'Daily'], ['setlists', 'Setlists']] as [tab, label], i}
+				{#each [['all', 'All Songs'], ['following', 'Following'], ['daily', 'Daily'], ['setlists', 'Setlists']] as [tab, label], i}
 					<button
 						bind:this={tabEls[i]}
 						on:click={() => switchTab(tab as Tab)}
@@ -360,7 +391,11 @@
 						{label}
 					</button>
 				{/each}
-				{#if activeTab === 'feed' && lastRefreshed}
+				{#if activeTab === 'all' && allLastRefreshed}
+					<span class="ml-auto pr-1 text-xs {$t.textFaint} whitespace-nowrap">
+						Updated {allLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+					</span>
+				{:else if activeTab === 'following' && lastRefreshed}
 					<span class="ml-auto pr-1 text-xs {$t.textFaint} whitespace-nowrap">
 						Updated {lastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
 					</span>
@@ -375,17 +410,16 @@
 				></div>
 			</nav>
 
-			<!-- Feed: action buttons -->
-			{#if activeTab === 'feed'}
+			<!-- All Songs / Following: shared action buttons -->
+			{#if activeTab === 'all' || activeTab === 'following'}
 				<div class="flex items-center gap-2 mt-2">
 					<button
-						on:click={refreshFeed}
-						disabled={feedLoading}
-						aria-label="Refresh feed"
-						title="Reload songs from everyone you follow"
+						on:click={() => activeTab === 'all' ? loadAllSongs() : refreshFeed()}
+						disabled={activeTab === 'all' ? allLoading : feedLoading}
+						aria-label="Refresh"
 						class="flex items-center gap-1.5 text-xs {$t.textMuted} {$t.hoverText} border {$t.borderBase} {$t.hoverBorderBase} px-2.5 py-1 rounded-full disabled:opacity-40 transition-colors"
 					>
-						<svg viewBox="0 0 24 24" fill="none" class="w-3.5 h-3.5 {feedLoading ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
+						<svg viewBox="0 0 24 24" fill="none" class="w-3.5 h-3.5 {(activeTab === 'all' ? allLoading : feedLoading) ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
 							<path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 						</svg>
 						Refresh
@@ -423,7 +457,7 @@
 				<div class="flex items-center gap-2 mt-2">
 					<button
 						on:click={refreshFeed}
-						disabled={feedLoading}
+						disabled={feedLoading || allLoading}
 						aria-label="Refresh"
 						title="Reload songs"
 						class="flex items-center gap-1.5 text-xs {$t.textMuted} {$t.hoverText} border {$t.borderBase} {$t.hoverBorderBase} px-2.5 py-1 rounded-full disabled:opacity-40 transition-colors"
@@ -472,16 +506,43 @@
 			{/if}
 		</div>
 
-		<!-- Feed tab -->
-		{#if activeTab === 'feed'}
+		<!-- All Songs tab -->
+		{#if activeTab === 'all'}
+			{#if allLoading && allItems.length === 0}
+				<p class="{$t.textMuted} text-sm">Loading…</p>
+			{:else if allError}
+				<p class="text-red-400 text-sm">{allError}</p>
+			{:else if allItems.length === 0}
+				<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-10 text-center space-y-2">
+					<p class="{$t.textSecondary} text-sm font-medium">No songs yet</p>
+					<p class="{$t.textMuted} text-xs">Songs shared by anyone on this instance will appear here.</p>
+				</div>
+			{:else}
+				<div class="space-y-0 sm:space-y-3">
+					{#each allItems as item (item.uri)}
+						<SongCard
+							uri={item.uri}
+							cid={item.cid}
+							record={item.record}
+							sharedBy={item.sharedBy}
+							selected={selectedUris.has(item.uri)}
+							onselect={toggleSelected}
+							voteCount={voteCounts.get(item.uri) ?? 0}
+						/>
+					{/each}
+				</div>
+			{/if}
+
+		<!-- Following tab -->
+		{:else if activeTab === 'following'}
 			{#if !$followingLoaded || feedLoading}
-				<p class="{$t.textMuted} text-sm">Loading your feed…</p>
+				<p class="{$t.textMuted} text-sm">Loading…</p>
 			{:else if feedError}
 				<p class="text-red-400 text-sm">{feedError}</p>
 			{:else if feedItems.length === 0}
 				<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-10 space-y-6">
 					<div class="text-center space-y-2">
-						<p class="{$t.textSecondary} text-sm font-medium">Your feed is empty</p>
+						<p class="{$t.textSecondary} text-sm font-medium">Your following feed is empty</p>
 						<p class="{$t.textMuted} text-xs">Songs shared by people you follow on {AUTH_PROVIDER_NAME} will appear here.</p>
 					</div>
 					<ol class="space-y-4 text-sm max-w-xs mx-auto">
@@ -489,7 +550,7 @@
 							<span class="{$t.textFaint} font-mono text-xs mt-0.5 shrink-0">1</span>
 							<div>
 								<p class="{$t.textSecondary} font-medium">Follow people on {AUTH_PROVIDER_NAME}</p>
-								<p class="{$t.textMuted} text-xs mt-0.5">{APP_NAME} uses your {AUTH_PROVIDER_NAME} follows — anyone you follow there shows up in your feed.</p>
+								<p class="{$t.textMuted} text-xs mt-0.5">{APP_NAME} uses your {AUTH_PROVIDER_NAME} follows — anyone you follow there shows up here.</p>
 							</div>
 						</li>
 						<li class="flex gap-3">
@@ -497,13 +558,6 @@
 							<div>
 								<p class="{$t.textSecondary} font-medium">Share a song</p>
 								<p class="{$t.textMuted} text-xs mt-0.5">Tap <span class="{$t.textSecondary}">+</span> to search for a song and share it.</p>
-							</div>
-						</li>
-						<li class="flex gap-3">
-							<span class="{$t.textFaint} font-mono text-xs mt-0.5 shrink-0">3</span>
-							<div>
-								<p class="{$t.textSecondary} font-medium">Listen on any platform</p>
-								<p class="{$t.textMuted} text-xs mt-0.5">Every shared song links to Spotify, Apple Music, and more.</p>
 							</div>
 						</li>
 					</ol>

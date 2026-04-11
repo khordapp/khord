@@ -1142,11 +1142,10 @@
 			use:dndzone={{ items: dndItems, flipDurationMs: 150, dragDisabled: !isOwn || !editMode }}
 			on:consider={handleDndConsider}
 			on:finalize={handleDndFinalize}
-			class="space-y-2"
 		>
 			{#each dndItems as dndItem (dndItem.id)}
 				<div animate:flip={{ duration: 150 }}
-					class="rounded-xl border {$t.borderBase} {$t.surfaceBg} px-4 py-3 overflow-hidden
+					class="border-b {$t.borderBase} sm:rounded-xl sm:border sm:mb-2 px-4 py-3
 						{isOwn && editMode ? 'cursor-grab active:cursor-grabbing' : ''}"
 				>
 					<!-- Row 1: drag handle + art + title/artist + remove -->
@@ -1190,7 +1189,7 @@
 						{@const rec = dndItem.record}
 						{@const liked = likedUris.has(uri)}
 						{@const count = voteCounts.get(uri) ?? 0}
-						<div class="flex items-center justify-center gap-8 mt-2">
+						<div class="flex items-center gap-6 mt-2 overflow-x-auto">
 							<!-- song.link -->
 							{#if rec.songlinkUrl}
 								<a href={rec.songlinkUrl} target="_blank" rel="noopener noreferrer"

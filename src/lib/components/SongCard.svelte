@@ -212,16 +212,23 @@
 			</div>
 		</div>
 
-		<div class="flex items-center gap-2 min-w-0" style="padding-left: {!$instanceConfig.albumArtDisabled && record.thumbnailUrl ? '3.75rem' : '1.75rem'}">
-			{#if sharedBy.avatar}
-				<img src={sharedBy.avatar} alt={sharedBy.handle} class="w-5 h-5 rounded-full object-cover shrink-0" />
-			{/if}
-			<p class="text-xs {$t.textMuted} truncate">
-				<span class="{$t.textSecondary}">{sharedBy.displayName ?? sharedBy.handle}</span>
-				· {timeAgo(record.createdAt)}
-			</p>
-		</div>
 	</button>
+
+	<div class="flex items-center gap-2 min-w-0" style="padding-left: {!$instanceConfig.albumArtDisabled && record.thumbnailUrl ? '3.75rem' : '1.75rem'}">
+		{#if sharedBy.avatar}
+			<img src={sharedBy.avatar} alt={sharedBy.handle} class="w-5 h-5 rounded-full object-cover shrink-0" />
+		{/if}
+		<p class="text-xs {$t.textMuted} truncate">
+			{#if sharedBy.handle && !sharedBy.handle.startsWith('did:')}
+				<a href="https://bsky.app/profile/{sharedBy.handle}" target="_blank" rel="noopener noreferrer"
+					class="{$t.textSecondary} {$t.hoverText} transition-colors"
+				>{sharedBy.displayName ?? sharedBy.handle}</a>
+			{:else}
+				<span class="{$t.textSecondary}">{sharedBy.displayName ?? sharedBy.handle}</span>
+			{/if}
+			· {timeAgo(record.createdAt)}
+		</p>
+	</div>
 
 	{#if record.note}
 		<p class="text-sm {$t.textSecondary} leading-snug" style="padding-left: {!$instanceConfig.albumArtDisabled && record.thumbnailUrl ? '3.75rem' : '1.75rem'}">{record.note}</p>

@@ -45,6 +45,9 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable={{is_default_branch}}
 
+      - name: Set version
+        run: echo "VERSION=$(cat version.txt | tr -d '[:space:]').$(git rev-list --count HEAD)" >> $GITHUB_ENV
+
       - name: Build and push image
         uses: docker/build-push-action@v5
         with:
@@ -54,3 +57,5 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ env.VERSION }}

@@ -13,22 +13,26 @@ export const GET: RequestHandler = ({ url }) => {
 	const db = getDb();
 	if (!db) error(503, 'AppView not available');
 
+	const all = url.searchParams.get('all') === 'true';
 	const didsParam = url.searchParams.get('dids');
-	if (!didsParam) error(400, 'Missing dids parameter');
 
-	const dids = didsParam.split(',').filter(Boolean);
-	if (dids.length === 0) error(400, 'No DIDs provided');
+	if (!all && !didsParam) error(400, 'Missing dids parameter');
+
+	const dids = didsParam ? didsParam.split(',').filter(Boolean) : [];
+	if (!all && dids.length === 0) error(400, 'No DIDs provided');
 
 	const limit  = Math.min(parseInt(url.searchParams.get('limit') ?? '50'), 100);
 	const cursor = url.searchParams.get('cursor'); // ISO datetime — created_at of last item
 
 	const feedScoped = getSetting('feed_scoped', 'false') === 'true';
-	const placeholders = dids.map(() => '?').join(',');
 
-	const params: unknown[] = [...dids];
+	const params: unknown[] = [];
+	if (!all) params.push(...dids);
 	if (feedScoped) params.push(APP_URL);
 	if (cursor) params.push(cursor);
 	params.push(limit);
+
+	const placeholders = dids.map(() => '?').join(',');
 
 	const rows = db.prepare(`
 		SELECT
@@ -40,8 +44,7 @@ export const GET: RequestHandler = ({ url }) => {
 			a.handle, a.display_name, a.avatar
 		FROM songs s
 		JOIN actors a ON a.did = s.actor_did
-		WHERE s.actor_did IN (${placeholders})
-		AND s.listed != 0
+		${!all ? `WHERE s.actor_did IN (${placeholders}) AND` : 'WHERE'} s.listed != 0
 		${feedScoped ? 'AND s.instance_url = ?' : ''}
 		${cursor ? 'AND s.created_at < ?' : ''}
 		ORDER BY s.created_at DESC

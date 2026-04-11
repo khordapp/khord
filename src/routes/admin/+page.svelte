@@ -149,6 +149,26 @@
 		}
 	}
 
+	let resolvingHandles = false;
+	let resolveResult: { resolved: number; failed: number; total: number } | null = null;
+
+	async function resolveHandles() {
+		const did = $session?.did;
+		if (!did || resolvingHandles) return;
+		resolvingHandles = true;
+		resolveResult = null;
+		try {
+			const r = await fetch(`/api/admin/users/resolve-handles?did=${encodeURIComponent(did)}`, { method: 'POST' });
+			if (!r.ok) throw new Error();
+			resolveResult = await r.json();
+			if (resolveResult && resolveResult.resolved > 0) await loadUsers();
+		} catch {
+			resolveResult = { resolved: 0, failed: -1, total: 0 };
+		} finally {
+			resolvingHandles = false;
+		}
+	}
+
 	async function loadUsers(append = false) {
 		const did = $session?.did;
 		if (!did || usersLoading) return;
@@ -326,6 +346,34 @@
 	<!-- Users tab -->
 	{#if activeTab === 'users'}
 		<div class="space-y-3">
+			<div class="flex items-center gap-3">
+				<button
+					on:click={resolveHandles}
+					disabled={resolvingHandles}
+					class="flex items-center gap-1.5 text-xs {$t.textMuted} {$t.hoverText} border {$t.borderBase} {$t.hoverBorderBase} px-2.5 py-1 rounded-full disabled:opacity-50 transition-colors"
+				>
+					{#if resolvingHandles}
+						<span class="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
+						Resolving…
+					{:else}
+						<svg viewBox="0 0 24 24" fill="none" class="w-3 h-3" xmlns="http://www.w3.org/2000/svg">
+							<path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+						Resolve missing handles
+					{/if}
+				</button>
+				{#if resolveResult}
+					<span class="text-xs {resolveResult.failed === -1 ? 'text-red-400' : $t.textFaint}">
+						{#if resolveResult.failed === -1}
+							Failed — database error
+						{:else if resolveResult.total === 0}
+							All handles already resolved
+						{:else}
+							{resolveResult.resolved} resolved{resolveResult.failed > 0 ? `, ${resolveResult.failed} failed` : ''}
+						{/if}
+					</span>
+				{/if}
+			</div>
 			{#if usersError}
 				<p class="text-sm {$t.textMuted}">Could not load users — database offline.</p>
 			{:else if users.length === 0 && usersLoading}

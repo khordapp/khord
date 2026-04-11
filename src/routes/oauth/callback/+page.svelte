@@ -19,7 +19,7 @@
 			const res = await fetch('/api/auth/check', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ did: s.did })
+				body: JSON.stringify({ did: s.did, handle: s.handle ?? null })
 			});
 			const result = await res.json();
 			if (!result.allowed) {

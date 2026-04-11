@@ -38,7 +38,7 @@ export type AccessResult =
 	| { allowed: true }
 	| { allowed: false; reason: string };
 
-export function checkAndRegister(did: string): AccessResult {
+export function checkAndRegister(did: string, handle: string | null = null): AccessResult {
 	// 1. Ban check — env var (no DB needed)
 	if (getBannedDids().has(did)) {
 		return { allowed: false, reason: 'Your account has been removed from this instance.' };
@@ -85,6 +85,13 @@ export function checkAndRegister(did: string): AccessResult {
 
 	// 5. Register (upsert — idempotent on repeat sign-ins)
 	db?.prepare('INSERT INTO registered_users(did) VALUES(?) ON CONFLICT(did) DO NOTHING').run(did);
+
+	// 6. Seed actors table with handle so admin panel shows it before the indexer catches up
+	if (db && handle) {
+		db.prepare(`INSERT INTO actors(did, handle) VALUES(?, ?)
+			ON CONFLICT(did) DO UPDATE SET handle = excluded.handle WHERE excluded.handle IS NOT NULL`
+		).run(did, handle);
+	}
 
 	return { allowed: true };
 }

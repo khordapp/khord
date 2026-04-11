@@ -7,9 +7,9 @@ import type { RequestHandler } from './$types';
 import { checkAndRegister } from '$lib/server/access';
 
 export const POST: RequestHandler = async ({ request }) => {
-	const { did } = await request.json();
+	const { did, handle } = await request.json();
 	if (!did || typeof did !== 'string') error(400, 'Missing did');
 
-	const result = checkAndRegister(did);
+	const result = checkAndRegister(did, typeof handle === 'string' ? handle : null);
 	return json(result);
 };

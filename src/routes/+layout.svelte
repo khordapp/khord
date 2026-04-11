@@ -1,7 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import { onMount } from 'svelte';
-	import { APP_NAME } from '$lib/config';
+	import { APP_NAME, VERSION } from '$lib/config';
 	import { initAuth, signOut } from '$lib/atproto/agent';
 	import { session, isLoggedIn, authReady } from '$lib/stores/auth';
 	import { following, followingLoaded } from '$lib/stores/following';
@@ -145,6 +145,7 @@
 			<!-- App name + powered-by -->
 			<div class="flex flex-col items-center gap-1">
 				<span class="font-semibold {$t.textMuted}">{APP_NAME.toLowerCase()}</span>
+				<span class="{$t.textFaint}">v{VERSION}</span>
 				<a
 					href="https://khord.app"
 					target="_blank"
