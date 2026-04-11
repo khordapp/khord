@@ -299,7 +299,7 @@
 		{:else if statsError}
 			<div class="col-span-4 {$t.surfaceBg} border {$t.borderStrong} rounded-xl px-4 py-4 space-y-1.5">
 				<p class="text-sm font-medium {$t.textPrimary}">SQLite database not connected</p>
-				<p class="text-xs {$t.textMuted}">User management, ban enforcement, feed indexing, and instance settings require a running SQLite database. See the <a href="https://github.com/emptyfish/khord/blob/main/README.md#deployment-architecture" target="_blank" rel="noopener noreferrer" class="{$t.linkText} {$t.linkTextHover} underline">deployment guide</a> for setup instructions.</p>
+				<p class="text-xs {$t.textMuted}">User management, ban enforcement, feed indexing, and instance settings require a running SQLite database. See the <a href="https://github.com/khordapp/khord/blob/main/README.md#deployment-architecture" target="_blank" rel="noopener noreferrer" class="{$t.linkText} {$t.linkTextHover} underline">deployment guide</a> for setup instructions.</p>
 			</div>
 		{:else}
 			{#each [0, 1, 2, 3] as _}
