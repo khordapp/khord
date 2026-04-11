@@ -142,8 +142,8 @@
 
 	<footer class="border-t {$t.borderBase} mt-16 px-6 py-8">
 		<div class="max-w-2xl mx-auto space-y-4 text-xs {$t.textFaint}">
-			<!-- Top row: app name + powered-by -->
-			<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+			<!-- App name + powered-by -->
+			<div class="flex flex-col items-center gap-1">
 				<span class="font-semibold {$t.textMuted}">{APP_NAME.toLowerCase()}</span>
 				<a
 					href="https://khord.app"
@@ -152,8 +152,8 @@
 					class="{$t.textFaint} {$t.hoverTextSecondary} transition-colors"
 				>Powered by Khord</a>
 			</div>
-			<!-- Bottom row: API attributions -->
-			<div class="flex flex-wrap gap-x-4 gap-y-1.5 border-t {$t.borderFaded} pt-4">
+			<!-- API attributions -->
+			<div class="flex flex-wrap justify-center gap-x-4 gap-y-1.5 border-t {$t.borderFaded} pt-4">
 				<span>Cross-platform links via <a href="https://odesli.co" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">Odesli</a></span>
 				<span>Music search via <a href="https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">iTunes Search API</a></span>
 				<span>Spotify data via <a href="https://developer.spotify.com" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">Spotify Web API</a></span>

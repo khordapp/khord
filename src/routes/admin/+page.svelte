@@ -80,6 +80,8 @@
 	let registrationClosed = false;
 	let maxUsers = 0;
 	let feedScoped = false;
+	let spotifyEnabled = false;
+	let youtubeMusicEnabled = false;
 
 	async function loadSettings() {
 		const did = $session?.did;
@@ -94,6 +96,8 @@
 			registrationClosed = raw.registration_closed === 'true';
 			maxUsers = parseInt(raw.max_users ?? '0', 10) || 0;
 			feedScoped = raw.feed_scoped === 'true';
+			spotifyEnabled = raw.spotify_enabled !== 'false';
+			youtubeMusicEnabled = raw.youtube_music_enabled === 'true';
 			settings = { album_art_disabled: albumArtDisabled, registration_closed: registrationClosed, max_users: maxUsers };
 		} catch {
 			settingsError = true;
@@ -116,7 +120,9 @@
 						album_art_disabled: String(albumArtDisabled),
 						registration_closed: String(registrationClosed),
 						max_users: String(maxUsers),
-						feed_scoped: String(feedScoped)
+						feed_scoped: String(feedScoped),
+						spotify_enabled: String(spotifyEnabled),
+						youtube_music_enabled: String(youtubeMusicEnabled)
 					}
 				})
 			});
@@ -291,7 +297,10 @@
 				<p class="text-xl font-bold font-mono text-sm">{formatCompact(stats.cursorSeq)}</p>
 			</div>
 		{:else if statsError}
-			<div class="col-span-4 text-sm {$t.textMuted}">Stats unavailable — database offline.</div>
+			<div class="col-span-4 {$t.surfaceBg} border {$t.borderStrong} rounded-xl px-4 py-4 space-y-1.5">
+				<p class="text-sm font-medium {$t.textPrimary}">SQLite database not connected</p>
+				<p class="text-xs {$t.textMuted}">User management, ban enforcement, feed indexing, and instance settings require a running SQLite database. See the <a href="https://github.com/emptyfish/khord/blob/main/README.md#deployment-architecture" target="_blank" rel="noopener noreferrer" class="{$t.linkText} {$t.linkTextHover} underline">deployment guide</a> for setup instructions.</p>
+			</div>
 		{:else}
 			{#each [0, 1, 2, 3] as _}
 				<div class="{$t.surfaceBg} border {$t.borderBase} rounded-xl px-4 py-3 animate-pulse h-16"></div>
@@ -344,7 +353,7 @@
 								<p class="text-sm font-medium {$t.textPrimary} truncate">
 									{#if user.handle}@{user.handle}{:else}<span class="font-mono text-xs">{truncateDid(user.did)}</span>{/if}
 								</p>
-								<p class="text-xs {$t.textFaint} truncate">{formatDate(user.registeredAt)}</p>
+								<p class="text-xs {$t.textFaint} truncate font-mono">{user.did} · {formatDate(user.registeredAt)}</p>
 							</div>
 							<!-- Ban button — don't show for self -->
 							{#if user.did !== $session?.did}
@@ -513,6 +522,44 @@
 					>
 						<span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full {$t.pageBg} shadow transition-transform
 							{feedScoped ? 'translate-x-4' : 'translate-x-0'}"></span>
+					</button>
+				</div>
+
+				<!-- Spotify -->
+				<div class="{$t.surfaceBg} border {$t.borderStrong} rounded-xl px-4 py-4 flex items-start justify-between gap-4">
+					<div>
+						<p class="text-sm font-medium {$t.textPrimary}">Spotify links</p>
+						<p class="text-xs {$t.textMuted} mt-0.5">Resolve Spotify URLs when sharing songs. Requires <code class="font-mono">PUBLIC_SPOTIFY_CLIENT_ID</code> and <code class="font-mono">SPOTIFY_CLIENT_SECRET</code> env vars.</p>
+					</div>
+					<button
+						role="switch"
+						aria-checked={spotifyEnabled}
+						aria-label="Toggle Spotify links"
+						on:click={() => (spotifyEnabled = !spotifyEnabled)}
+						class="relative shrink-0 w-10 h-6 rounded-full transition-colors
+							{spotifyEnabled ? $t.btnPrimaryBg : $t.elevatedBg} border {$t.borderStrong}"
+					>
+						<span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full {$t.pageBg} shadow transition-transform
+							{spotifyEnabled ? 'translate-x-4' : 'translate-x-0'}"></span>
+					</button>
+				</div>
+
+				<!-- YouTube Music -->
+				<div class="{$t.surfaceBg} border {$t.borderStrong} rounded-xl px-4 py-4 flex items-start justify-between gap-4">
+					<div>
+						<p class="text-sm font-medium {$t.textPrimary}">YouTube Music links</p>
+						<p class="text-xs {$t.textMuted} mt-0.5">Resolve YouTube Music URLs when sharing songs. Requires <code class="font-mono">YOUTUBE_API_KEY</code> env var. Uses ~100 YouTube Data API quota units per song shared.</p>
+					</div>
+					<button
+						role="switch"
+						aria-checked={youtubeMusicEnabled}
+						aria-label="Toggle YouTube Music links"
+						on:click={() => (youtubeMusicEnabled = !youtubeMusicEnabled)}
+						class="relative shrink-0 w-10 h-6 rounded-full transition-colors
+							{youtubeMusicEnabled ? $t.btnPrimaryBg : $t.elevatedBg} border {$t.borderStrong}"
+					>
+						<span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full {$t.pageBg} shadow transition-transform
+							{youtubeMusicEnabled ? 'translate-x-4' : 'translate-x-0'}"></span>
 					</button>
 				</div>
 

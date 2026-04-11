@@ -12,6 +12,7 @@
 	import { getAgent } from '$lib/atproto/agent';
 	import { goto } from '$app/navigation';
 	import { onMount, tick } from 'svelte';
+	import { browser } from '$app/environment';
 	import { theme as t } from '$lib/theme';
 	import LandingContent from '$lib/landing.svelte';
 
@@ -199,7 +200,7 @@
 		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
 
-	$: if ($followingLoaded) loadFeed($session, $following);
+	$: if (browser && $followingLoaded) loadFeed($session, $following);
 
 	$: if ($lastSharedSong && $session) {
 		const self: FollowedUser = { did: $session.did, handle: $session.handle };
@@ -357,21 +358,23 @@
 						{label}
 					</button>
 				{/each}
+				{#if activeTab === 'feed' && lastRefreshed}
+					<span class="ml-auto pr-1 text-xs {$t.textFaint} whitespace-nowrap">
+						Updated {lastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+					</span>
+				{:else if activeTab === 'setlists' && setlistsLastRefreshed}
+					<span class="ml-auto pr-1 text-xs {$t.textFaint} whitespace-nowrap">
+						Updated {setlistsLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+					</span>
+				{/if}
 				<div
 					class="absolute bottom-0 h-0.5 {$t.btnPrimaryBg} rounded-full transition-all duration-200 ease-out pointer-events-none"
 					style="left: {indicatorLeft}px; width: {indicatorWidth}px"
 				></div>
 			</nav>
 
-			<!-- Feed: subtitle + action buttons -->
+			<!-- Feed: action buttons -->
 			{#if activeTab === 'feed'}
-				<p class="{$t.textFaint} text-xs mt-1">
-					{#if lastRefreshed}
-						Updated {lastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
-					{:else}
-						Songs shared by people you follow.
-					{/if}
-				</p>
 				<div class="flex items-center gap-2 mt-2">
 					<button
 						on:click={refreshFeed}
@@ -448,15 +451,8 @@
 					{/if}
 				</div>
 
-			<!-- Setlists: subtitle + refresh -->
+			<!-- Setlists: refresh -->
 			{:else if activeTab === 'setlists'}
-				<p class="{$t.textFaint} text-xs mt-1">
-					{#if setlistsLastRefreshed}
-						Updated {setlistsLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
-					{:else}
-						Your setlists.
-					{/if}
-				</p>
 				<div class="flex items-center gap-2 mt-2">
 					<button
 						on:click={loadSetlists}

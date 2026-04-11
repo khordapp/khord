@@ -18,8 +18,8 @@ const light: Theme = {
 	// Text
 	textPrimary:   'text-gray-900',
 	textSecondary: 'text-gray-600',
-	textMuted:     'text-gray-400',
-	textFaint:     'text-gray-300',
+	textMuted:     'text-gray-500',
+	textFaint:     'text-gray-400',
 
 	// Interactive
 	hoverBg:            'hover:bg-gray-100',

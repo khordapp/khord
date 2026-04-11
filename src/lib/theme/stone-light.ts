@@ -15,8 +15,8 @@ const stoneLight: Theme = {
 
 	textPrimary:   'text-stone-900',
 	textSecondary: 'text-stone-600',
-	textMuted:     'text-stone-400',
-	textFaint:     'text-stone-300',
+	textMuted:     'text-stone-500',
+	textFaint:     'text-stone-400',
 
 	hoverBg:            'hover:bg-stone-100',
 	hoverBgStrong:      'hover:bg-stone-200',

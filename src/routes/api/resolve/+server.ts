@@ -2,6 +2,8 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { resolveUrl, getCanonicalEntity } from '$lib/odesli/client';
 import { findSpotifyUrl } from '$lib/server/spotify';
+import { findYoutubeMusicUrl } from '$lib/server/youtube';
+import { getSetting } from '$lib/server/settings';
 
 // In-process cache — results are stable so we cache indefinitely per process.
 // Prevents redundant Odesli + Spotify hits when multiple users share the same song.
@@ -32,12 +34,20 @@ export const GET: RequestHandler = async ({ url }) => {
 	try {
 		const result = await resolveUrl(cleanUrl);
 
-		// Odesli omits Spotify — look it up directly via client credentials.
+		// Odesli omits Spotify and YouTube Music — look them up directly.
 		const entity = getCanonicalEntity(result);
 		if (entity?.title && entity?.artistName) {
-			const spotifyUrl = await findSpotifyUrl(entity.title, entity.artistName);
+			const spotifyEnabled = getSetting('spotify_enabled', 'true') === 'true';
+			const youtubeMusicEnabled = getSetting('youtube_music_enabled', 'false') === 'true';
+			const [spotifyUrl, youtubeMusicUrl] = await Promise.all([
+				spotifyEnabled ? findSpotifyUrl(entity.title, entity.artistName) : Promise.resolve(null),
+				youtubeMusicEnabled ? findYoutubeMusicUrl(entity.title, entity.artistName) : Promise.resolve(null)
+			]);
 			if (spotifyUrl) {
 				result.linksByPlatform['spotify'] = { country: 'US', url: spotifyUrl, entityUniqueId: '' };
+			}
+			if (youtubeMusicUrl) {
+				result.linksByPlatform['youtubeMusic'] = { country: 'US', url: youtubeMusicUrl, entityUniqueId: '' };
 			}
 		}
 

@@ -1,6 +1,6 @@
 # Khord
 
-**Music, across every platform.**
+**Share music, listen anywhere.**
 
 Khord is a decentralized social app for sharing music. Share a song once — your followers listen on whichever streaming service they use. Spotify, Apple Music, Tidal, and more. Artist revenue flows naturally because playback happens natively in each platform.
 
@@ -115,7 +115,7 @@ PUBLIC_APP_URL=https://dev.myapp.com
 |---|---|
 | `PUBLIC_APP_URL` | Publicly accessible URL (e.g. `https://dev.myapp.com` for local dev) |
 | `PUBLIC_APP_NAME` | Display name in UI and page titles (default: `Khord`) |
-| `PUBLIC_APP_TAGLINE` | Tagline on the home page (default: `Music, across every platform.`) |
+| `PUBLIC_APP_TAGLINE` | Tagline on the home page (default: `Share music, listen anywhere.`) |
 | `PUBLIC_AUTH_PROVIDER_NAME` | Identity provider name in sign-in UI (default: `Bluesky`) |
 | `PUBLIC_THEME` | UI color theme — see [Themes](#themes) (default: `dark`) |
 | `PUBLIC_SPOTIFY_CLIENT_ID` | Spotify app client ID — from developer.spotify.com |

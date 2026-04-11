@@ -936,7 +936,7 @@
 		>
 			{#each dndItems as dndItem (dndItem.id)}
 				<div animate:flip={{ duration: 150 }}
-					class="flex items-center gap-3 rounded-xl border {$t.borderBase} {$t.surfaceBg} px-4 py-3
+					class="flex items-center gap-3 rounded-xl border {$t.borderBase} {$t.surfaceBg} px-4 py-3 overflow-hidden
 						{isOwn ? 'cursor-grab active:cursor-grabbing' : ''}"
 				>
 					{#if isOwn}

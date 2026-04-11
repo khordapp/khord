@@ -15,8 +15,8 @@ const slateLight: Theme = {
 
 	textPrimary:   'text-slate-900',
 	textSecondary: 'text-slate-600',
-	textMuted:     'text-slate-400',
-	textFaint:     'text-slate-300',
+	textMuted:     'text-slate-500',
+	textFaint:     'text-slate-400',
 
 	hoverBg:            'hover:bg-slate-100',
 	hoverBgStrong:      'hover:bg-slate-200',

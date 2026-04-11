@@ -15,8 +15,8 @@ const neutralLight: Theme = {
 
 	textPrimary:   'text-neutral-900',
 	textSecondary: 'text-neutral-600',
-	textMuted:     'text-neutral-400',
-	textFaint:     'text-neutral-300',
+	textMuted:     'text-neutral-500',
+	textFaint:     'text-neutral-400',
 
 	hoverBg:            'hover:bg-neutral-100',
 	hoverBgStrong:      'hover:bg-neutral-200',

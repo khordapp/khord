@@ -15,8 +15,8 @@ const zincLight: Theme = {
 
 	textPrimary:   'text-zinc-900',
 	textSecondary: 'text-zinc-600',
-	textMuted:     'text-zinc-400',
-	textFaint:     'text-zinc-300',
+	textMuted:     'text-zinc-500',
+	textFaint:     'text-zinc-400',
 
 	hoverBg:            'hover:bg-zinc-100',
 	hoverBgStrong:      'hover:bg-zinc-200',
