@@ -76,6 +76,10 @@ See [docs/deploying.md](docs/deploying.md) for step-by-step instructions, enviro
 - [ ] Setlist export to streaming services (Spotify, Apple Music)
 - [ ] Mobile apps (iOS/Android)
 
+## Questions
+
+Open an issue or email [dev@khord.app](mailto:dev@khord.app).
+
 ## License
 
 Khord is licensed under the GNU Affero General Public License v3.0. See [LICENSE](LICENSE) for details.
