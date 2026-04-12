@@ -149,14 +149,33 @@
 		allLoading = true;
 		allError = '';
 		try {
+			// Try AppView first
 			const res = await fetch('/api/feed?all=true&limit=50');
-			if (!res.ok) { allError = 'Could not load songs.'; return; }
-			const data = await res.json();
-			const raw = data.items as FeedItem[];
+			if (res.ok) {
+				const data = await res.json();
+				const raw = data.items as FeedItem[];
+				if (raw.length > 0) {
+					allItems = deletedUris.size > 0 ? raw.filter((i) => !deletedUris.has(i.uri)) : raw;
+					allLastRefreshed = new Date();
+					loadVoteCounts(allItems.map((i) => i.uri));
+					return;
+				}
+			}
+
+			// AppView empty or unavailable — fall back to querying all registered users' PDSes
+			if (!$session) return;
+			const usersRes = await fetch(`/api/registered-users?did=${encodeURIComponent($session.did)}`);
+			if (!usersRes.ok) {
+				allError = 'Could not load songs.';
+				return;
+			}
+			const { users } = await usersRes.json() as { users: FollowedUser[] };
+			const raw = await loadFeedFromPds($session, users.filter((u) => u.did !== $session!.did));
 			allItems = deletedUris.size > 0 ? raw.filter((i) => !deletedUris.has(i.uri)) : raw;
 			allLastRefreshed = new Date();
 			loadVoteCounts(allItems.map((i) => i.uri));
 		} catch (e) {
+			console.error('[loadAllSongs]', e);
 			allError = e instanceof Error ? e.message : 'Could not load songs.';
 		} finally {
 			allLoading = false;
@@ -391,19 +410,6 @@
 						{label}
 					</button>
 				{/each}
-				{#if activeTab === 'all' && allLastRefreshed}
-					<span class="ml-auto pr-1 text-xs {$t.textFaint} whitespace-nowrap">
-						Updated {allLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
-					</span>
-				{:else if activeTab === 'following' && lastRefreshed}
-					<span class="ml-auto pr-1 text-xs {$t.textFaint} whitespace-nowrap">
-						Updated {lastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
-					</span>
-				{:else if activeTab === 'setlists' && setlistsLastRefreshed}
-					<span class="ml-auto pr-1 text-xs {$t.textFaint} whitespace-nowrap">
-						Updated {setlistsLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
-					</span>
-				{/if}
 				<div
 					class="absolute bottom-0 h-0.5 {$t.btnPrimaryBg} rounded-full transition-all duration-200 ease-out pointer-events-none"
 					style="left: {indicatorLeft}px; width: {indicatorWidth}px"
@@ -446,6 +452,15 @@
 							</svg>
 							Remove {selectedUris.size}
 						</button>
+					{/if}
+					{#if activeTab === 'all' && allLastRefreshed}
+						<span class="ml-auto text-xs {$t.textFaint} whitespace-nowrap">
+							Updated {allLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+						</span>
+					{:else if activeTab === 'following' && lastRefreshed}
+						<span class="ml-auto text-xs {$t.textFaint} whitespace-nowrap">
+							Updated {lastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+						</span>
 					{/if}
 				</div>
 
@@ -502,6 +517,11 @@
 						</svg>
 						Refresh
 					</button>
+					{#if setlistsLastRefreshed}
+						<span class="ml-auto text-xs {$t.textFaint} whitespace-nowrap">
+							Updated {setlistsLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+						</span>
+					{/if}
 				</div>
 			{/if}
 		</div>
