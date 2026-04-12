@@ -399,7 +399,7 @@
 							<!-- Identity -->
 							<div class="flex-1 min-w-0">
 								<p class="text-sm font-medium {$t.textPrimary} truncate">
-									{#if user.handle}@{user.handle}{:else}<span class="font-mono text-xs">{truncateDid(user.did)}</span>{/if}
+									{#if user.handle}<a href="https://bsky.app/profile/{user.handle}" target="_blank" rel="noopener noreferrer" class="{$t.linkText} hover:underline">@{user.handle}</a>{:else}<span class="font-mono text-xs">{truncateDid(user.did)}</span>{/if}
 								</p>
 								<p class="text-xs {$t.textFaint} truncate font-mono">{user.did} · {formatDate(user.registeredAt)}</p>
 							</div>
@@ -485,7 +485,7 @@
 							</div>
 							<div class="flex-1 min-w-0">
 								<p class="text-sm font-medium {$t.textPrimary} truncate">
-									{#if ban.handle}@{ban.handle}{:else}<span class="font-mono text-xs">{truncateDid(ban.did)}</span>{/if}
+									{#if ban.handle}<a href="https://bsky.app/profile/{ban.handle}" target="_blank" rel="noopener noreferrer" class="{$t.linkText} hover:underline">@{ban.handle}</a>{:else}<span class="font-mono text-xs">{truncateDid(ban.did)}</span>{/if}
 								</p>
 								<p class="text-xs {$t.textFaint} truncate">
 									{formatDate(ban.bannedAt)}{#if ban.reason} · {ban.reason}{/if}

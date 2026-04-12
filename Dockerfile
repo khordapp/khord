@@ -21,6 +21,9 @@ RUN npm prune --production
 # ── Runtime stage ─────────────────────────────────────────────────────────────
 FROM node:22-alpine
 
+ARG VERSION=dev
+ENV PUBLIC_VERSION=$VERSION
+
 WORKDIR /app
 
 # Copy built app and production deps

@@ -75,9 +75,9 @@
 		);
 	}
 
-	function openCreateSetlist(uris: Set<string>) {
+	function openCreateSetlist(uris: Set<string>, title = '') {
 		setlistPendingUris = new Set(uris);
-		newSetlistTitle = '';
+		newSetlistTitle = title;
 		createSetlistOpen = true;
 	}
 
@@ -453,15 +453,6 @@
 							Remove {selectedUris.size}
 						</button>
 					{/if}
-					{#if activeTab === 'all' && allLastRefreshed}
-						<span class="ml-auto text-xs {$t.textFaint} whitespace-nowrap">
-							Updated {allLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
-						</span>
-					{:else if activeTab === 'following' && lastRefreshed}
-						<span class="ml-auto text-xs {$t.textFaint} whitespace-nowrap">
-							Updated {lastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
-						</span>
-					{/if}
 				</div>
 
 			<!-- Daily: subtitle + refresh + date picker + setlist button -->
@@ -490,7 +481,12 @@
 					/>
 					{#if dailyItems.length > 0}
 						<button
-							on:click={() => openCreateSetlist(dailySelectedUris.size > 0 ? dailySelectedUris : new Set(dailyItems.map(i => i.uri)))}
+							on:click={() => {
+							const isAll = dailySelectedUris.size === 0;
+							const uris = isAll ? new Set(dailyItems.map(i => i.uri)) : dailySelectedUris;
+							const title = isAll ? `Daily Setlist ${new Date(dailyDate + 'T12:00:00').toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric' })}` : '';
+							openCreateSetlist(uris, title);
+						}}
 							class="flex items-center gap-1.5 text-xs {$t.accentText} {$t.accentTextHover} border {$t.accentBorder} {$t.accentBorderHover}
 								{$t.accentBg} px-2.5 py-1 rounded-full transition-colors"
 						>
@@ -517,17 +513,15 @@
 						</svg>
 						Refresh
 					</button>
-					{#if setlistsLastRefreshed}
-						<span class="ml-auto text-xs {$t.textFaint} whitespace-nowrap">
-							Updated {setlistsLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
-						</span>
-					{/if}
 				</div>
 			{/if}
 		</div>
 
 		<!-- All Songs tab -->
 		{#if activeTab === 'all'}
+			{#if allLastRefreshed}
+				<p class="text-xs {$t.textFaint} mt-2">Updated {allLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</p>
+			{/if}
 			{#if allLoading && allItems.length === 0}
 				<p class="{$t.textMuted} text-sm">Loading…</p>
 			{:else if allError}
@@ -555,6 +549,9 @@
 
 		<!-- Following tab -->
 		{:else if activeTab === 'following'}
+			{#if lastRefreshed}
+				<p class="text-xs {$t.textFaint} mt-2">Updated {lastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</p>
+			{/if}
 			{#if !$followingLoaded || feedLoading}
 				<p class="{$t.textMuted} text-sm">Loading…</p>
 			{:else if feedError}
@@ -625,6 +622,9 @@
 
 		<!-- Setlists tab -->
 		{:else if activeTab === 'setlists'}
+			{#if setlistsLastRefreshed}
+				<p class="text-xs {$t.textFaint} mt-2">Updated {setlistsLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</p>
+			{/if}
 			{#if setlistsLoading}
 				<p class="{$t.textMuted} text-sm">Loading setlists…</p>
 			{:else if setlists.length === 0}
