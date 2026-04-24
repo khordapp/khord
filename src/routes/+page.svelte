@@ -355,11 +355,11 @@
 		<button class="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-label="Cancel" on:click={() => (createSetlistOpen = false)}></button>
 		<div class="relative w-full max-w-sm {$t.surfaceBg} border {$t.borderStrong} rounded-2xl shadow-2xl overflow-hidden">
 			<div class="px-5 pt-5 pb-4 space-y-4">
-				<h2 class="text-sm font-semibold {$t.textPrimary}">New setlist</h2>
+				<h2 class="text-sm font-semibold {$t.textPrimary}">New mixtape</h2>
 				<div class="space-y-1.5">
 					<input
 						bind:value={newSetlistTitle}
-						placeholder="Name your setlist…"
+						placeholder="Name your mixtape…"
 						maxlength="100"
 						class="w-full {$t.elevatedBg} border {$t.borderStrong} rounded-lg px-3 py-2 text-base sm:text-sm {$t.textPrimary} placeholder:{$t.textMuted} focus:outline-none {$t.hoverBorderStrong} transition-colors"
 					/>
@@ -400,7 +400,7 @@
 		<div class="sticky top-0 z-20 -mx-6 px-6 py-3 {$t.headerBg} backdrop-blur-sm border-b {$t.borderFaded}">
 			<!-- Tabs row — underline style with animated indicator -->
 			<nav class="relative flex items-center border-b {$t.borderFaded}">
-				{#each [['all', 'All Songs'], ['following', 'Following'], ['daily', 'Daily'], ['setlists', 'Setlists']] as [tab, label], i}
+				{#each [['all', 'All Songs'], ['following', 'Following'], ['daily', 'Daily'], ['setlists', 'Mixtapes']] as [tab, label], i}
 					<button
 						bind:this={tabEls[i]}
 						on:click={() => switchTab(tab as Tab)}
@@ -414,6 +414,7 @@
 					class="absolute bottom-0 h-0.5 {$t.btnPrimaryBg} rounded-full transition-all duration-200 ease-out pointer-events-none"
 					style="left: {indicatorLeft}px; width: {indicatorWidth}px"
 				></div>
+
 			</nav>
 
 			<!-- All Songs / Following: shared action buttons -->
@@ -439,7 +440,7 @@
 							<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
 								<path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
 							</svg>
-							Setlist ({selectedUris.size})
+							Mixtape ({selectedUris.size})
 						</button>
 						<button
 							on:click={() => (confirmOpen = true)}
@@ -484,7 +485,7 @@
 							on:click={() => {
 							const isAll = dailySelectedUris.size === 0;
 							const uris = isAll ? new Set(dailyItems.map(i => i.uri)) : dailySelectedUris;
-							const title = isAll ? `Daily Setlist ${new Date(dailyDate + 'T12:00:00').toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric' })}` : '';
+							const title = isAll ? `Daily Mixtape ${new Date(dailyDate + 'T12:00:00').toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric' })}` : '';
 							openCreateSetlist(uris, title);
 						}}
 							class="flex items-center gap-1.5 text-xs {$t.accentText} {$t.accentTextHover} border {$t.accentBorder} {$t.accentBorderHover}
@@ -493,7 +494,7 @@
 							<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
 								<path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
 							</svg>
-							{dailySelectedUris.size > 0 ? `Setlist (${dailySelectedUris.size})` : 'Setlist all'}
+							{dailySelectedUris.size > 0 ? `Mixtape (${dailySelectedUris.size})` : 'Mixtape all'}
 						</button>
 					{/if}
 				</div>
@@ -504,8 +505,8 @@
 					<button
 						on:click={loadSetlists}
 						disabled={setlistsLoading}
-						aria-label="Refresh setlists"
-						title="Reload your setlists"
+						aria-label="Refresh mixtapes"
+						title="Reload your mixtapes"
 						class="flex items-center gap-1.5 text-xs {$t.textMuted} {$t.hoverText} border {$t.borderBase} {$t.hoverBorderBase} px-2.5 py-1 rounded-full disabled:opacity-40 transition-colors"
 					>
 						<svg viewBox="0 0 24 24" fill="none" class="w-3.5 h-3.5 {setlistsLoading ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
@@ -626,11 +627,11 @@
 				<p class="text-xs {$t.textFaint} mt-2">Updated {setlistsLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</p>
 			{/if}
 			{#if setlistsLoading}
-				<p class="{$t.textMuted} text-sm">Loading setlists…</p>
+				<p class="{$t.textMuted} text-sm">Loading mixtapes…</p>
 			{:else if setlists.length === 0}
 				<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-10 text-center space-y-2">
-					<p class="{$t.textSecondary} text-sm font-medium">No setlists yet</p>
-					<p class="{$t.textMuted} text-xs">Select songs in the Feed tab to create your first setlist.</p>
+					<p class="{$t.textSecondary} text-sm font-medium">No mixtapes yet</p>
+					<p class="{$t.textMuted} text-xs">Select songs in the Feed tab to create your first mixtape.</p>
 				</div>
 			{:else}
 				<div class="space-y-2">
@@ -670,7 +671,7 @@
 			<div class="space-y-4 max-w-md">
 				<h1 class="text-4xl font-bold {$t.textPrimary} leading-tight">{APP_TAGLINE}</h1>
 				<p class="{$t.textSecondary} text-base leading-relaxed">
-					A place for music fans to share what they're listening to, discover songs from friends, and build setlists together.
+					A place for music fans to share what they're listening to, discover songs from friends, and build mixtapes together.
 				</p>
 			</div>
 

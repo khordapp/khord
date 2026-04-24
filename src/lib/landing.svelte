@@ -42,9 +42,9 @@
 			<li class="flex gap-4">
 				<span class="text-2xl leading-none mt-0.5" aria-hidden="true">📋</span>
 				<div>
-					<p class="text-sm font-semibold {$t.textPrimary}">Build setlists together</p>
+					<p class="text-sm font-semibold {$t.textPrimary}">Build mixtapes together</p>
 					<p class="text-sm {$t.textMuted} mt-1">
-						Collect songs into setlists and share them with friends. Others can propose songs to add.
+						Collect songs into mixtapes and share them with friends. Others can propose songs to add.
 					</p>
 				</div>
 			</li>

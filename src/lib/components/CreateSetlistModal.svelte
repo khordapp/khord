@@ -159,7 +159,7 @@
 	<div class="relative w-full max-w-md {$t.surfaceBg} border {$t.borderStrong} rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
 		<!-- Header -->
 		<div class="px-5 pt-5 pb-4 border-b {$t.borderBase} flex items-center justify-between shrink-0">
-			<h2 class="text-sm font-semibold {$t.textPrimary}">New setlist</h2>
+			<h2 class="text-sm font-semibold {$t.textPrimary}">New mixtape</h2>
 			<button on:click={closeCreateSetlist} aria-label="Close" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">
 				<svg viewBox="0 0 14 14" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
 					<path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -174,7 +174,7 @@
 					bind:value={title}
 					on:focus={() => (titleFocused = true)}
 					on:blur={() => (titleFocused = false)}
-					placeholder="Setlist name…"
+					placeholder="Mixtape name…"
 					maxlength={TITLE_LIMIT}
 					class="w-full {$t.elevatedBg} border {$t.borderStrong} rounded-lg px-3 py-2 text-base sm:text-sm {$t.textPrimary}
 						placeholder:{$t.textMuted} focus:outline-none {$t.hoverBorderStrong} transition-colors"
@@ -285,7 +285,7 @@
 		<!-- Footer -->
 		<div class="px-5 py-4 border-t {$t.borderBase} flex items-center justify-between gap-3 shrink-0">
 			<p class="text-xs {$t.textFaint}">
-				{#if songs.length === 0}Add at least one song{:else if !title.trim()}Give your setlist a name{/if}
+				{#if songs.length === 0}Add at least one song{:else if !title.trim()}Give your mixtape a name{/if}
 			</p>
 			<button
 				on:click={handleCreate}
@@ -297,7 +297,7 @@
 					<span class="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
 					Creating…
 				{:else}
-					Create setlist
+					Create mixtape
 				{/if}
 			</button>
 		</div>

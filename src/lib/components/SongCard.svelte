@@ -9,7 +9,18 @@
 	import { instanceConfig } from '$lib/stores/instance';
 	import { theme as t } from '$lib/theme';
 	import { AUTH_PROVIDER_NAME, APP_NAME } from '$lib/config';
-	import StreamingPill from './StreamingPill.svelte';
+	import { prefs } from '$lib/stores/prefs';
+	import type { PlatformKey } from '$lib/stores/prefs';
+
+	const PLATFORMS: { key: PlatformKey; label: string; color: string }[] = [
+		{ key: 'spotifyUrl',      label: 'Spotify',       color: '#1DB954' },
+		{ key: 'appleMusicUrl',   label: 'Apple Music',   color: '#FC3C44' },
+		{ key: 'youtubeMusicUrl', label: 'YouTube Music', color: '#FF0000' },
+		{ key: 'tidalUrl',        label: 'Tidal',         color: '#9bf0e1' },
+		{ key: 'deezerUrl',       label: 'Deezer',        color: '#EF5466' },
+		{ key: 'amazonMusicUrl',  label: 'Amazon Music',  color: '#00A8E1' },
+		{ key: 'soundcloudUrl',   label: 'SoundCloud',    color: '#FF5500' },
+	];
 
 	export let uri: string;
 	export let cid: string;
@@ -21,6 +32,10 @@
 
 	$: songlink = record.songlinkUrl;
 	$: liked = $votes.has(uri);
+
+	$: allPlatforms = PLATFORMS.filter((p) => record[p.key]);
+	$: preferredPlatform = $prefs ? (allPlatforms.find((p) => p.key === $prefs) ?? null) : null;
+	$: primaryPlatform = preferredPlatform ?? allPlatforms[0] ?? null;
 
 	let localCount = voteCount;
 	$: localCount = voteCount;
@@ -164,12 +179,13 @@
 	}
 </script>
 
-<article class="relative sm:rounded-xl border-b sm:border {$t.surfaceBg} px-5 py-4 space-y-3 transition-colors
-	{selected ? 'border-zinc-400 ring-1 ring-zinc-400' : $t.borderBase}">
+<article class="relative sm:rounded-xl border-b sm:border {$t.surfaceBg} pl-5 py-4 space-y-3 transition-colors
+	{selected ? 'border-zinc-400 ring-1 ring-zinc-400' : $t.borderBase}
+	{primaryPlatform ? 'pr-16' : 'pr-5'}">
 	<button
 		type="button"
 		aria-label={selected ? 'Deselect song' : 'Select song'}
-		title={selected ? 'Deselect' : 'Select for bulk actions (delete, create setlist)'}
+		title={selected ? 'Deselect' : 'Select for bulk actions (delete, create mixtape)'}
 		on:click={() => onselect(uri)}
 		class="w-full text-left space-y-2"
 	>
@@ -214,6 +230,25 @@
 
 	</button>
 
+	<!-- Floating play button -->
+	{#if primaryPlatform}
+		<a
+			href={record[primaryPlatform.key] as string}
+			title="Listen on {primaryPlatform.label}"
+			on:click|stopPropagation
+			class="absolute right-4 inset-y-0 flex items-center z-10"
+		>
+			<div
+				class="w-10 h-10 rounded-full flex items-center justify-center shadow-md transition-opacity hover:opacity-80"
+				style="background-color: {primaryPlatform.color}"
+			>
+				<svg viewBox="0 0 10 10" fill="white" class="w-4 h-4 ml-0.5" xmlns="http://www.w3.org/2000/svg">
+					<path d="M2 1.5l6 3.5-6 3.5V1.5Z"/>
+				</svg>
+			</div>
+		</a>
+	{/if}
+
 	<div class="flex items-center gap-2 min-w-0" style="padding-left: {!$instanceConfig.albumArtDisabled && record.thumbnailUrl ? '3.75rem' : '1.75rem'}">
 		{#if sharedBy.avatar}
 			<img src={sharedBy.avatar} alt={sharedBy.handle} class="w-5 h-5 rounded-full object-cover shrink-0" />
@@ -234,8 +269,8 @@
 		<p class="text-sm {$t.textSecondary} leading-snug" style="padding-left: {!$instanceConfig.albumArtDisabled && record.thumbnailUrl ? '3.75rem' : '1.75rem'}">{record.note}</p>
 	{/if}
 
-	<!-- Action row: centered, uniform gap -->
-	<div class="flex items-center justify-center gap-8">
+	<!-- Action row: left-aligned to album art -->
+	<div class="flex items-center gap-6">
 		{#if songlink}
 			<a
 				href={songlink}
@@ -313,7 +348,6 @@
 				{/if}
 			</button>
 		{/if}
-		<StreamingPill {record} />
 	</div>
 </article>
 

@@ -14,6 +14,21 @@
 	import { goto } from '$app/navigation';
 	import { instanceConfig } from '$lib/stores/instance';
 	import { theme as t } from '$lib/theme';
+	import { prefs, type PlatformKey } from '$lib/stores/prefs';
+
+	const PLATFORMS: { key: PlatformKey; label: string; color: string }[] = [
+		{ key: 'spotifyUrl',      label: 'Spotify',       color: '#1DB954' },
+		{ key: 'appleMusicUrl',   label: 'Apple Music',   color: '#FC3C44' },
+		{ key: 'youtubeMusicUrl', label: 'YouTube Music', color: '#FF0000' },
+		{ key: 'tidalUrl',        label: 'Tidal',         color: '#9bf0e1' },
+		{ key: 'deezerUrl',       label: 'Deezer',        color: '#EF5466' },
+		{ key: 'amazonMusicUrl',  label: 'Amazon Music',  color: '#00A8E1' },
+		{ key: 'soundcloudUrl',   label: 'SoundCloud',    color: '#FF5500' },
+	];
+
+	$: currentPlatform = PLATFORMS.find((p) => p.key === $prefs) ?? null;
+
+	let serviceSelectorOpen = false;
 
 	onMount(async () => {
 		if (window.location.pathname === '/oauth/callback') { authReady.set(true); return; }
@@ -62,6 +77,47 @@
 <div class="min-h-screen {$t.pageBg} {$t.textPrimary}">
 	<header class="border-b {$t.borderBase} px-6 py-3 flex items-center justify-between">
 		<a href="/" class="text-xl font-bold tracking-tight">{APP_NAME.toLowerCase()}</a>
+
+		<div class="flex items-center gap-3">
+		{#if $isLoggedIn}
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div class="relative" on:click|stopPropagation on:keydown|stopPropagation>
+				<button
+					on:click={() => (serviceSelectorOpen = !serviceSelectorOpen)}
+					title={currentPlatform ? `Streaming on ${currentPlatform.label} — change` : 'Set streaming service'}
+					class="flex items-center gap-1 transition-opacity hover:opacity-70"
+					style={currentPlatform ? `color: ${currentPlatform.color}` : ''}
+				>
+					<svg viewBox="0 0 24 24" fill="none" class="w-5 h-5 {currentPlatform ? '' : $t.textFaint}" xmlns="http://www.w3.org/2000/svg">
+						<path d="M3 18v-6a9 9 0 0 1 18 0v6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+						<path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3v5ZM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3v5Z" stroke="currentColor" stroke-width="1.5"/>
+					</svg>
+					<svg viewBox="0 0 10 10" fill="none" class="w-2 h-2 shrink-0 {currentPlatform ? '' : $t.textFaint}" xmlns="http://www.w3.org/2000/svg">
+						<path d="M2 4l3 3 3-3" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+				</button>
+				{#if serviceSelectorOpen}
+					<button class="fixed inset-0 z-40" aria-label="Close" on:click={() => (serviceSelectorOpen = false)}></button>
+					<div class="absolute right-0 top-full mt-2 z-50 {$t.surfaceBg} border {$t.borderStrong} rounded-xl shadow-xl overflow-hidden min-w-[160px]">
+						{#each PLATFORMS as platform}
+							<button
+								on:click={() => { prefs.setPreferredPlatform($prefs === platform.key ? null : platform.key); serviceSelectorOpen = false; }}
+								class="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs transition-colors {$t.hoverBg}
+									{$prefs === platform.key ? $t.textPrimary : $t.textSecondary}"
+							>
+								<span class="w-2 h-2 rounded-full shrink-0" style="background-color: {platform.color}"></span>
+								{platform.label}
+								{#if $prefs === platform.key}
+									<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 ml-auto shrink-0" xmlns="http://www.w3.org/2000/svg">
+										<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+									</svg>
+								{/if}
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		{/if}
 
 		<div class="relative">
 			{#if $isLoggedIn}
@@ -134,6 +190,7 @@
 				</div>
 			{/if}
 		</div>
+		</div>
 	</header>
 
 	<main class="max-w-2xl mx-auto px-6 py-8">
@@ -187,7 +244,7 @@
 						<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg">
 							<path d="M2 5h12M2 8h8M2 11h5M13 9v6M10 12h6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
 						</svg>
-						New setlist
+						New mixtape
 					</button>
 				</div>
 			{/if}

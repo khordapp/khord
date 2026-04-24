@@ -13,8 +13,23 @@
 	import { APP_NAME, APP_URL, AUTH_PROVIDER_NAME } from '$lib/config';
 	import { votes } from '$lib/stores/votes';
 	import { instanceConfig } from '$lib/stores/instance';
-	import StreamingPill from '$lib/components/StreamingPill.svelte';
+	import { prefs, type PlatformKey } from '$lib/stores/prefs';
 	import { theme as t } from '$lib/theme';
+
+	const PLATFORMS: { key: PlatformKey; label: string; color: string }[] = [
+		{ key: 'spotifyUrl',      label: 'Spotify',       color: '#1DB954' },
+		{ key: 'appleMusicUrl',   label: 'Apple Music',   color: '#FC3C44' },
+		{ key: 'youtubeMusicUrl', label: 'YouTube Music', color: '#FF0000' },
+		{ key: 'tidalUrl',        label: 'Tidal',         color: '#9bf0e1' },
+		{ key: 'deezerUrl',       label: 'Deezer',        color: '#EF5466' },
+		{ key: 'amazonMusicUrl',  label: 'Amazon Music',  color: '#00A8E1' },
+		{ key: 'soundcloudUrl',   label: 'SoundCloud',    color: '#FF5500' },
+	];
+
+	function getPrimaryPlatform(rec: KhordSongRecord) {
+		const available = PLATFORMS.filter((p) => rec[p.key]);
+		return available.find((p) => p.key === $prefs) ?? available[0] ?? null;
+	}
 	import { searchTracks, type TrackResult } from '$lib/search';
 	import { extractPlatformUrls, getCanonicalEntity, type OdesliResponse } from '$lib/odesli/client';
 
@@ -516,7 +531,7 @@
 			// Load proposals for the owner after setlist is available
 			if ($session?.handle === handle) loadProposals();
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Could not load setlist.';
+			error = e instanceof Error ? e.message : 'Could not load mixtape.';
 		} finally {
 			loading = false;
 		}
@@ -601,7 +616,7 @@
 </script>
 
 <svelte:head>
-	<title>{setlist?.value.title ?? 'Setlist'} — {APP_NAME}</title>
+	<title>{setlist?.value.title ?? 'Mixtape'} — {APP_NAME}</title>
 </svelte:head>
 
 <!-- Delete confirm modal -->
@@ -610,7 +625,7 @@
 		<button class="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-label="Cancel" on:click={() => (confirmDeleteOpen = false)}></button>
 		<div class="relative w-full max-w-sm {$t.surfaceBg} border {$t.borderStrong} rounded-2xl shadow-2xl overflow-hidden">
 			<div class="px-5 pt-5 pb-4 space-y-2">
-				<h2 class="text-sm font-semibold {$t.textPrimary}">Delete setlist?</h2>
+				<h2 class="text-sm font-semibold {$t.textPrimary}">Delete mixtape?</h2>
 				<p class="text-xs {$t.textMuted}">"{setlist?.value.title}" will be permanently deleted from your AT Protocol account.</p>
 			</div>
 			<div class="flex border-t {$t.borderBase}">
@@ -630,7 +645,7 @@
 		<button class="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-label="Cancel" on:click={() => (shareOpen = false)}></button>
 		<div class="relative w-full max-w-sm {$t.surfaceBg} border {$t.borderStrong} rounded-2xl shadow-2xl overflow-hidden">
 			<div class="px-4 pt-4 pb-2 border-b {$t.borderBase} flex items-center justify-between">
-				<span class="text-sm font-semibold {$t.textPrimary}">Share setlist</span>
+				<span class="text-sm font-semibold {$t.textPrimary}">Share mixtape</span>
 				<button on:click={() => (shareOpen = false)} aria-label="Close" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">
 					<svg viewBox="0 0 14 14" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
 						<path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -782,27 +797,31 @@
 	<!-- Header -->
 	<div class="sticky top-0 z-20 -mx-6 px-6 py-3 {$t.headerBg} backdrop-blur-sm border-b {$t.borderFaded} space-y-1.5">
 		<!-- Title row: back link left | title center | edit right -->
-		<div class="grid grid-cols-3 items-center">
-			<a href="/" aria-label="Back to feed" title="Back to feed" class="inline-flex items-center gap-1.5 text-sm {$t.textMuted} {$t.hoverTextSecondary} transition-colors">
-				<svg viewBox="0 0 14 14" fill="none" class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg">
-					<path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
-				Feed
-			</a>
-			{#if editingTitle && isOwn}
-				<form on:submit|preventDefault={saveTitle} class="col-span-2 flex items-center gap-2">
-					<input
-						bind:this={titleInputEl}
-						bind:value={titleDraft}
-						maxlength="100"
-						class="flex-1 min-w-0 {$t.elevatedBg} border {$t.borderStrong} rounded-lg px-3 py-1.5 text-lg font-bold {$t.textPrimary} focus:outline-none {$t.hoverBorderStrong} transition-colors"
-					/>
-					<button type="submit" disabled={saving} class="text-xs {$t.textSecondary} {$t.hoverText} px-2.5 py-1 border {$t.borderStrong} rounded-full transition-colors disabled:opacity-50">Save</button>
-					<button type="button" on:click={() => (editingTitle = false)} class="text-xs {$t.textMuted} {$t.hoverTextSecondary} border {$t.borderBase} px-2.5 py-1 rounded-full transition-colors">Cancel</button>
-				</form>
-			{:else}
-				<h1 class="text-xl font-bold truncate text-center">{setlist?.value.title ?? '…'}</h1>
-				<div class="flex justify-end">
+		{#if editingTitle && isOwn}
+			<form on:submit|preventDefault={saveTitle} class="flex items-center gap-2">
+				<input
+					bind:this={titleInputEl}
+					bind:value={titleDraft}
+					maxlength="100"
+					class="flex-1 min-w-0 {$t.elevatedBg} border {$t.borderStrong} rounded-lg px-3 py-1.5 text-base font-semibold {$t.textPrimary} focus:outline-none {$t.hoverBorderStrong} transition-colors"
+				/>
+				<button type="submit" disabled={saving} class="shrink-0 text-xs {$t.textSecondary} {$t.hoverText} px-2.5 py-1 border {$t.borderStrong} rounded-full transition-colors disabled:opacity-50">Save</button>
+				<button type="button" on:click={() => (editingTitle = false)} aria-label="Cancel" class="shrink-0 {$t.textMuted} {$t.hoverTextSecondary} transition-colors">
+					<svg viewBox="0 0 14 14" fill="none" class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg">
+						<path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+					</svg>
+				</button>
+			</form>
+		{:else}
+			<div class="flex items-center gap-2">
+				<a href="/" aria-label="Back to feed" title="Back to feed" class="shrink-0 inline-flex items-center gap-1 text-sm {$t.textMuted} {$t.hoverTextSecondary} transition-colors">
+					<svg viewBox="0 0 14 14" fill="none" class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg">
+						<path d="M9 2L4 7l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+					Feed
+				</a>
+				<h1 class="flex-1 min-w-0 text-base font-semibold truncate text-center">{setlist?.value.title ?? '…'}</h1>
+				<div class="shrink-0">
 					{#if isOwn && !loading}
 						<button on:click={startEditTitle} aria-label="Edit title" class="{$t.textFaint} {$t.hoverTextSecondary} transition-colors">
 							<svg viewBox="0 0 14 14" fill="none" class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg">
@@ -811,8 +830,8 @@
 						</button>
 					{/if}
 				</div>
-			{/if}
-		</div>
+			</div>
+		{/if}
 
 		{#if setlist}
 			<p class="text-xs {$t.textMuted}">
@@ -829,8 +848,8 @@
 				{#if $session}
 					<button
 						on:click={openShare}
-						aria-label="Share setlist"
-						title="Post this setlist to your feed"
+						aria-label="Share mixtape"
+						title="Post this mixtape to your feed"
 						class="flex items-center gap-1.5 text-xs border px-2.5 py-1 rounded-full transition-colors
 							{sharePosted
 								? `${$t.textPrimary} ${$t.elevatedBg} ${$t.borderStrong}`
@@ -879,8 +898,8 @@
 				{#if isOwn}
 					<button
 						on:click={() => (confirmDeleteOpen = true)}
-						aria-label="Delete setlist"
-						title="Permanently delete this setlist"
+						aria-label="Delete mixtape"
+						title="Permanently delete this mixtape"
 						class="ml-auto flex items-center gap-1.5 text-xs border px-2.5 py-1 rounded-full transition-colors
 							text-red-400 hover:text-red-300 border-red-900 hover:border-red-700 bg-red-950"
 					>
@@ -969,7 +988,7 @@
 			{#if proposeSubmitted}
 				<div class="py-4 text-center space-y-1">
 					<p class="text-sm font-medium {$t.textPrimary}">Proposal submitted!</p>
-					<p class="text-xs {$t.textMuted}">The setlist owner will review your suggestion.</p>
+					<p class="text-xs {$t.textMuted}">The mixtape owner will review your suggestion.</p>
 				</div>
 			{:else}
 				<div class="relative">
@@ -1104,8 +1123,8 @@
 		<p class="text-red-400 text-sm">{error}</p>
 	{:else if dndItems.length === 0}
 		<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-10 text-center space-y-2">
-			<p class="{$t.textSecondary} text-sm font-medium">This setlist is empty</p>
-			<p class="{$t.textMuted} text-xs">Select songs in the Feed tab and add them to a setlist.</p>
+			<p class="{$t.textSecondary} text-sm font-medium">This mixtape is empty</p>
+			<p class="{$t.textMuted} text-xs">Select songs in the Feed tab and add them to a mixtape.</p>
 		</div>
 	{:else}
 		{#if isOwn}
@@ -1144,8 +1163,10 @@
 			on:finalize={handleDndFinalize}
 		>
 			{#each dndItems as dndItem (dndItem.id)}
+				{@const primaryPlatform = dndItem.record ? getPrimaryPlatform(dndItem.record) : null}
 				<div animate:flip={{ duration: 150 }}
-					class="border-b {$t.borderBase} sm:rounded-xl sm:border sm:mb-2 px-4 py-3
+					class="relative border-b {$t.borderBase} sm:rounded-xl sm:border sm:mb-2 pl-4 py-3
+						{primaryPlatform ? 'pr-16' : 'pr-4'}
 						{isOwn && editMode ? 'cursor-grab active:cursor-grabbing' : ''}"
 				>
 					<!-- Row 1: drag handle + art + title/artist + remove -->
@@ -1172,8 +1193,8 @@
 						{#if isOwn && editMode}
 							<button
 								on:click={() => removeItem(dndItem.id)}
-								aria-label="Remove from setlist"
-								title="Remove this song from the setlist"
+								aria-label="Remove from mixtape"
+								title="Remove this song from the mixtape"
 								class="flex items-center justify-center w-7 h-7 rounded-full border {$t.borderBase} {$t.textFaint} hover:text-red-400 hover:border-red-900 transition-colors shrink-0"
 							>
 								<svg viewBox="0 0 14 14" fill="none" class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg">
@@ -1182,6 +1203,24 @@
 							</button>
 						{/if}
 					</div>
+
+					<!-- Floating play button -->
+					{#if primaryPlatform && !editMode}
+						<a
+							href={dndItem.record?.[primaryPlatform.key] as string}
+							title="Listen on {primaryPlatform.label}"
+							class="absolute right-4 inset-y-0 flex items-center z-10"
+						>
+							<div
+								class="w-10 h-10 rounded-full flex items-center justify-center shadow-md transition-opacity hover:opacity-80"
+								style="background-color: {primaryPlatform.color}"
+							>
+								<svg viewBox="0 0 10 10" fill="white" class="w-4 h-4 ml-0.5" xmlns="http://www.w3.org/2000/svg">
+									<path d="M2 1.5l6 3.5-6 3.5V1.5Z"/>
+								</svg>
+							</div>
+						</a>
+					{/if}
 
 					<!-- Row 2: actions (matches feed card order) -->
 					{#if dndItem.record}
@@ -1257,8 +1296,6 @@
 									{/if}
 								</button>
 							{/if}
-							<!-- StreamingPill -->
-							<StreamingPill record={rec} />
 						</div>
 					{/if}
 				</div>
