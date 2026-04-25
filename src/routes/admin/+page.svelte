@@ -40,7 +40,7 @@
 	}
 
 	// ── State ────────────────────────────────────────────────────────────────────
-	type Tab = 'users' | 'bans' | 'settings';
+	type Tab = 'users' | 'bans' | 'settings' | 'cache';
 	let activeTab: Tab = 'users';
 
 	let stats: Stats | null = null;
@@ -269,6 +269,67 @@
 		loadUsers();
 		loadBans();
 		loadSettings();
+		loadCacheStats();
+	}
+
+	// ── Thumbnail cache ───────────────────────────────────────────────────────────
+	interface CacheStats {
+		count: number;
+		totalBytes: number;
+		oldestMtime: string | null;
+	}
+
+	let cacheStats: CacheStats | null = null;
+	let cacheStatsLoading = false;
+	let cacheStatsError = false;
+	let pruneAge = 90; // days
+	let pruning = false;
+	let pruneResult: { count: number; bytesFreed: number } | null = null;
+	let pruneError = false;
+
+	async function loadCacheStats() {
+		const did = $session?.did;
+		if (!did || cacheStatsLoading) return;
+		cacheStatsLoading = true;
+		cacheStatsError = false;
+		try {
+			const r = await fetch(`/api/admin/thumbnails?did=${encodeURIComponent(did)}`);
+			if (!r.ok) throw new Error();
+			cacheStats = await r.json();
+		} catch {
+			cacheStatsError = true;
+		} finally {
+			cacheStatsLoading = false;
+		}
+	}
+
+	async function runPrune(olderThanDays: number) {
+		const did = $session?.did;
+		if (!did || pruning) return;
+		pruning = true;
+		pruneResult = null;
+		pruneError = false;
+		try {
+			const r = await fetch('/api/admin/thumbnails', {
+				method: 'DELETE',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ ownerDid: did, olderThanDays })
+			});
+			if (!r.ok) throw new Error();
+			pruneResult = await r.json();
+			await loadCacheStats();
+		} catch {
+			pruneError = true;
+		} finally {
+			pruning = false;
+		}
+	}
+
+	function formatBytes(bytes: number): string {
+		if (bytes < 1024) return `${bytes} B`;
+		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+		if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+		return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 	}
 
 	// ── Helpers ───────────────────────────────────────────────────────────────────
@@ -330,7 +391,7 @@
 
 	<!-- Tab bar -->
 	<div class="flex gap-1 border-b {$t.borderBase}">
-		{#each [['users', 'Users'], ['bans', 'Bans'], ['settings', 'Settings']] as [id, label]}
+		{#each [['users', 'Users'], ['bans', 'Bans'], ['settings', 'Settings'], ['cache', 'Cache']] as [id, label]}
 			<button
 				on:click={() => (activeTab = id as Tab)}
 				class="px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px
@@ -641,6 +702,97 @@
 					{settingsSaving ? 'Saving…' : settingsSaved ? 'Saved!' : 'Save settings'}
 				</button>
 			{/if}
+		</div>
+	{/if}
+
+	<!-- Cache tab -->
+	{#if activeTab === 'cache'}
+		<div class="space-y-6 max-w-md">
+			<!-- Stats card -->
+			<div class="{$t.surfaceBg} border {$t.borderStrong} rounded-xl p-4 space-y-3">
+				<p class="text-sm font-medium {$t.textSecondary}">Thumbnail cache</p>
+				{#if cacheStatsLoading && !cacheStats}
+					<div class="{$t.recessedBg} rounded-lg h-16 animate-pulse"></div>
+				{:else if cacheStatsError}
+					<p class="text-sm {$t.textMuted}">Could not read cache directory.</p>
+				{:else if cacheStats}
+					<div class="grid grid-cols-3 gap-3">
+						<div class="{$t.recessedBg} rounded-lg px-3 py-2.5 space-y-0.5">
+							<p class="text-xs {$t.textFaint} uppercase tracking-wider font-medium">Images</p>
+							<p class="text-lg font-bold">{cacheStats.count.toLocaleString()}</p>
+						</div>
+						<div class="{$t.recessedBg} rounded-lg px-3 py-2.5 space-y-0.5">
+							<p class="text-xs {$t.textFaint} uppercase tracking-wider font-medium">Size</p>
+							<p class="text-lg font-bold">{formatBytes(cacheStats.totalBytes)}</p>
+						</div>
+						<div class="{$t.recessedBg} rounded-lg px-3 py-2.5 space-y-0.5">
+							<p class="text-xs {$t.textFaint} uppercase tracking-wider font-medium">Oldest</p>
+							<p class="text-base font-semibold">
+								{cacheStats.oldestMtime
+									? new Date(cacheStats.oldestMtime).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })
+									: '—'}
+							</p>
+						</div>
+					</div>
+					{#if cacheStats.count === 0}
+						<p class="text-xs {$t.textFaint}">No thumbnails cached yet. They populate automatically as songs are viewed.</p>
+					{/if}
+				{/if}
+				<button
+					on:click={loadCacheStats}
+					disabled={cacheStatsLoading}
+					class="flex items-center gap-1.5 text-xs {$t.textMuted} {$t.hoverText} border {$t.borderBase} {$t.hoverBorderBase} px-2.5 py-1 rounded-full disabled:opacity-50 transition-colors"
+				>
+					<svg viewBox="0 0 24 24" fill="none" class="w-3 h-3 {cacheStatsLoading ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
+						<path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+					Refresh
+				</button>
+			</div>
+
+			<!-- Prune controls -->
+			<div class="{$t.surfaceBg} border {$t.borderStrong} rounded-xl p-4 space-y-4">
+				<div>
+					<p class="text-sm font-medium {$t.textPrimary}">Prune old thumbnails</p>
+					<p class="text-xs {$t.textMuted} mt-0.5">Remove cached images older than the selected window. They'll be re-fetched and re-cached on next view.</p>
+				</div>
+				<div class="flex items-center gap-2 flex-wrap">
+					<select
+						bind:value={pruneAge}
+						class="text-sm {$t.surfaceBg} border {$t.borderStrong} rounded-lg px-3 py-2 {$t.textPrimary} focus:outline-none focus:ring-1 focus:ring-current"
+					>
+						<option value={30}>Older than 30 days</option>
+						<option value={60}>Older than 60 days</option>
+						<option value={90}>Older than 90 days</option>
+						<option value={180}>Older than 180 days</option>
+					</select>
+					<button
+						on:click={() => runPrune(pruneAge)}
+						disabled={pruning || cacheStats?.count === 0}
+						class="text-sm font-medium px-4 py-2 rounded-lg {$t.btnPrimaryBg} {$t.btnPrimaryText} {$t.btnPrimaryHover} transition-colors disabled:opacity-50"
+					>
+						{pruning ? 'Pruning…' : 'Prune'}
+					</button>
+				</div>
+				<button
+					on:click={() => { if (confirm('Delete all cached thumbnails? They will be re-fetched as songs are viewed.')) runPrune(0); }}
+					disabled={pruning || cacheStats?.count === 0}
+					class="text-sm text-red-400 hover:text-red-300 transition-colors disabled:opacity-40"
+				>
+					Clear all thumbnails
+				</button>
+				{#if pruneResult}
+					<p class="text-xs {$t.textFaint}">
+						{#if pruneResult.count === 0}
+							No thumbnails matched — nothing removed.
+						{:else}
+							Removed {pruneResult.count.toLocaleString()} {pruneResult.count === 1 ? 'thumbnail' : 'thumbnails'} · {formatBytes(pruneResult.bytesFreed)} freed.
+						{/if}
+					</p>
+				{:else if pruneError}
+					<p class="text-xs text-red-400">Prune failed — check server logs.</p>
+				{/if}
+			</div>
 		</div>
 	{/if}
 </div>

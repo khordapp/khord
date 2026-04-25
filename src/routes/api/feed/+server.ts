@@ -38,6 +38,7 @@ export const GET: RequestHandler = ({ url }) => {
 		SELECT
 			s.uri, s.cid, s.actor_did,
 			s.title, s.artist, s.album, s.isrc, s.odesli_key,
+			s.thumbnail_url,
 			s.spotify_url, s.apple_music_url, s.youtube_music_url,
 			s.tidal_url, s.deezer_url, s.amazon_music_url,
 			s.soundcloud_url, s.songlink_url, s.note, s.created_at,
@@ -60,6 +61,7 @@ export const GET: RequestHandler = ({ url }) => {
 			album:           r.album  ?? undefined,
 			isrc:            r.isrc   ?? undefined,
 			odesliKey:       r.odesli_key ?? undefined,
+			thumbnailUrl:    r.thumbnail_url ?? undefined,
 			spotifyUrl:      r.spotify_url ?? undefined,
 			appleMusicUrl:   r.apple_music_url ?? undefined,
 			youtubeMusicUrl: r.youtube_music_url ?? undefined,

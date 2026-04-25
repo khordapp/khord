@@ -78,21 +78,17 @@
 	<header class="border-b {$t.borderBase} px-6 py-3 flex items-center justify-between">
 		<a href="/" class="text-xl font-bold tracking-tight">{APP_NAME.toLowerCase()}</a>
 
-		<div class="flex items-center gap-3">
+		<div class="flex items-center gap-4">
 		{#if $isLoggedIn}
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div class="relative" on:click|stopPropagation on:keydown|stopPropagation>
 				<button
 					on:click={() => (serviceSelectorOpen = !serviceSelectorOpen)}
 					title={currentPlatform ? `Streaming on ${currentPlatform.label} — change` : 'Set streaming service'}
-					class="flex items-center gap-1 transition-opacity hover:opacity-70"
-					style={currentPlatform ? `color: ${currentPlatform.color}` : ''}
+					class="flex items-center gap-1 transition-opacity hover:opacity-70 {currentPlatform ? '' : $t.textFaint}"
 				>
-					<svg viewBox="0 0 24 24" fill="none" class="w-5 h-5 {currentPlatform ? '' : $t.textFaint}" xmlns="http://www.w3.org/2000/svg">
-						<path d="M3 18v-6a9 9 0 0 1 18 0v6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-						<path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3v5ZM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3v5Z" stroke="currentColor" stroke-width="1.5"/>
-					</svg>
-					<svg viewBox="0 0 10 10" fill="none" class="w-2 h-2 shrink-0 {currentPlatform ? '' : $t.textFaint}" xmlns="http://www.w3.org/2000/svg">
+					<span class="text-2xl leading-none" aria-hidden="true">🎧</span>
+					<svg viewBox="0 0 10 10" fill="none" class="w-2 h-2 shrink-0" xmlns="http://www.w3.org/2000/svg">
 						<path d="M2 4l3 3 3-3" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
 					</svg>
 				</button>

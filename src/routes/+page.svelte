@@ -6,7 +6,7 @@
 	import type { KhordSongRecord } from '$lib/atproto/lexicons/song';
 	import { SONG_NSID } from '$lib/atproto/lexicons/song';
 	import type { KhordSetlist } from '$lib/atproto/lexicons/setlist';
-	import { lastSharedSong } from '$lib/stores/shareSong';
+	import { lastSharedSong, pendingSharedSong, type PendingSong } from '$lib/stores/shareSong';
 	import SongCard from '$lib/components/SongCard.svelte';
 	import { APP_NAME, APP_TAGLINE, AUTH_PROVIDER_NAME } from '$lib/config';
 	import { getAgent } from '$lib/atproto/agent';
@@ -14,6 +14,7 @@
 	import { onMount, tick } from 'svelte';
 	import { browser } from '$app/environment';
 	import { theme as t } from '$lib/theme';
+	import { prefs } from '$lib/stores/prefs';
 	import LandingContent from '$lib/landing.svelte';
 
 	type Tab = 'all' | 'following' | 'daily' | 'setlists';
@@ -25,7 +26,7 @@
 		sharedBy: FollowedUser;
 	}
 
-	let activeTab: Tab = 'all';
+	let activeTab: Tab = (browser && (sessionStorage.getItem('khord_tab') as Tab)) || 'all';
 
 	// ── All Songs ─────────────────────────────────────────────────────────────
 	let allItems: FeedItem[] = [];
@@ -155,7 +156,12 @@
 				const data = await res.json();
 				const raw = data.items as FeedItem[];
 				if (raw.length > 0) {
-					allItems = deletedUris.size > 0 ? raw.filter((i) => !deletedUris.has(i.uri)) : raw;
+					// Merge: keep any existing items (e.g. PDS-loaded historical songs) not
+					// yet in the AppView — indexer only has songs from when it started.
+					const appViewUris = new Set(raw.map((i) => i.uri));
+					const preserved = allItems.filter((i) => !appViewUris.has(i.uri) && !deletedUris.has(i.uri));
+					const merged = [...raw, ...preserved].sort((a, b) => b.record.createdAt.localeCompare(a.record.createdAt));
+					allItems = merged;
 					allLastRefreshed = new Date();
 					loadVoteCounts(allItems.map((i) => i.uri));
 					return;
@@ -229,7 +235,15 @@
 		try {
 			const dids = [currentSession.did, ...follows.map((f) => f.did)];
 			const appViewItems = await loadFeedFromAppView(dids);
-			const rawItems = (appViewItems && appViewItems.length > 0) ? appViewItems : await loadFeedFromPds(currentSession, follows);
+			let rawItems: FeedItem[];
+			if (appViewItems && appViewItems.length > 0) {
+				// Merge AppView results with any existing items not yet indexed
+				const appViewUris = new Set(appViewItems.map((i) => i.uri));
+				const preserved = feedItems.filter((i) => !appViewUris.has(i.uri) && !deletedUris.has(i.uri));
+				rawItems = [...appViewItems, ...preserved].sort((a, b) => b.record.createdAt.localeCompare(a.record.createdAt));
+			} else {
+				rawItems = await loadFeedFromPds(currentSession, follows);
+			}
 			feedItems = deletedUris.size > 0 ? rawItems.filter((i) => !deletedUris.has(i.uri)) : rawItems;
 			lastRefreshed = new Date();
 			loadVoteCounts(feedItems.map((i) => i.uri));
@@ -249,6 +263,8 @@
 	$: if (browser && $followingLoaded) loadFeed($session, $following);
 
 	$: if ($lastSharedSong && $session) {
+		pendingItem = null;
+		clearTimeout(pendingClearTimeout);
 		const self: FollowedUser = { did: $session.did, handle: $session.handle };
 		const incoming = $lastSharedSong;
 		lastSharedSong.set(null);
@@ -258,7 +274,6 @@
 		if (!feedItems.some((i) => i.uri === incoming.uri)) {
 			feedItems = [{ uri: incoming.uri, cid: incoming.cid, record: incoming.value, sharedBy: self }, ...feedItems];
 		}
-		switchTab('all');
 		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
 
@@ -286,6 +301,20 @@
 		}
 	}
 
+	// ── Pending share placeholder ──────────────────────────────────────────────
+	let pendingItem: PendingSong | null = null;
+	let pendingClearTimeout: ReturnType<typeof setTimeout>;
+
+	$: if ($pendingSharedSong) {
+		pendingItem = $pendingSharedSong;
+		pendingSharedSong.set(null);
+		switchTab('all');
+		tick().then(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+		// Safety: clear placeholder after 30s if resolution never completes
+		clearTimeout(pendingClearTimeout);
+		pendingClearTimeout = setTimeout(() => { pendingItem = null; }, 30000);
+	}
+
 	let tabEls: (HTMLButtonElement | null)[] = [];
 	let indicatorLeft = 0;
 	let indicatorWidth = 0;
@@ -301,6 +330,7 @@
 
 	function switchTab(tab: Tab) {
 		activeTab = tab;
+		sessionStorage.setItem('khord_tab', tab);
 		if (tab === 'setlists' && !setlistsLoaded) loadSetlists();
 		tick().then(updateIndicator);
 	}
@@ -396,6 +426,13 @@
 	</div>
 {:else if $isLoggedIn}
 	<section class="space-y-4">
+		<!-- Streaming service hint -->
+		{#if !$prefs}
+			<p class="text-sm {$t.textFaint} px-1">
+				🎧 <a href="/settings" class="{$t.textMuted} hover:{$t.textSecondary} underline underline-offset-2 transition-colors">Set a streaming service</a> to open songs in one tap.
+			</p>
+		{/if}
+
 		<!-- Sticky toolbar -->
 		<div class="sticky top-0 z-20 -mx-6 px-6 py-3 {$t.headerBg} backdrop-blur-sm border-b {$t.borderFaded}">
 			<!-- Tabs row — underline style with animated indicator -->
@@ -523,17 +560,32 @@
 			{#if allLastRefreshed}
 				<p class="text-xs {$t.textFaint} mt-2">Updated {allLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</p>
 			{/if}
-			{#if allLoading && allItems.length === 0}
+			{#if allLoading && allItems.length === 0 && !pendingItem}
 				<p class="{$t.textMuted} text-sm">Loading…</p>
 			{:else if allError}
 				<p class="text-red-400 text-sm">{allError}</p>
-			{:else if allItems.length === 0}
+			{:else if allItems.length === 0 && !pendingItem}
 				<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-10 text-center space-y-2">
 					<p class="{$t.textSecondary} text-sm font-medium">No songs yet</p>
 					<p class="{$t.textMuted} text-xs">Songs shared by anyone on this instance will appear here.</p>
 				</div>
 			{:else}
 				<div class="space-y-0 sm:space-y-3">
+					{#if pendingItem}
+						<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} pl-5 pr-16 py-3 flex items-center gap-3 relative">
+							<div class="w-12 h-12 rounded {$t.recessedBg} shrink-0 animate-pulse"></div>
+							<div class="flex-1 min-w-0 space-y-1">
+								<p class="text-sm font-semibold {$t.textPrimary} truncate">{pendingItem.title}</p>
+								<p class="text-xs {$t.textMuted} truncate">{pendingItem.artist}{pendingItem.album ? ` · ${pendingItem.album}` : ''}</p>
+								<p class="text-xs {$t.textFaint}">Resolving streaming links…</p>
+							</div>
+							<div class="absolute right-4 inset-y-0 flex items-center">
+								<div class="w-10 h-10 rounded-full {$t.recessedBg} flex items-center justify-center">
+									<span class="w-4 h-4 border-2 {$t.borderStrong} border-t-transparent rounded-full animate-spin"></span>
+								</div>
+							</div>
+						</div>
+					{/if}
 					{#each allItems as item (item.uri)}
 						<SongCard
 							uri={item.uri}

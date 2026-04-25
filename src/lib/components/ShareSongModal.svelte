@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { closeShareSong, lastSharedSong } from '$lib/stores/shareSong';
+	import { closeShareSong, lastSharedSong, pendingSharedSong } from '$lib/stores/shareSong';
 	import SongSearch from './SongSearch.svelte';
 	import { type TrackResult } from '$lib/search';
 	import { extractPlatformUrls, getCanonicalEntity, type OdesliResponse } from '$lib/odesli/client';
@@ -41,6 +41,9 @@
 		const trimmedNote = note.trim();
 		const agent = getAgent();
 		const did = $session.did;
+
+		// Signal the feed to show a placeholder card while resolution runs in background
+		pendingSharedSong.set({ title: track.title, artist: track.artist, ...(track.album && { album: track.album }) });
 
 		// Show success immediately, then close — resolution continues in the background
 		shared = true;

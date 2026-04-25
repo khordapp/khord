@@ -8,8 +8,8 @@
 	import { getAgent } from '$lib/atproto/agent';
 	import { instanceConfig } from '$lib/stores/instance';
 	import { theme as t } from '$lib/theme';
-	import { AUTH_PROVIDER_NAME, APP_NAME } from '$lib/config';
 	import { prefs } from '$lib/stores/prefs';
+	import { APP_URL } from '$lib/config';
 	import type { PlatformKey } from '$lib/stores/prefs';
 
 	const PLATFORMS: { key: PlatformKey; label: string; color: string }[] = [
@@ -40,80 +40,31 @@
 	let localCount = voteCount;
 	$: localCount = voteCount;
 
-	const POST_LIMIT = 300;
-
 	let liking = false;
-	let posting = false;
-	let posted = false;
-	let composeOpen = false;
-	let composeNote = '';
-	let includeArt = false;
+	let shared = false;
 	let resyncing = false;
 	let resynced = false;
 	let resyncError = '';
 
 	$: isOwn = $session?.did === sharedBy.did;
 
-	$: composeTitleText = `${record.title}${record.artist ? ` by ${record.artist}` : ''}`;
-	$: composeFooter = `Shared from ${APP_NAME}`;
-	$: fullPostText = [composeTitleText, ...(composeNote.trim() ? [composeNote.trim()] : []), composeFooter].join('\n\n');
-	$: composeCharsLeft = POST_LIMIT - [...fullPostText].length;
-	$: composeOver = composeCharsLeft < 0;
-
-	function openCompose() {
-		if (!record.songlinkUrl) return;
-		composeNote = record.note ?? '';
-		includeArt = !$instanceConfig.albumArtDisabled && !!record.thumbnailUrl;
-		composeOpen = true;
-	}
-
-	async function submitPost() {
-		if (!$session || posting || !record.songlinkUrl || composeOver) return;
-		posting = true;
-		try {
-			const encoder = new TextEncoder();
-			const titleByteEnd = encoder.encode(composeTitleText).length;
-			const facets: { index: { byteStart: number; byteEnd: number }; features: { $type: string; uri: string }[] }[] = [
-				{
-					index: { byteStart: 0, byteEnd: titleByteEnd },
-					features: [{ $type: 'app.bsky.richtext.facet#link', uri: record.songlinkUrl }]
-				}
-			];
-
-			// eslint-disable-next-line @typescript-eslint/no-explicit-any
-			let embed: any;
-			if (includeArt && record.thumbnailUrl) {
-				const proxyRes = await fetch(`/api/thumbnail?url=${encodeURIComponent(record.thumbnailUrl)}`);
-				if (proxyRes.ok) {
-					const blob = await proxyRes.blob();
-					const upload = await getAgent().uploadBlob(blob, { encoding: blob.type });
-					embed = {
-						$type: 'app.bsky.embed.external',
-						external: {
-							uri: record.songlinkUrl,
-							title: composeTitleText,
-							description: composeNote.trim(),
-							thumb: upload.data.blob
-						}
-					};
-				}
-			}
-
-			await getAgent().app.bsky.feed.post.create(
-				{ repo: $session.did },
-				{
-					$type: 'app.bsky.feed.post',
-					text: fullPostText,
-					...(facets.length ? { facets } : {}),
-					...(embed ? { embed } : {}),
-					createdAt: new Date().toISOString()
-				}
-			);
-			composeOpen = false;
-			posted = true;
-			setTimeout(() => { posted = false; }, 3000);
-		} finally {
-			posting = false;
+	async function shareNative() {
+		const title = `${record.title}${record.artist ? ` by ${record.artist}` : ''}`;
+		const rkey = uri.split('/').pop()!;
+		const shareUrl = sharedBy.handle && !sharedBy.handle.startsWith('did:')
+			? `${APP_URL}/song/${sharedBy.handle}/${rkey}`
+			: (record.songlinkUrl ?? '');
+		if (!shareUrl) return;
+		if (navigator.share) {
+			try {
+				await navigator.share({ title, url: shareUrl });
+			} catch { /* user cancelled — no feedback needed */ }
+		} else {
+			try {
+				await navigator.clipboard.writeText(shareUrl);
+				shared = true;
+				setTimeout(() => { shared = false; }, 2000);
+			} catch { /* clipboard unavailable */ }
 		}
 	}
 
@@ -285,17 +236,14 @@
 				</svg>
 			</a>
 		{/if}
-		{#if $session && record.songlinkUrl}
+		{#if record.songlinkUrl || (sharedBy.handle && !sharedBy.handle.startsWith('did:'))}
 			<button
-				on:click={openCompose}
-				disabled={posting}
-				aria-label="Post to {AUTH_PROVIDER_NAME}"
-				title="Share this song as a post on {AUTH_PROVIDER_NAME}"
-				class="p-2 transition-colors disabled:opacity-50 {posted ? $t.textPrimary : `${$t.textFaint} ${$t.hoverTextSecondary}`}"
+				on:click={shareNative}
+				aria-label="Share song"
+				title="Share this song"
+				class="p-2 transition-colors {shared ? $t.textPrimary : `${$t.textFaint} ${$t.hoverTextSecondary}`}"
 			>
-				{#if posting}
-					<span class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
-				{:else if posted}
+				{#if shared}
 					<svg viewBox="0 0 14 14" fill="none" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
 						<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 					</svg>
@@ -361,98 +309,3 @@
 		}
 	}
 </style>
-
-{#if composeOpen}
-	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
-		<button class="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-label="Cancel" on:click={() => (composeOpen = false)}></button>
-		<div class="relative w-full max-w-sm {$t.surfaceBg} border {$t.borderStrong} rounded-2xl shadow-2xl overflow-hidden">
-			<div class="px-4 pt-4 pb-2 border-b {$t.borderBase} flex items-center justify-between">
-				<span class="text-sm font-semibold {$t.textPrimary}">Post to {AUTH_PROVIDER_NAME}</span>
-				<button on:click={() => (composeOpen = false)} aria-label="Close" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">
-					<svg viewBox="0 0 14 14" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
-						<path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-					</svg>
-				</button>
-			</div>
-
-			{#if $session?.avatar || $session?.handle}
-				<div class="flex items-center gap-2.5 px-4 pt-3">
-					{#if $session.avatar}
-						<img src={$session.avatar} alt={$session.handle} class="w-8 h-8 rounded-full object-cover shrink-0" />
-					{:else}
-						<div class="w-8 h-8 rounded-full {$t.elevatedBg} flex items-center justify-center text-xs font-semibold {$t.textSecondary} shrink-0">
-							{($session.handle ?? '?')[0].toUpperCase()}
-						</div>
-					{/if}
-					<span class="text-xs {$t.textMuted}">@{$session.handle}</span>
-				</div>
-			{/if}
-
-			<!-- Fixed: title + artist -->
-			<div class="px-4 pt-3 pb-2">
-				<p class="text-sm font-medium {$t.textPrimary}">{composeTitleText}</p>
-			</div>
-
-			<!-- Editable: optional note -->
-			<div class="px-4 pb-2 border-y {$t.borderBase}">
-				<textarea
-					bind:value={composeNote}
-					rows="3"
-					class="w-full bg-transparent text-base sm:text-sm {$t.textPrimary} placeholder:{$t.textFaint} py-2.5 resize-none focus:outline-none"
-					placeholder="Add a note… (optional)"
-				></textarea>
-			</div>
-
-			<!-- Fixed: shared from footer -->
-			<div class="px-4 pt-2 pb-1">
-				<p class="text-xs {$t.textFaint}">{composeFooter}</p>
-			</div>
-
-			{#if !$instanceConfig.albumArtDisabled && record.thumbnailUrl}
-				<div class="px-4 pb-2 flex items-center gap-3">
-					<button
-						type="button"
-						role="switch"
-						aria-checked={includeArt}
-						on:click={() => (includeArt = !includeArt)}
-						aria-label="Include album art"
-						class="relative w-8 h-5 rounded-full transition-colors shrink-0 {includeArt ? $t.btnPrimaryBg : $t.elevatedBg}"
-					>
-						<span class="absolute top-0.5 left-0.5 w-3.5 h-3.5 rounded-full {$t.recessedBg} transition-transform {includeArt ? 'translate-x-3.5' : 'translate-x-0'}"></span>
-					</button>
-					<div class="flex items-center gap-2 min-w-0">
-						{#if includeArt}
-							<img src={record.thumbnailUrl} alt="" aria-hidden="true" class="w-6 h-6 rounded object-cover shrink-0" />
-						{/if}
-						<span class="text-xs {$t.textMuted}">Include album art</span>
-					</div>
-				</div>
-			{/if}
-
-			<div class="flex items-center justify-between px-4 pb-3">
-				<span class="text-xs {composeOver ? 'text-red-400' : composeCharsLeft <= 20 ? 'text-amber-400' : $t.textFaint}">
-					{composeCharsLeft}
-				</span>
-				<div class="flex items-center gap-2">
-					<button on:click={() => (composeOpen = false)} class="text-xs {$t.textMuted} {$t.hoverTextSecondary} px-3 py-1.5 transition-colors">
-						Cancel
-					</button>
-					<button
-						on:click={submitPost}
-						disabled={posting || composeOver}
-						class="text-xs font-semibold {$t.btnPrimaryBg} {$t.btnPrimaryText} px-3 py-1.5 rounded-full {$t.btnPrimaryHover} transition-colors disabled:opacity-40"
-					>
-						{#if posting}
-							<span class="inline-flex items-center gap-1.5">
-								<span class="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
-								Posting…
-							</span>
-						{:else}
-							Post
-						{/if}
-					</button>
-				</div>
-			</div>
-		</div>
-	</div>
-{/if}

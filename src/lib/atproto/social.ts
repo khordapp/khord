@@ -58,6 +58,15 @@ export async function fetchSetlists(did: string): Promise<KhordSetlist[]> {
 	}));
 }
 
+export async function fetchSong(did: string, rkey: string): Promise<KhordSong> {
+	const res = await getAgent().com.atproto.repo.getRecord({
+		repo: did,
+		collection: SONG_NSID,
+		rkey
+	});
+	return { uri: res.data.uri, cid: res.data.cid ?? '', value: res.data.value as KhordSongRecord };
+}
+
 export async function fetchSetlist(did: string, rkey: string): Promise<KhordSetlist> {
 	const res = await getAgent().com.atproto.repo.getRecord({
 		repo: did,
