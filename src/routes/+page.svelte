@@ -354,7 +354,7 @@
 	}
 
 	onMount(() => {
-		updateIndicator();
+		switchTab(activeTab);
 
 		let startY = 0;
 		let active = false;
