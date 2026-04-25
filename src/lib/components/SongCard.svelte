@@ -29,6 +29,7 @@
 	export let selected = false;
 	export let onselect: (uri: string) => void = () => {};
 	export let voteCount = 0;
+	export let publicView = false;
 
 	$: songlink = record.songlinkUrl;
 	$: liked = $votes.has(uri);
@@ -41,6 +42,7 @@
 	$: localCount = voteCount;
 
 	let liking = false;
+	let sharing = false;
 	let shared = false;
 	let resyncing = false;
 	let resynced = false;
@@ -49,22 +51,30 @@
 	$: isOwn = $session?.did === sharedBy.did;
 
 	async function shareNative() {
-		const title = `${record.title}${record.artist ? ` by ${record.artist}` : ''}`;
-		const rkey = uri.split('/').pop()!;
-		const shareUrl = sharedBy.handle && !sharedBy.handle.startsWith('did:')
-			? `${APP_URL}/song/${sharedBy.handle}/${rkey}`
-			: (record.songlinkUrl ?? '');
-		if (!shareUrl) return;
-		if (navigator.share) {
-			try {
-				await navigator.share({ title, url: shareUrl });
-			} catch { /* user cancelled — no feedback needed */ }
-		} else {
-			try {
-				await navigator.clipboard.writeText(shareUrl);
-				shared = true;
-				setTimeout(() => { shared = false; }, 2000);
-			} catch { /* clipboard unavailable */ }
+		if (sharing) return;
+		sharing = true;
+		try {
+			const text = `${record.title}${record.artist ? ` by ${record.artist}` : ''}`;
+			const rkey = uri.split('/').pop()!;
+			const shareUrl = sharedBy.handle && !sharedBy.handle.startsWith('did:')
+				? `${APP_URL}/song/${sharedBy.handle}/${rkey}`
+				: (record.songlinkUrl ?? '');
+			if (!shareUrl) return;
+			if (navigator.share) {
+				try {
+					// Share URL only — iMessage unfurls it into a single rich preview
+					// card using the song page's OG tags (title, artist, album art)
+					await navigator.share({ url: shareUrl });
+				} catch { /* user cancelled — no feedback needed */ }
+			} else {
+				try {
+					await navigator.clipboard.writeText(`${text}\n${shareUrl}`);
+					shared = true;
+					setTimeout(() => { shared = false; }, 2000);
+				} catch { /* clipboard unavailable */ }
+			}
+		} finally {
+			sharing = false;
 		}
 	}
 
@@ -254,47 +264,49 @@
 				{/if}
 			</button>
 		{/if}
-		<button
-			on:click={toggleLike}
-			disabled={liking}
-			aria-label={liked ? 'Unlike' : 'Upnote'}
-			title={liked ? 'Remove your upnote' : 'Upnote this song'}
-			class="p-2 flex items-center gap-1.5 transition-colors disabled:opacity-50 {liked ? $t.accentText : `${$t.textFaint} ${$t.hoverTextSecondary}`}"
-		>
-			{#if liking}
-				<span class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
-			{:else}
-				<span class="flex items-center gap-0.5">
-					<svg viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
-						<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
-					<span class="text-base leading-none -mt-0.5">♪</span>
-				</span>
-				{#if localCount > 0}
-					<span class="text-sm tabular-nums">{localCount}</span>
-				{/if}
-			{/if}
-		</button>
-		{#if isOwn && record.appleMusicUrl}
+		{#if !publicView}
 			<button
-				on:click={resync}
-				disabled={resyncing}
-				aria-label="Resync song metadata"
-				title="Re-fetch metadata and platform links from streaming services"
-				class="p-2 transition-colors disabled:opacity-50 {resynced ? $t.textPrimary : resyncError ? 'text-red-400' : `${$t.textFaint} ${$t.hoverTextSecondary}`}"
+				on:click={toggleLike}
+				disabled={liking}
+				aria-label={liked ? 'Unlike' : 'Upnote'}
+				title={liked ? 'Remove your upnote' : 'Upnote this song'}
+				class="p-2 flex items-center gap-1.5 transition-colors disabled:opacity-50 {liked ? $t.accentText : `${$t.textFaint} ${$t.hoverTextSecondary}`}"
 			>
-				{#if resyncing}
+				{#if liking}
 					<span class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
-				{:else if resynced}
-					<svg viewBox="0 0 14 14" fill="none" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
-						<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
 				{:else}
-					<svg viewBox="0 0 24 24" fill="none" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
-						<path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
+					<span class="flex items-center gap-0.5">
+						<svg viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
+							<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+						<span class="text-base leading-none -mt-0.5">♪</span>
+					</span>
+					{#if localCount > 0}
+						<span class="text-sm tabular-nums">{localCount}</span>
+					{/if}
 				{/if}
 			</button>
+			{#if isOwn && record.appleMusicUrl}
+				<button
+					on:click={resync}
+					disabled={resyncing}
+					aria-label="Resync song metadata"
+					title="Re-fetch metadata and platform links from streaming services"
+					class="p-2 transition-colors disabled:opacity-50 {resynced ? $t.textPrimary : resyncError ? 'text-red-400' : `${$t.textFaint} ${$t.hoverTextSecondary}`}"
+				>
+					{#if resyncing}
+						<span class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
+					{:else if resynced}
+						<svg viewBox="0 0 14 14" fill="none" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
+							<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+					{:else}
+						<svg viewBox="0 0 24 24" fill="none" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
+							<path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+					{/if}
+				</button>
+			{/if}
 		{/if}
 	</div>
 </article>

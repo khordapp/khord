@@ -335,7 +335,64 @@
 		tick().then(updateIndicator);
 	}
 
-	onMount(() => { updateIndicator(); });
+	// ── Pull to refresh ───────────────────────────────────────────────────────
+	const PULL_THRESHOLD = 80;
+	let pullDistance = 0;
+	let pullRefreshing = false;
+
+	async function triggerPullRefresh() {
+		if (pullRefreshing) return;
+		pullRefreshing = true;
+		try {
+			if (activeTab === 'all') await loadAllSongs();
+			else if (activeTab === 'following') await refreshFeed();
+			else if (activeTab === 'daily') await refreshFeed();
+			else { setlistsLoaded = false; await loadSetlists(); }
+		} finally {
+			pullRefreshing = false;
+		}
+	}
+
+	onMount(() => {
+		updateIndicator();
+
+		let startY = 0;
+		let active = false;
+
+		function onTouchStart(e: TouchEvent) {
+			if (window.scrollY > 0 || pullRefreshing) return;
+			startY = e.touches[0].clientY;
+			active = true;
+		}
+
+		function onTouchMove(e: TouchEvent) {
+			if (!active) return;
+			const delta = e.touches[0].clientY - startY;
+			if (delta > 0) {
+				pullDistance = Math.min(delta, PULL_THRESHOLD * 1.5);
+				if (pullDistance > 8) e.preventDefault(); // suppress browser pull-to-refresh
+			} else {
+				pullDistance = 0;
+				active = false;
+			}
+		}
+
+		function onTouchEnd() {
+			if (pullDistance >= PULL_THRESHOLD) triggerPullRefresh();
+			pullDistance = 0;
+			active = false;
+		}
+
+		window.addEventListener('touchstart', onTouchStart, { passive: true });
+		window.addEventListener('touchmove', onTouchMove, { passive: false });
+		window.addEventListener('touchend', onTouchEnd, { passive: true });
+
+		return () => {
+			window.removeEventListener('touchstart', onTouchStart);
+			window.removeEventListener('touchmove', onTouchMove);
+			window.removeEventListener('touchend', onTouchEnd);
+		};
+	});
 </script>
 
 <svelte:head>
@@ -426,6 +483,24 @@
 	</div>
 {:else if $isLoggedIn}
 	<section class="space-y-4">
+		<!-- Pull to refresh indicator -->
+		<div
+			class="flex items-center justify-center overflow-hidden transition-[height] duration-150"
+			style="height: {pullRefreshing ? 40 : Math.min(pullDistance * 0.45, 40)}px"
+		>
+			{#if pullRefreshing}
+				<span class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin {$t.textFaint}"></span>
+			{:else}
+				<svg
+					viewBox="0 0 24 24" fill="none" class="w-5 h-5 {$t.textFaint}"
+					style="opacity: {Math.min(pullDistance / PULL_THRESHOLD, 1)}; transform: rotate({Math.min(pullDistance / PULL_THRESHOLD, 1) * 180}deg)"
+					xmlns="http://www.w3.org/2000/svg"
+				>
+					<path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+			{/if}
+		</div>
+
 		<!-- Streaming service hint -->
 		{#if !$prefs}
 			<p class="text-sm {$t.textFaint} px-1">

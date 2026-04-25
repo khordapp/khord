@@ -1,71 +1,65 @@
 <script lang="ts">
-	import { page } from '$app/state';
-	import { session, authReady } from '$lib/stores/auth';
-	import { fetchSong } from '$lib/atproto/social';
+	import { session } from '$lib/stores/auth';
 	import type { FollowedUser } from '$lib/atproto/social';
 	import type { KhordSong } from '$lib/atproto/lexicons/song';
-	import { getAgent } from '$lib/atproto/agent';
 	import { onMount } from 'svelte';
 	import { APP_NAME, APP_URL } from '$lib/config';
 	import { votes } from '$lib/stores/votes';
 	import { theme as t } from '$lib/theme';
 	import SongCard from '$lib/components/SongCard.svelte';
 
-	const handle: string = page.params.handle ?? '';
-	const rkey: string = page.params.rkey ?? '';
+	export let data: {
+		song: KhordSong | null;
+		sharedBy: FollowedUser | null;
+	};
 
-	let song: KhordSong | null = null;
-	let sharedBy: FollowedUser | null = null;
+	// Initialise from server-loaded data — OG tags render on first HTML response
+	let song: KhordSong | null = data.song;
+	let sharedBy: FollowedUser | null = data.sharedBy;
 	let voteCount = 0;
-	let loading = true;
+	let loading = !song; // skip loading state if SSR already gave us data
 	let error = '';
+	let authResolved = false;
 
 	onMount(async () => {
-		await authReady;
+		authResolved = true;
 		try {
-			const profile = await getAgent().getProfile({ actor: handle });
-			const did = profile.data.did;
-			sharedBy = {
-				did,
-				handle: profile.data.handle,
-				displayName: profile.data.displayName,
-				avatar: profile.data.avatar
-			};
-			song = await fetchSong(did, rkey);
+			// Fetch votes regardless — depends on who's logged in
+			if (song) {
+				try {
+					const res = await fetch(`/api/votes/counts?uris=${encodeURIComponent(song.uri)}`);
+					if (res.ok) {
+						const d = await res.json();
+						voteCount = (d.counts as Record<string, number>)[song.uri] ?? 0;
+					}
+				} catch { /* non-fatal */ }
 
-			// Vote counts
-			try {
-				const res = await fetch(`/api/votes/counts?uris=${encodeURIComponent(song.uri)}`);
-				if (res.ok) {
-					const data = await res.json();
-					voteCount = (data.counts as Record<string, number>)[song.uri] ?? 0;
-				}
-			} catch { /* non-fatal */ }
-
-			// Load user's votes if logged in
-			if ($session) {
-				await votes.load($session.did);
+				if ($session) await votes.load($session.did);
 			}
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Could not load song.';
+			if (!song) error = e instanceof Error ? e.message : 'Could not load song.';
 		} finally {
 			loading = false;
 		}
 	});
+
+	$: ogTitle = song ? `${song.value.title}${song.value.artist ? ` by ${song.value.artist}` : ''}` : APP_NAME;
+	$: ogDesc = song ? `Listen to ${ogTitle} on ${APP_NAME} — available on Spotify, Apple Music, Tidal, and more.` : '';
 </script>
 
 <svelte:head>
+	<title>{ogTitle}{song ? ` — ${APP_NAME}` : ''}</title>
 	{#if song}
-		<title>{song.value.title}{song.value.artist ? ` by ${song.value.artist}` : ''} — {APP_NAME}</title>
-		<meta name="description" content="Listen to {song.value.title}{song.value.artist ? ` by ${song.value.artist}` : ''} on {APP_NAME} — available on Spotify, Apple Music, Tidal, and more." />
-		<meta property="og:title" content="{song.value.title}{song.value.artist ? ` by ${song.value.artist}` : ''}" />
+		<meta name="description" content={ogDesc} />
+		<meta property="og:title" content={ogTitle} />
 		<meta property="og:description" content="Listen on {APP_NAME} — available on Spotify, Apple Music, Tidal, and more." />
-		<meta property="og:url" content="{APP_URL}/song/{handle}/{rkey}" />
+		<meta property="og:url" content="{APP_URL}/song/{sharedBy?.handle ?? ''}/{song.uri.split('/').pop()}" />
+		<meta property="og:type" content="music.song" />
 		{#if song.value.thumbnailUrl}
 			<meta property="og:image" content="{APP_URL}/api/thumbnail?url={encodeURIComponent(song.value.thumbnailUrl)}" />
+			<meta property="og:image:width" content="300" />
+			<meta property="og:image:height" content="300" />
 		{/if}
-	{:else}
-		<title>{APP_NAME}</title>
 	{/if}
 </svelte:head>
 
@@ -100,11 +94,12 @@
 			record={song.value}
 			{sharedBy}
 			{voteCount}
+			publicView={!$session}
 		/>
 
-		{#if !$session}
+		{#if authResolved && !$session}
 			<div class="text-center space-y-2 py-4">
-				<p class="text-sm {$t.textMuted}">Want to discover more music like this?</p>
+				<p class="text-sm {$t.textMuted}">Sign in to upnote songs, collaborate on mixtapes, and share music with friends.</p>
 				<a href="/login" class="inline-flex items-center gap-2 {$t.btnPrimaryBg} {$t.btnPrimaryText} text-sm font-semibold px-5 py-2.5 rounded-lg {$t.btnPrimaryHover} transition-colors">
 					Join {APP_NAME}
 				</a>
