@@ -9,6 +9,7 @@
 	import { theme as t } from '$lib/theme';
 
 	let error = '';
+	let pendingRequest = false;
 
 	onMount(async () => {
 		try {
@@ -24,7 +25,11 @@
 			const result = await res.json();
 			if (!result.allowed) {
 				await signOut();
-				error = result.reason ?? 'Access denied.';
+				if (result.pendingRequest) {
+					pendingRequest = true;
+				} else {
+					error = result.reason ?? 'Access denied.';
+				}
 				return;
 			}
 
@@ -49,7 +54,19 @@
 </svelte:head>
 
 <div class="flex flex-col items-center justify-center py-24 space-y-4 text-center">
-	{#if error}
+	{#if pendingRequest}
+		<div class="space-y-3 max-w-sm">
+			<div class="w-10 h-10 rounded-full {$t.elevatedBg} flex items-center justify-center mx-auto">
+				<svg viewBox="0 0 24 24" fill="none" class="w-5 h-5 {$t.textMuted}" xmlns="http://www.w3.org/2000/svg">
+					<path d="M12 6v6l4 2M12 2a10 10 0 1 0 0 20A10 10 0 0 0 12 2z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+			</div>
+			<p class="text-base font-semibold {$t.textPrimary}">Access request submitted</p>
+			<p class="text-sm {$t.textMuted} leading-relaxed">
+				The instance admin will review your request. You'll be able to sign in once it's approved.
+			</p>
+		</div>
+	{:else if error}
 		<p class="text-red-400 text-sm max-w-sm">{error}</p>
 		<a href="/login" class="text-sm {$t.textMuted} {$t.hoverText} transition-colors">
 			← Try again

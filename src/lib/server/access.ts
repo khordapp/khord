@@ -34,9 +34,26 @@ function isRegistrationClosed(): boolean {
 	return getSetting('registration_closed', 'false') === 'true';
 }
 
+function isInviteOnly(): boolean {
+	return getSetting('invite_only', 'false') === 'true';
+}
+
+function ensureAccessRequestsTable(db: import('better-sqlite3').Database): void {
+	db.exec(`
+		CREATE TABLE IF NOT EXISTS access_requests (
+			id           INTEGER PRIMARY KEY AUTOINCREMENT,
+			handle       TEXT NOT NULL,
+			did          TEXT NOT NULL UNIQUE,
+			status       TEXT NOT NULL DEFAULT 'pending',
+			requested_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+			reviewed_at  TEXT
+		)
+	`);
+}
+
 export type AccessResult =
 	| { allowed: true }
-	| { allowed: false; reason: string };
+	| { allowed: false; reason: string; pendingRequest?: boolean };
 
 export function checkAndRegister(did: string, handle: string | null = null): AccessResult {
 	// 1. Ban check — env var (no DB needed)
@@ -65,6 +82,43 @@ export function checkAndRegister(did: string, handle: string | null = null): Acc
 		const already = db.prepare('SELECT 1 FROM registered_users WHERE did = ?').get(did);
 		if (!already) {
 			return { allowed: false, reason: 'Registration is currently closed on this instance.' };
+		}
+	}
+
+	// 3c. Invite-only — new users must have an approved access request
+	if (db && isInviteOnly()) {
+		const already = db.prepare('SELECT 1 FROM registered_users WHERE did = ?').get(did);
+		if (!already) {
+			ensureAccessRequestsTable(db);
+			const request = db
+				.prepare('SELECT status FROM access_requests WHERE did = ?')
+				.get(did) as { status: string } | undefined;
+
+			if (request?.status === 'approved') {
+				// Approved — fall through to register below
+			} else if (request?.status === 'declined') {
+				return { allowed: false, reason: 'Your access request was not approved.' };
+			} else {
+				// No request or previously unknown state — auto-submit
+				if (!request) {
+					db.prepare('INSERT OR IGNORE INTO access_requests(handle, did) VALUES(?, ?)').run(
+						handle ?? '',
+						did
+					);
+				} else if (handle) {
+					// Keep handle fresh for pending requests
+					db.prepare('UPDATE access_requests SET handle = ? WHERE did = ? AND status = ?').run(
+						handle,
+						did,
+						'pending'
+					);
+				}
+				return {
+					allowed: false,
+					reason: 'Your access request is pending admin review.',
+					pendingRequest: true
+				};
+			}
 		}
 	}
 

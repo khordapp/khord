@@ -31,11 +31,27 @@ export const GET: RequestHandler = ({ url }) => {
 
 	const maxUsers = parseInt(process.env.MAX_USERS ?? '0', 10) || 0;
 
+	let pendingRequestsCount = 0;
+	try {
+		db.exec(`CREATE TABLE IF NOT EXISTS access_requests (
+			id INTEGER PRIMARY KEY AUTOINCREMENT, handle TEXT NOT NULL,
+			did TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT 'pending',
+			requested_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')), reviewed_at TEXT
+		)`);
+		const { n } = db
+			.prepare("SELECT COUNT(*) as n FROM access_requests WHERE status = 'pending'")
+			.get() as { n: number };
+		pendingRequestsCount = n;
+	} catch {
+		// table may not exist yet; non-fatal
+	}
+
 	return json({
 		registeredCount,
 		songsCount,
 		bannedCount,
 		cursorSeq: cursor?.seq ?? 0,
-		maxUsers
+		maxUsers,
+		pendingRequestsCount
 	});
 };

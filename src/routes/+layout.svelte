@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import { onMount } from 'svelte';
+	import { fly } from 'svelte/transition';
 	import { APP_NAME, VERSION } from '$lib/config';
 	import { initAuth, signOut } from '$lib/atproto/agent';
 	import { session, isLoggedIn, authReady } from '$lib/stores/auth';
@@ -11,26 +12,27 @@
 	import { votes } from '$lib/stores/votes';
 	import ShareSongModal from '$lib/components/ShareSongModal.svelte';
 	import CreateSetlistModal from '$lib/components/CreateSetlistModal.svelte';
+	import StreamingServiceModal from '$lib/components/StreamingServiceModal.svelte';
 	import { goto } from '$app/navigation';
 	import { instanceConfig } from '$lib/stores/instance';
 	import { theme as t } from '$lib/theme';
-	import { prefs, type PlatformKey } from '$lib/stores/prefs';
+	import { prefs } from '$lib/stores/prefs';
 
-	const PLATFORMS: { key: PlatformKey; label: string; color: string }[] = [
-		{ key: 'spotifyUrl',      label: 'Spotify',       color: '#1DB954' },
-		{ key: 'appleMusicUrl',   label: 'Apple Music',   color: '#FC3C44' },
-		{ key: 'youtubeMusicUrl', label: 'YouTube Music', color: '#FF0000' },
-		{ key: 'tidalUrl',        label: 'Tidal',         color: '#9bf0e1' },
-		{ key: 'deezerUrl',       label: 'Deezer',        color: '#EF5466' },
-		{ key: 'amazonMusicUrl',  label: 'Amazon Music',  color: '#00A8E1' },
-		{ key: 'soundcloudUrl',   label: 'SoundCloud',    color: '#FF5500' },
-	];
+	const PLATFORM_LABELS: Record<string, string> = {
+		spotifyUrl: 'Spotify', appleMusicUrl: 'Apple Music', youtubeMusicUrl: 'YouTube Music',
+		tidalUrl: 'Tidal', deezerUrl: 'Deezer', amazonMusicUrl: 'Amazon Music', soundcloudUrl: 'SoundCloud',
+	};
 
-	$: currentPlatform = PLATFORMS.find((p) => p.key === $prefs) ?? null;
+	$: currentPlatformLabel = $prefs ? (PLATFORM_LABELS[$prefs] ?? null) : null;
 
 	let serviceSelectorOpen = false;
+	let isMobile = false;
 
 	onMount(async () => {
+		const mq = window.matchMedia('(max-width: 639px)');
+		isMobile = mq.matches;
+		mq.addEventListener('change', (e) => { isMobile = e.matches; });
+
 		if (window.location.pathname === '/oauth/callback') { authReady.set(true); return; }
 
 		const s = await initAuth(true);
@@ -79,113 +81,162 @@
 		<a href="/" class="text-xl font-bold tracking-tight">{APP_NAME.toLowerCase()}</a>
 
 		<div class="flex items-center gap-4">
-		{#if $isLoggedIn}
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div class="relative" on:click|stopPropagation on:keydown|stopPropagation>
+			{#if $isLoggedIn}
 				<button
-					on:click={() => (serviceSelectorOpen = !serviceSelectorOpen)}
-					title={currentPlatform ? `Streaming on ${currentPlatform.label} — change` : 'Set streaming service'}
-					class="flex items-center gap-1 transition-opacity hover:opacity-70 {currentPlatform ? '' : $t.textFaint}"
+					on:click={() => (serviceSelectorOpen = true)}
+					title={currentPlatformLabel ? `Streaming on ${currentPlatformLabel} — change` : 'Set streaming service'}
+					class="flex items-center gap-1 transition-opacity hover:opacity-70 {currentPlatformLabel ? '' : $t.textFaint}"
 				>
 					<span class="text-2xl leading-none" aria-hidden="true">🎧</span>
 					<svg viewBox="0 0 10 10" fill="none" class="w-2 h-2 shrink-0" xmlns="http://www.w3.org/2000/svg">
 						<path d="M2 4l3 3 3-3" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
 					</svg>
 				</button>
-				{#if serviceSelectorOpen}
-					<button class="fixed inset-0 z-40" aria-label="Close" on:click={() => (serviceSelectorOpen = false)}></button>
-					<div class="absolute right-0 top-full mt-2 z-50 {$t.surfaceBg} border {$t.borderStrong} rounded-xl shadow-xl overflow-hidden min-w-[160px]">
-						{#each PLATFORMS as platform}
-							<button
-								on:click={() => { prefs.setPreferredPlatform($prefs === platform.key ? null : platform.key); serviceSelectorOpen = false; }}
-								class="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs transition-colors {$t.hoverBg}
-									{$prefs === platform.key ? $t.textPrimary : $t.textSecondary}"
-							>
-								<span class="w-2 h-2 rounded-full shrink-0" style="background-color: {platform.color}"></span>
-								{platform.label}
-								{#if $prefs === platform.key}
-									<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 ml-auto shrink-0" xmlns="http://www.w3.org/2000/svg">
-										<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-									</svg>
-								{/if}
-							</button>
-						{/each}
-					</div>
-				{/if}
-			</div>
-		{/if}
-
-		<div class="relative">
-			{#if $isLoggedIn}
-				<button
-					on:click={toggleMenu}
-					aria-label="Account menu"
-					class="flex items-center gap-2 hover:opacity-80 transition-opacity"
-				>
-					<div class="w-7 h-7 rounded-full overflow-hidden shrink-0 ring-2 {$t.borderStrong}">
-						{#if $session?.avatar}
-							<img src={$session.avatar} alt={$session.handle} class="w-full h-full object-cover" />
-						{:else}
-							<div class="w-full h-full {$t.elevatedBg} flex items-center justify-center text-xs font-semibold {$t.textSecondary}">
-								{($session?.handle ?? '?')[0].toUpperCase()}
-							</div>
-						{/if}
-					</div>
-					<span class="text-sm {$t.textSecondary} max-w-[120px] truncate hidden sm:block">@{$session?.handle}</span>
-					<svg viewBox="0 0 10 10" fill="none" class="w-3 h-3 {$t.textMuted} shrink-0" xmlns="http://www.w3.org/2000/svg">
-						<path d="M2 4l3 3 3-3" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
-				</button>
-			{:else}
-				<a href="/login" class="text-sm {$t.textMuted} {$t.hoverText} transition-colors">Sign in</a>
 			{/if}
 
-			{#if menuOpen}
-				<button class="fixed inset-0 z-40" aria-label="Close menu" on:click={closeMenu}></button>
-				<div class="absolute right-0 mt-2 w-52 z-50 {$t.surfaceBg} border {$t.borderStrong} rounded-xl shadow-xl overflow-hidden">
-					<div class="px-4 py-3 border-b {$t.borderBase}">
-						<p class="text-xs font-medium {$t.textSecondary} truncate">@{$session?.handle}</p>
-					</div>
-					<div class="py-1">
-						<a href="/" on:click={closeMenu} class="flex items-center gap-2.5 px-4 py-2.5 text-sm {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
-							<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M2 6.5 8 2l6 4.5V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6.5Z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/><path d="M6 15v-5h4v5" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></svg>
-							Feed
-						</a>
-						<a href="/settings" on:click={closeMenu} class="flex items-center gap-2.5 px-4 py-2.5 text-sm {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
-							<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" stroke="currentColor" stroke-width="1.25"/><path d="M13.3 6.6a1 1 0 0 0 .2-1.1l-.8-1.4a1 1 0 0 0-1-.5l-1 .2a5 5 0 0 0-.8-.5l-.2-1A1 1 0 0 0 8.8 2H7.2a1 1 0 0 0-1 .8l-.2 1a5 5 0 0 0-.8.5l-1-.2a1 1 0 0 0-1 .5L2.4 6a1 1 0 0 0 .2 1.1l.7.7v.4l-.7.7a1 1 0 0 0-.2 1.1l.8 1.4a1 1 0 0 0 1 .5l1-.2c.3.2.5.3.8.5l.2 1a1 1 0 0 0 1 .8h1.6a1 1 0 0 0 1-.8l.2-1c.3-.2.5-.3.8-.5l1 .2a1 1 0 0 0 1-.5l.8-1.4a1 1 0 0 0-.2-1.1l-.7-.7v-.4l.7-.7Z" stroke="currentColor" stroke-width="1.25"/></svg>
-							Settings
-						</a>
-						<a href="/invite" on:click={closeMenu} class="flex items-center gap-2.5 px-4 py-2.5 text-sm {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
-							<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M10.5 8H14M12 6.5V9.5M6 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM2 13s-.5-4 4-4 4 4 4 4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
-							Invite
-						</a>
-						{#if $instanceConfig.isOwner}
-							<a href="/admin" on:click={closeMenu} class="flex items-center gap-2.5 px-4 py-2.5 text-sm {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
-								<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M8 2a2 2 0 0 1 2 2v.5l2.5 1.5V13H3.5V6L6 4.5V4a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/><path d="M6.5 13v-3a1.5 1.5 0 0 1 3 0v3" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></svg>
-								Admin
+			<div class="relative">
+				{#if $isLoggedIn}
+					<button
+						on:click={toggleMenu}
+						aria-label="Account menu"
+						class="flex items-center gap-2 hover:opacity-80 transition-opacity"
+					>
+						<div class="w-7 h-7 rounded-full overflow-hidden shrink-0 ring-2 {$t.borderStrong}">
+							{#if $session?.avatar}
+								<img src={$session.avatar} alt={$session.handle} class="w-full h-full object-cover" />
+							{:else}
+								<div class="w-full h-full {$t.elevatedBg} flex items-center justify-center text-xs font-semibold {$t.textSecondary}">
+									{($session?.handle ?? '?')[0].toUpperCase()}
+								</div>
+							{/if}
+						</div>
+						<span class="text-sm {$t.textSecondary} max-w-[120px] truncate hidden sm:block">@{$session?.handle}</span>
+						<svg viewBox="0 0 10 10" fill="none" class="w-3 h-3 {$t.textMuted} shrink-0" xmlns="http://www.w3.org/2000/svg">
+							<path d="M2 4l3 3 3-3" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+					</button>
+				{:else}
+					<a href="/login" class="text-sm {$t.textMuted} {$t.hoverText} transition-colors">Sign in</a>
+				{/if}
+
+				<!-- Desktop dropdown (sm and up) -->
+				{#if menuOpen && !isMobile}
+					<button class="fixed inset-0 z-40" aria-label="Close menu" on:click={closeMenu}></button>
+					<div class="absolute right-0 mt-2 w-52 z-50 {$t.surfaceBg} border {$t.borderStrong} rounded-xl shadow-xl overflow-hidden">
+						<div class="px-4 py-3 border-b {$t.borderBase}">
+							<p class="text-xs font-medium {$t.textSecondary} truncate">@{$session?.handle}</p>
+						</div>
+						<div class="py-1">
+							<a href="/" on:click={closeMenu} class="flex items-center gap-2.5 px-4 py-2.5 text-sm {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
+								<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M2 6.5 8 2l6 4.5V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6.5Z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/><path d="M6 15v-5h4v5" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></svg>
+								Feed
 							</a>
-						{/if}
-						<div class="border-t {$t.borderBase} mt-1 pt-1">
+							<a href="/settings" on:click={closeMenu} class="flex items-center gap-2.5 px-4 py-2.5 text-sm {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
+								<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" stroke="currentColor" stroke-width="1.25"/><path d="M13.3 6.6a1 1 0 0 0 .2-1.1l-.8-1.4a1 1 0 0 0-1-.5l-1 .2a5 5 0 0 0-.8-.5l-.2-1A1 1 0 0 0 8.8 2H7.2a1 1 0 0 0-1 .8l-.2 1a5 5 0 0 0-.8.5l-1-.2a1 1 0 0 0-1 .5L2.4 6a1 1 0 0 0 .2 1.1l.7.7v.4l-.7.7a1 1 0 0 0-.2 1.1l.8 1.4a1 1 0 0 0 1 .5l1-.2c.3.2.5.3.8.5l.2 1a1 1 0 0 0 1 .8h1.6a1 1 0 0 0 1-.8l.2-1c.3-.2.5-.3.8-.5l1 .2a1 1 0 0 0 1-.5l.8-1.4a1 1 0 0 0-.2-1.1l-.7-.7v-.4l.7-.7Z" stroke="currentColor" stroke-width="1.25"/></svg>
+								Settings
+							</a>
+							<a href="/invite" on:click={closeMenu} class="flex items-center gap-2.5 px-4 py-2.5 text-sm {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
+								<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M10.5 8H14M12 6.5V9.5M6 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM2 13s-.5-4 4-4 4 4 4 4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
+								Invite
+							</a>
+							{#if $instanceConfig.isOwner}
+								<a href="/admin" on:click={closeMenu} class="flex items-center gap-2.5 px-4 py-2.5 text-sm {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
+									<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M8 2a2 2 0 0 1 2 2v.5l2.5 1.5V13H3.5V6L6 4.5V4a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/><path d="M6.5 13v-3a1.5 1.5 0 0 1 3 0v3" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></svg>
+									Admin
+								</a>
+							{/if}
+							<div class="border-t {$t.borderBase} mt-1 pt-1">
+								{#if t.hasPair()}
+									<button on:click={t.toggle} class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
+										{#if t.isLight()}
+											<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.25"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>
+											Dark mode
+										{:else}
+											<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M13.5 9.5A6 6 0 0 1 6.5 2.5a6 6 0 1 0 7 7Z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></svg>
+											Light mode
+										{/if}
+									</button>
+								{/if}
+								<button on:click={() => { closeMenu(); handleLogout(); }} class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
+									<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3M10.5 11 14 8l-3.5-3M14 8H6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
+									Sign out
+								</button>
+							</div>
+						</div>
+					</div>
+				{/if}
+
+				<!-- Mobile drawer (below sm) -->
+				{#if menuOpen && isMobile}
+					<button class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" aria-label="Close menu" on:click={closeMenu}></button>
+					<div
+						transition:fly={{ x: 320, duration: 220 }}
+						class="fixed right-0 top-0 bottom-0 z-50 w-72 {$t.surfaceBg} border-l {$t.borderStrong} shadow-2xl flex flex-col overflow-y-auto"
+					>
+						<!-- Drawer header: avatar + close -->
+						<div class="flex items-center justify-between px-5 py-5 border-b {$t.borderBase}">
+							<div class="flex items-center gap-3 min-w-0">
+								<div class="w-10 h-10 rounded-full overflow-hidden shrink-0 ring-2 {$t.borderStrong}">
+									{#if $session?.avatar}
+										<img src={$session.avatar} alt={$session.handle} class="w-full h-full object-cover" />
+									{:else}
+										<div class="w-full h-full {$t.elevatedBg} flex items-center justify-center text-sm font-semibold {$t.textSecondary}">
+											{($session?.handle ?? '?')[0].toUpperCase()}
+										</div>
+									{/if}
+								</div>
+								<span class="text-sm font-medium {$t.textSecondary} truncate">@{$session?.handle}</span>
+							</div>
+							<button on:click={closeMenu} aria-label="Close menu" class="p-1.5 rounded-lg {$t.textMuted} {$t.hoverText} transition-colors shrink-0">
+								<svg viewBox="0 0 14 14" fill="none" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
+									<path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+								</svg>
+							</button>
+						</div>
+
+						<!-- Nav links -->
+						<nav class="flex-1 py-2">
+							<a href="/" on:click={closeMenu} class="flex items-center gap-4 px-5 py-4 text-base {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
+								<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M2 6.5 8 2l6 4.5V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6.5Z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/><path d="M6 15v-5h4v5" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></svg>
+								Feed
+							</a>
+							<a href="/settings" on:click={closeMenu} class="flex items-center gap-4 px-5 py-4 text-base {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
+								<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" stroke="currentColor" stroke-width="1.25"/><path d="M13.3 6.6a1 1 0 0 0 .2-1.1l-.8-1.4a1 1 0 0 0-1-.5l-1 .2a5 5 0 0 0-.8-.5l-.2-1A1 1 0 0 0 8.8 2H7.2a1 1 0 0 0-1 .8l-.2 1a5 5 0 0 0-.8.5l-1-.2a1 1 0 0 0-1 .5L2.4 6a1 1 0 0 0 .2 1.1l.7.7v.4l-.7.7a1 1 0 0 0-.2 1.1l.8 1.4a1 1 0 0 0 1 .5l1-.2c.3.2.5.3.8.5l.2 1a1 1 0 0 0 1 .8h1.6a1 1 0 0 0 1-.8l.2-1c.3-.2.5-.3.8-.5l1 .2a1 1 0 0 0 1-.5l.8-1.4a1 1 0 0 0-.2-1.1l-.7-.7v-.4l.7-.7Z" stroke="currentColor" stroke-width="1.25"/></svg>
+								Settings
+							</a>
+							<a href="/invite" on:click={closeMenu} class="flex items-center gap-4 px-5 py-4 text-base {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
+								<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M10.5 8H14M12 6.5V9.5M6 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM2 13s-.5-4 4-4 4 4 4 4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
+								Invite
+							</a>
+							{#if $instanceConfig.isOwner}
+								<a href="/admin" on:click={closeMenu} class="flex items-center gap-4 px-5 py-4 text-base {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
+									<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M8 2a2 2 0 0 1 2 2v.5l2.5 1.5V13H3.5V6L6 4.5V4a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/><path d="M6.5 13v-3a1.5 1.5 0 0 1 3 0v3" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></svg>
+									Admin
+								</a>
+							{/if}
+						</nav>
+
+						<!-- Bottom: theme toggle + sign out -->
+						<div class="border-t {$t.borderBase} py-2">
 							{#if t.hasPair()}
-								<button on:click={t.toggle} class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
+								<button on:click={t.toggle} class="w-full flex items-center gap-4 px-5 py-4 text-base {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
 									{#if t.isLight()}
-										<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.25"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>
+										<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.25"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>
 										Dark mode
 									{:else}
-										<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M13.5 9.5A6 6 0 0 1 6.5 2.5a6 6 0 1 0 7 7Z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></svg>
+										<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M13.5 9.5A6 6 0 0 1 6.5 2.5a6 6 0 1 0 7 7Z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></svg>
 										Light mode
 									{/if}
 								</button>
 							{/if}
-							<button on:click={() => { closeMenu(); handleLogout(); }} class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
-								<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3M10.5 11 14 8l-3.5-3M14 8H6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
+							<button on:click={() => { closeMenu(); handleLogout(); }} class="w-full flex items-center gap-4 px-5 py-4 text-base {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
+								<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3M10.5 11 14 8l-3.5-3M14 8H6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
 								Sign out
 							</button>
 						</div>
 					</div>
-				</div>
-			{/if}
-		</div>
+				{/if}
+			</div>
 		</div>
 	</header>
 
@@ -265,3 +316,5 @@
 {#if $createSetlistOpen}
 	<CreateSetlistModal />
 {/if}
+
+<StreamingServiceModal bind:open={serviceSelectorOpen} />

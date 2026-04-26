@@ -20,6 +20,7 @@
 		bannedCount: number;
 		cursorSeq: number;
 		maxUsers: number;
+		pendingRequestsCount: number;
 	}
 
 	interface User {
@@ -40,7 +41,7 @@
 	}
 
 	// ── State ────────────────────────────────────────────────────────────────────
-	type Tab = 'users' | 'bans' | 'settings' | 'cache';
+	type Tab = 'users' | 'bans' | 'requests' | 'settings' | 'cache';
 	let activeTab: Tab = 'users';
 
 	let stats: Stats | null = null;
@@ -62,6 +63,51 @@
 	let banSubmitting = false;
 	let banFormError = '';
 
+	// ── Access requests ───────────────────────────────────────────────────────────
+	interface AccessRequest {
+		id: number;
+		handle: string;
+		did: string;
+		status: 'pending' | 'approved' | 'declined';
+		requestedAt: string;
+		reviewedAt: string | null;
+	}
+
+	let requests: AccessRequest[] = [];
+	let requestsLoading = false;
+	let requestsError = false;
+	let requestsFilter: 'pending' | 'all' = 'pending';
+
+	async function loadRequests() {
+		const did = $session?.did;
+		if (!did || requestsLoading) return;
+		requestsLoading = true;
+		requestsError = false;
+		try {
+			const params = new URLSearchParams({ did });
+			if (requestsFilter === 'pending') params.set('status', 'pending');
+			const r = await fetch(`/api/admin/requests?${params}`);
+			if (!r.ok) throw new Error();
+			const data = await r.json();
+			requests = data.requests;
+		} catch {
+			requestsError = true;
+		} finally {
+			requestsLoading = false;
+		}
+	}
+
+	async function reviewRequest(requestId: number, action: 'approve' | 'decline') {
+		const ownerDid = $session?.did;
+		if (!ownerDid) return;
+		await fetch('/api/admin/requests', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ ownerDid, requestId, action })
+		});
+		await Promise.all([loadRequests(), loadStats()]);
+	}
+
 	// ── Instance settings ─────────────────────────────────────────────────────────
 	interface InstanceSettings {
 		album_art_disabled: boolean;
@@ -78,6 +124,7 @@
 	// Local editable copies
 	let albumArtDisabled = false;
 	let registrationClosed = false;
+	let inviteOnly = false;
 	let maxUsers = 0;
 	let feedScoped = false;
 	let spotifyEnabled = false;
@@ -94,6 +141,7 @@
 			const raw = await r.json();
 			albumArtDisabled = raw.album_art_disabled === 'true';
 			registrationClosed = raw.registration_closed === 'true';
+			inviteOnly = raw.invite_only === 'true';
 			maxUsers = parseInt(raw.max_users ?? '0', 10) || 0;
 			feedScoped = raw.feed_scoped === 'true';
 			spotifyEnabled = raw.spotify_enabled !== 'false';
@@ -119,6 +167,7 @@
 					settings: {
 						album_art_disabled: String(albumArtDisabled),
 						registration_closed: String(registrationClosed),
+						invite_only: String(inviteOnly),
 						max_users: String(maxUsers),
 						feed_scoped: String(feedScoped),
 						spotify_enabled: String(spotifyEnabled),
@@ -268,9 +317,13 @@
 		loadStats();
 		loadUsers();
 		loadBans();
+		loadRequests();
 		loadSettings();
 		loadCacheStats();
 	}
+
+	// Reload requests when filter changes
+	$: if (dataLoaded) loadRequests();
 
 	// ── Thumbnail cache ───────────────────────────────────────────────────────────
 	interface CacheStats {
@@ -389,9 +442,30 @@
 		{/if}
 	</div>
 
-	<!-- Tab bar -->
-	<div class="flex gap-1 border-b {$t.borderBase}">
-		{#each [['users', 'Users'], ['bans', 'Bans'], ['settings', 'Settings'], ['cache', 'Cache']] as [id, label]}
+	<!-- Tab navigation -->
+	<!-- Mobile: select picker -->
+	<div class="sm:hidden">
+		<div class="relative {$t.surfaceBg} border {$t.borderStrong} rounded-lg">
+			<select
+				bind:value={activeTab}
+				class="w-full pl-4 pr-10 py-2.5 text-sm appearance-none bg-transparent {$t.textPrimary} cursor-pointer outline-none"
+			>
+				<option value="users">Users{stats ? ` — ${stats.registeredCount}` : ''}</option>
+				<option value="bans">Bans{stats?.bannedCount ? ` — ${stats.bannedCount}` : ''}</option>
+				<option value="requests">Requests{stats?.pendingRequestsCount ? ` — ${stats.pendingRequestsCount} pending` : ''}</option>
+				<option value="settings">Settings</option>
+				<option value="cache">Cache</option>
+			</select>
+			<div class="absolute inset-y-0 right-3 flex items-center pointer-events-none {$t.textMuted}">
+				<svg viewBox="0 0 10 10" fill="none" class="w-3 h-3" xmlns="http://www.w3.org/2000/svg">
+					<path d="M2 4l3 3 3-3" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+			</div>
+		</div>
+	</div>
+	<!-- Desktop: tab bar -->
+	<div class="hidden sm:flex gap-1 border-b {$t.borderBase}">
+		{#each [['users', 'Users'], ['bans', 'Bans'], ['requests', 'Requests'], ['settings', 'Settings'], ['cache', 'Cache']] as [id, label]}
 			<button
 				on:click={() => (activeTab = id as Tab)}
 				class="px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px
@@ -399,7 +473,7 @@
 						? `border-current ${$t.textPrimary}`
 						: `border-transparent ${$t.textMuted} ${$t.hoverText}`}"
 			>
-				{label}{#if id === 'bans' && stats?.bannedCount}&nbsp;({stats.bannedCount}){/if}
+				{label}{#if id === 'bans' && stats?.bannedCount}&nbsp;({stats.bannedCount}){/if}{#if id === 'requests' && stats?.pendingRequestsCount}&nbsp;<span class="inline-flex items-center justify-center w-4 h-4 rounded-full bg-amber-500 text-black text-[10px] font-bold leading-none">{stats.pendingRequestsCount}</span>{/if}
 			</button>
 		{/each}
 	</div>
@@ -565,6 +639,91 @@
 		</div>
 	{/if}
 
+	<!-- Requests tab -->
+	{#if activeTab === 'requests'}
+		<div class="space-y-4">
+			<!-- Filter toggle -->
+			<div class="flex items-center gap-2">
+				<button
+					on:click={() => (requestsFilter = 'pending')}
+					class="text-xs px-3 py-1 rounded-full border transition-colors
+						{requestsFilter === 'pending'
+							? `${$t.btnPrimaryBg} ${$t.btnPrimaryText} border-transparent`
+							: `${$t.borderStrong} ${$t.textMuted} ${$t.hoverText} ${$t.hoverBg}`}"
+				>
+					Pending
+				</button>
+				<button
+					on:click={() => (requestsFilter = 'all')}
+					class="text-xs px-3 py-1 rounded-full border transition-colors
+						{requestsFilter === 'all'
+							? `${$t.btnPrimaryBg} ${$t.btnPrimaryText} border-transparent`
+							: `${$t.borderStrong} ${$t.textMuted} ${$t.hoverText} ${$t.hoverBg}`}"
+				>
+					All
+				</button>
+			</div>
+
+			{#if requestsError}
+				<p class="text-sm {$t.textMuted}">Could not load requests — database offline.</p>
+			{:else if requests.length === 0 && requestsLoading}
+				<div class="space-y-2">
+					{#each [0, 1, 2] as _}
+						<div class="{$t.surfaceBg} border {$t.borderBase} rounded-lg h-14 animate-pulse"></div>
+					{/each}
+				</div>
+			{:else if requests.length === 0}
+				<p class="text-sm {$t.textMuted}">
+					{requestsFilter === 'pending' ? 'No pending access requests.' : 'No access requests yet.'}
+				</p>
+			{:else}
+				<div class="space-y-1">
+					{#each requests as req (req.id)}
+						<div class="flex items-center gap-3 {$t.surfaceBg} border {$t.borderBase} rounded-lg px-3 py-2.5">
+							<!-- Avatar placeholder -->
+							<div class="w-8 h-8 rounded-full shrink-0 {$t.elevatedBg} flex items-center justify-center text-xs font-semibold {$t.textMuted}">
+								{req.handle ? req.handle[0].toUpperCase() : '?'}
+							</div>
+							<!-- Identity -->
+							<div class="flex-1 min-w-0">
+								<p class="text-sm font-medium {$t.textPrimary} truncate">
+									{#if req.handle}
+										<a href="https://bsky.app/profile/{req.handle}" target="_blank" rel="noopener noreferrer" class="{$t.linkText} hover:underline">@{req.handle}</a>
+									{:else}
+										<span class="font-mono text-xs">{req.did}</span>
+									{/if}
+								</p>
+								<p class="text-xs {$t.textFaint} truncate">
+									{formatDate(req.requestedAt)}
+									{#if req.status !== 'pending'}
+										· <span class="{req.status === 'approved' ? 'text-green-400' : 'text-red-400'}">{req.status}</span>
+									{/if}
+								</p>
+							</div>
+							<!-- Actions -->
+							{#if req.status === 'pending'}
+								<div class="flex items-center gap-1.5 shrink-0">
+									<button
+										on:click={() => reviewRequest(req.id, 'approve')}
+										class="text-xs px-2.5 py-1 rounded border border-green-700 text-green-400 hover:bg-green-950 transition-colors"
+									>
+										Approve
+									</button>
+									<button
+										on:click={() => reviewRequest(req.id, 'decline')}
+										class="text-xs px-2.5 py-1 rounded border {$t.borderStrong} {$t.textMuted} {$t.hoverText} {$t.hoverBg} transition-colors"
+									>
+										Decline
+									</button>
+								</div>
+							{/if}
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</div>
+	{/if}
+
 	<!-- Settings tab -->
 	{#if activeTab === 'settings'}
 		<div class="space-y-6 max-w-md">
@@ -612,6 +771,25 @@
 					>
 						<span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full {$t.pageBg} shadow transition-transform
 							{!registrationClosed ? 'translate-x-4' : 'translate-x-0'}"></span>
+					</button>
+				</div>
+
+				<!-- Invite-only -->
+				<div class="{$t.surfaceBg} border {$t.borderStrong} rounded-xl px-4 py-4 flex items-start justify-between gap-4">
+					<div>
+						<p class="text-sm font-medium {$t.textPrimary}">Invite-only</p>
+						<p class="text-xs {$t.textMuted} mt-0.5">New users must request access. Existing registered users are unaffected. Review requests in the Requests tab.</p>
+					</div>
+					<button
+						role="switch"
+						aria-checked={inviteOnly}
+						aria-label="Toggle invite-only mode"
+						on:click={() => (inviteOnly = !inviteOnly)}
+						class="relative shrink-0 w-10 h-6 rounded-full transition-colors
+							{inviteOnly ? $t.btnPrimaryBg : $t.elevatedBg} border {$t.borderStrong}"
+					>
+						<span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full {$t.pageBg} shadow transition-transform
+							{inviteOnly ? 'translate-x-4' : 'translate-x-0'}"></span>
 					</button>
 				</div>
 
