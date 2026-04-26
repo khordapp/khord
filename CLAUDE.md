@@ -53,11 +53,11 @@ src/
       navy.ts / teal.ts / emerald.ts / rose.ts / violet.ts  # chromatic dark variants
       index.ts              # reads PUBLIC_THEME, exports resolved `theme` object
     components/
-      ShareSongModal.svelte # search → Odesli resolve → AT Protocol record create; note field (300 char limit)
-      SongCard.svelte       # feed card: platform links, selection, upnote, post-to-feed, resync metadata
-      SongSearch.svelte     # iTunes-backed search input
-      StreamingPill.svelte  # branded pill + chevron dropdown; preferred platform first; play icon on primary; "Set default…" link to /settings; primary link navigates in same tab (no blank tab); shared by feed + setlists
-      ServicePicker.svelte  # preferred platform picker used in /settings
+      ShareSongModal.svelte        # search → Odesli resolve → AT Protocol record create; note field (300 char limit)
+      SongCard.svelte              # feed card: platform links, selection, upnote, post-to-feed, resync metadata
+      SongSearch.svelte            # iTunes-backed search input
+      StreamingPill.svelte         # branded pill + chevron dropdown; preferred platform first; play icon on primary; bottom-sheet on mobile; shared by feed + setlists
+      StreamingServiceModal.svelte # modal for setting preferred streaming platform; used from header 🎧 button and settings page; all screen sizes
     landing.svelte          # editable logged-out landing content (below hero); replace to customise per instance
     stores/
       auth.ts               # session store, isLoggedIn derived, authReady (gates post-OAuth loads)
@@ -68,28 +68,30 @@ src/
       prefs.ts              # localStorage-backed user preferences (preferred platform)
       instance.ts           # instanceConfig store (albumArtDisabled, isOwner, loaded) populated from /api/auth/status; loaded flag gates admin page auth check
   routes/
-    +layout.svelte          # shell, avatar dropdown nav, speed-dial FAB (share song / new setlist), footer
+    +layout.svelte          # shell, avatar drawer (mobile) / dropdown (desktop) nav, speed-dial FAB (share song / new setlist), footer
     +page.svelte            # home — Feed / Daily / Setlists tabs; selection, bulk delete, create setlist
-    login/+page.svelte      # AT Protocol login form; shows instance full/restricted state
-    oauth/callback/         # AT Protocol OAuth callback; calls /api/auth/check, signs out if denied
+    login/+page.svelte      # AT Protocol login form; shows instance full/restricted/invite-only state
+    oauth/callback/         # AT Protocol OAuth callback; calls /api/auth/check, signs out if denied; shows pending-review screen if invite-only and request submitted
     spotify/callback/       # Spotify OAuth callback (user-level auth, if enabled)
     invite/                 # invite page
-    settings/               # preferred streaming service picker
-    admin/                  # owner-only admin panel (users, bans, instance settings); gated on instanceConfig.loaded + isOwner
+    settings/               # preferred streaming service (opens StreamingServiceModal); appearance toggle
+    admin/                  # owner-only admin panel (users, bans, requests, instance settings, cache); tab bar on desktop, section select on mobile; gated on instanceConfig.loaded + isOwner
     s/[handle]/[rkey]/        # setlist detail: drag reorder, add songs, propose songs, review proposals, share
     setlists/[handle]/[rkey]/ # 301 redirect → /s/[handle]/[rkey]/
+    song/[handle]/[rkey]/   # public song permalink; SSR OG tags; SongCard in publicView mode; join CTA for logged-out visitors
     api/resolve/            # server-side Odesli proxy + Spotify augmentation
-    api/auth/status/        # GET — returns { restricted, full, albumArtDisabled, isOwner }; accepts ?did= to resolve isOwner
-    api/auth/check/         # POST { did } — access control check + register user
+    api/auth/status/        # GET — returns { restricted, full, albumArtDisabled, inviteOnly, isOwner }; accepts ?did= to resolve isOwner
+    api/auth/check/         # POST { did } — access control check + register user; returns { pendingRequest: true } when invite-only and request submitted
     api/feed/               # GET — SQLite AppView feed (returns 503 if DB unavailable)
     api/votes/              # GET — SQLite AppView votes for a DID (returns 503 if DB unavailable)
     api/votes/counts/       # GET ?uris=... — batch vote counts for a list of song URIs
     api/proposals/          # GET ?setlistUri=... — proposals for a setlist (returns 503 if DB unavailable)
     api/thumbnail/          # GET ?url= — server-side image proxy for album art (avoids CORS on third-party CDNs)
-    api/admin/stats/        # GET ?did= — instance stats (user count, song count, ban count, firehose cursor); owner-only
+    api/admin/stats/        # GET ?did= — instance stats (user count, song count, ban count, pending requests, firehose cursor); owner-only
     api/admin/users/        # GET ?did= — paginated registered users (LEFT JOIN actors); owner-only
     api/admin/bans/         # GET/POST/DELETE — ban list + add/remove; owner-only; mutations use getDbRw()
-    api/admin/settings/     # GET/POST — instance settings (album_art_disabled, registration_closed, max_users); DB overrides env vars; owner-only
+    api/admin/requests/     # GET ?did=&status= / POST { ownerDid, requestId, action } — access request list + approve/decline; owner-only
+    api/admin/settings/     # GET/POST — instance settings (album_art_disabled, registration_closed, invite_only, max_users, feed_scoped, spotify_enabled, youtube_music_enabled); DB overrides env vars; owner-only
 lexicons/
   app.khord.song.json       # AT Protocol lexicon definitions
   app.khord.vote.json
@@ -204,9 +206,10 @@ When a song is added to a setlist (via CreateSetlistModal, feed selection, or da
 
 ## Navigation
 
-- Header: app name (links home) + avatar/handle dropdown (Feed, Settings, Invite, Sign out)
-- Speed-dial FAB (bottom-right, logged-in only): `+` expands to "Share song" and "New setlist" pill buttons
-- No separate mobile/desktop nav split — single unified dropdown
+- Header: app name (links home) + 🎧 streaming service button (opens `StreamingServiceModal`) + avatar/handle button
+- **Mobile (< 640px):** avatar tap opens a right-side drawer (`fly` transition); items use `py-4 text-base` for large tap targets; FAB action pills are larger (`px-5 py-3.5 text-base`)
+- **Desktop (≥ 640px):** avatar tap opens the existing compact absolute dropdown; FAB pills at original size
+- Speed-dial FAB (bottom-right, logged-in only): `+` expands to "Share song" and "New mixtape" pill buttons
 
 ## Key decisions
 
@@ -222,7 +225,8 @@ When a song is added to a setlist (via CreateSetlistModal, feed selection, or da
 - `/api/thumbnail` proxies third-party image URLs server-side to avoid CORS; validates protocol and content-type; 24h cache headers
 - App name, tagline, and auth provider name all configurable via env vars (`PUBLIC_APP_NAME`, `PUBLIC_APP_TAGLINE`, `PUBLIC_AUTH_PROVIDER_NAME`)
 - Access control: `OWNER_DIDS` (admin), `BANNED_DIDS` (denylist), `ALLOWED_DIDS` (allowlist), `MAX_USERS` (cap) env vars; all enforced at OAuth callback via `/api/auth/check`. `isOwner` resolved at session load via `/api/auth/status?did=` and stored in `instanceConfig`. Dynamic bans also supported via `banned_users` SQLite table (no restart needed). All server-side env var reads use `$env/dynamic/private` (not `process.env`) — required for SvelteKit/Vite dev to pick up `.env` values correctly.
-- Admin panel at `/admin` (owner-only): registered users list (paginated, LEFT JOIN actors), ban management (add/remove), instance settings (album art toggle, registration open/closed, user cap). Settings stored in `instance_settings` SQLite table via `src/lib/server/settings.ts`; DB values override env var defaults without restart. All `/api/admin/*` routes verify `isOwner(did)` server-side; return 503 when DB unavailable. Admin nav link gated on `$instanceConfig.isOwner`. Auth guard waits for `instanceConfig.loaded` (set after the layout's status fetch) to avoid false redirects during boot.
+- Invite-only mode (`invite_only` instance setting): when enabled, new users must have an approved `access_requests` record before being registered. On first sign-in attempt, a request is auto-submitted and the OAuth callback shows a "pending review" screen instead of an error. Existing registered users are unaffected. Owner approves/declines via the admin Requests tab.
+- Admin panel at `/admin` (owner-only): registered users (paginated, LEFT JOIN actors), ban management, access request review (approve/decline), instance settings (album art, registration, invite-only, user cap), cache management. Tab bar on desktop; full-width `<select>` section picker on mobile. Settings stored in `instance_settings` SQLite table via `src/lib/server/settings.ts`; DB values override env var defaults without restart. All `/api/admin/*` routes verify `isOwner(did)` server-side; return 503 when DB unavailable. Admin nav link gated on `$instanceConfig.isOwner`. Auth guard waits for `instanceConfig.loaded` (set after the layout's status fetch) to avoid false redirects during boot.
 - SQLite AppView indexer lives in a separate repo (github.com/khordapp/khord-indexer); feed/votes API routes exist but app falls back to PDS fetch when DB unavailable (returns 503)
 - Setlists are creator-only writes in v1; collaborator contribution (proposal pattern or delegated writes) is v2
 - `svelte-dnd-action` used for drag-to-reorder on setlist detail page

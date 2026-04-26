@@ -272,23 +272,23 @@
 		<div class="fixed bottom-6 right-6 z-30 flex flex-col items-end gap-3">
 			{#if fabOpen}
 				<button class="fixed inset-0 z-10" aria-label="Close" on:click={closeFab}></button>
-				<div class="relative z-20 flex flex-col items-end gap-2">
+				<div class="relative z-20 flex flex-col items-end gap-3">
 					<button
 						on:click={() => { closeFab(); openShareSong(); }}
-						class="flex items-center gap-2.5 {$t.elevatedBg} {$t.textPrimary} text-sm font-medium
-							px-4 py-2.5 rounded-full shadow-lg {$t.hoverBgStrong} transition-colors"
+						class="flex items-center gap-3 sm:gap-2.5 {$t.elevatedBg} {$t.textPrimary} text-base sm:text-sm font-medium
+							px-5 py-3.5 sm:px-4 sm:py-2.5 rounded-full shadow-lg {$t.hoverBgStrong} transition-colors"
 					>
-						<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg">
+						<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 sm:w-4 sm:h-4 shrink-0" xmlns="http://www.w3.org/2000/svg">
 							<path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
 						</svg>
 						Share song
 					</button>
 					<button
 						on:click={() => { closeFab(); openCreateSetlist(); }}
-						class="flex items-center gap-2.5 {$t.elevatedBg} {$t.textPrimary} text-sm font-medium
-							px-4 py-2.5 rounded-full shadow-lg {$t.hoverBgStrong} transition-colors"
+						class="flex items-center gap-3 sm:gap-2.5 {$t.elevatedBg} {$t.textPrimary} text-base sm:text-sm font-medium
+							px-5 py-3.5 sm:px-4 sm:py-2.5 rounded-full shadow-lg {$t.hoverBgStrong} transition-colors"
 					>
-						<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg">
+						<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 sm:w-4 sm:h-4 shrink-0" xmlns="http://www.w3.org/2000/svg">
 							<path d="M2 5h12M2 8h8M2 11h5M13 9v6M10 12h6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
 						</svg>
 						New mixtape

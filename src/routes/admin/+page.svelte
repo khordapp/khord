@@ -443,12 +443,21 @@
 	</div>
 
 	<!-- Tab navigation -->
-	<!-- Mobile: select picker -->
-	<div class="sm:hidden">
-		<div class="relative {$t.surfaceBg} border {$t.borderStrong} rounded-lg">
+	<!-- Mobile: section picker -->
+	<div class="sm:hidden space-y-1.5">
+		<p class="text-xs font-semibold {$t.accentText} uppercase tracking-wider flex items-center gap-1.5">
+			<svg viewBox="0 0 14 14" fill="none" class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg">
+				<rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.25"/>
+				<rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.25"/>
+				<rect x="1" y="8" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.25"/>
+				<rect x="8" y="8" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.25"/>
+			</svg>
+			Section
+		</p>
+		<div class="relative {$t.elevatedBg} border {$t.borderStrong} rounded-lg">
 			<select
 				bind:value={activeTab}
-				class="w-full pl-4 pr-10 py-2.5 text-sm appearance-none bg-transparent {$t.textPrimary} cursor-pointer outline-none"
+				class="w-full pl-4 pr-10 py-3 text-sm font-medium appearance-none bg-transparent {$t.textPrimary} cursor-pointer outline-none"
 			>
 				<option value="users">Users{stats ? ` — ${stats.registeredCount}` : ''}</option>
 				<option value="bans">Bans{stats?.bannedCount ? ` — ${stats.bannedCount}` : ''}</option>
@@ -456,7 +465,7 @@
 				<option value="settings">Settings</option>
 				<option value="cache">Cache</option>
 			</select>
-			<div class="absolute inset-y-0 right-3 flex items-center pointer-events-none {$t.textMuted}">
+			<div class="absolute inset-y-0 right-3 flex items-center pointer-events-none {$t.accentText}">
 				<svg viewBox="0 0 10 10" fill="none" class="w-3 h-3" xmlns="http://www.w3.org/2000/svg">
 					<path d="M2 4l3 3 3-3" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
 				</svg>
