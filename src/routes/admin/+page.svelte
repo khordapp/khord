@@ -385,6 +385,38 @@
 		return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 	}
 
+	// ── Instance reset ────────────────────────────────────────────────────────────
+	let resetModalOpen = false;
+	let resetInput = '';
+	let resetting = false;
+	let resetError = false;
+	let resetSuccess = false;
+
+	async function resetInstance() {
+		const ownerDid = $session?.did;
+		if (!ownerDid || resetInput !== 'RESET') return;
+		resetting = true;
+		resetError = false;
+		try {
+			const r = await fetch('/api/admin/reset', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ ownerDid })
+			});
+			if (!r.ok) throw new Error();
+			resetSuccess = true;
+			resetModalOpen = false;
+			resetInput = '';
+			stats = null;
+			users = [];
+			await loadStats();
+		} catch {
+			resetError = true;
+		} finally {
+			resetting = false;
+		}
+	}
+
 	// ── Helpers ───────────────────────────────────────────────────────────────────
 	function truncateDid(did: string) {
 		return did.length > 24 ? did.slice(0, 12) + '…' + did.slice(-8) : did;
@@ -888,7 +920,76 @@
 				>
 					{settingsSaving ? 'Saving…' : settingsSaved ? 'Saved!' : 'Save settings'}
 				</button>
+
+				<!-- Danger zone -->
+				<div class="border border-red-900 rounded-xl p-4 space-y-3 mt-4">
+					<div>
+						<p class="text-sm font-semibold text-red-400">Danger zone</p>
+						<p class="text-xs {$t.textMuted} mt-0.5">Permanently wipe all instance data. Intended for clearing test content before a public launch.</p>
+					</div>
+					<button
+						on:click={() => { resetModalOpen = true; resetInput = ''; resetError = false; resetSuccess = false; }}
+						class="text-sm font-medium px-4 py-2 rounded-lg border border-red-800 text-red-400 hover:bg-red-950 transition-colors"
+					>
+						Reset instance…
+					</button>
+					{#if resetSuccess}
+						<p class="text-xs text-green-400">Instance reset complete.</p>
+					{/if}
+				</div>
 			{/if}
+		</div>
+	{/if}
+
+	<!-- Reset confirmation modal -->
+	{#if resetModalOpen}
+		<!-- svelte-ignore a11y-click-events-have-key-events a11y-no-static-element-interactions -->
+		<div
+			class="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4"
+			on:click|self={() => !resetting && (resetModalOpen = false)}
+		>
+			<div class="{$t.surfaceBg} border border-red-800 rounded-2xl p-6 space-y-4 w-full max-w-sm">
+				<h2 class="text-base font-bold text-red-400">Reset instance</h2>
+				<div class="text-sm space-y-2">
+					<p class="{$t.textMuted}">This will permanently delete:</p>
+					<ul class="list-disc list-inside space-y-0.5 {$t.textFaint} text-xs">
+						<li>All registered users</li>
+						<li>All indexed songs, votes, and proposals</li>
+						<li>All access requests</li>
+						<li>The firehose cursor (indexer re-syncs from scratch)</li>
+					</ul>
+					<p class="{$t.textMuted}">Bans and instance settings are preserved.</p>
+					<p class="text-amber-500 text-xs">AT Protocol records on users' PDSes are not deleted — only the local index and registration data is wiped.</p>
+				</div>
+				<div class="space-y-2">
+					<p class="text-xs {$t.textMuted}">Type <span class="text-red-400 font-mono font-bold">RESET</span> to confirm:</p>
+					<input
+						bind:value={resetInput}
+						placeholder="RESET"
+						disabled={resetting}
+						class="w-full text-sm font-mono {$t.surfaceBg} border border-red-800 rounded-lg px-3 py-2 {$t.textPrimary} placeholder:{$t.textFaint} focus:outline-none focus:ring-1 focus:ring-red-700"
+					/>
+					{#if resetError}
+						<p class="text-xs text-red-400">Reset failed — check server logs.</p>
+					{/if}
+				</div>
+				<div class="flex gap-2 justify-end">
+					<button
+						on:click={() => { resetModalOpen = false; resetInput = ''; resetError = false; }}
+						disabled={resetting}
+						class="text-sm px-4 py-2 rounded-lg border {$t.borderStrong} {$t.textMuted} {$t.hoverText} {$t.hoverBg} transition-colors disabled:opacity-50"
+					>
+						Cancel
+					</button>
+					<button
+						on:click={resetInstance}
+						disabled={resetting || resetInput !== 'RESET'}
+						class="text-sm font-medium px-4 py-2 rounded-lg border border-red-700 bg-red-950 text-red-300 hover:bg-red-900 transition-colors disabled:opacity-40"
+					>
+						{resetting ? 'Resetting…' : 'Reset instance'}
+					</button>
+				</div>
+			</div>
 		</div>
 	{/if}
 

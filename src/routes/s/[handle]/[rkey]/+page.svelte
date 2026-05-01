@@ -1,12 +1,16 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { session, authReady } from '$lib/stores/auth';
-	import { fetchSetlist, updateSetlist, deleteSetlist, createProposal, fetchProposalsFromPDSes, getFollowing } from '$lib/atproto/social';
+	import { updateSetlist, deleteSetlist, createProposal, fetchProposalsFromPDSes, getFollowing } from '$lib/atproto/social';
+	import type { FollowedUser } from '$lib/atproto/social';
 	import type { KhordSetlist, KhordSetlistItem, KhordSetlistRecord } from '$lib/atproto/lexicons/setlist';
 	import type { KhordSongRecord } from '$lib/atproto/lexicons/song';
 	import { SONG_NSID } from '$lib/atproto/lexicons/song';
 	import type { KhordProposal } from '$lib/atproto/lexicons/proposal';
 	import { getAgent } from '$lib/atproto/agent';
+	import type { PageData } from './$types';
+
+	export let data: PageData;
 	import { dndzone } from 'svelte-dnd-action';
 	import { flip } from 'svelte/animate';
 	import { goto } from '$app/navigation';
@@ -42,9 +46,20 @@
 		record: KhordSongRecord | null;
 	}
 
-	let setlist: KhordSetlist | null = null;
-	let dndItems: DndItem[] = [];
-	let loading = true;
+	let setlist: KhordSetlist | null = data.setlist
+		? { uri: data.setlist.uri, cid: data.setlist.cid, value: data.setlist.value }
+		: null;
+	let sharedBy: FollowedUser | null = data.sharedBy;
+	let dndItems: DndItem[] = data.setlist
+		? data.setlist.value.items.map((item) => ({
+			id: item.songUri,
+			item,
+			record: item.snapshot
+				? ({ ...item.snapshot, createdAt: item.addedAt } as KhordSongRecord)
+				: null
+		}))
+		: [];
+	let loading = !data.setlist;
 	let error = '';
 	let editMode = false;
 	let saving = false;
@@ -394,13 +409,19 @@
 	let songShared = new Set<string>();
 
 	async function shareNativeSong(uri: string, rec: KhordSongRecord) {
-		if (!rec.songlinkUrl) return;
+		const parts = uri.split('/');
+		const repoDid = parts[2];
+		const itemRkey = parts[parts.length - 1];
+		const shareUrl = repoDid && itemRkey
+			? `${APP_URL}/song/${repoDid}/${itemRkey}`
+			: (rec.songlinkUrl ?? '');
+		if (!shareUrl) return;
 		const title = `${rec.title}${rec.artist ? ` by ${rec.artist}` : ''}`;
 		if (navigator.share) {
-			try { await navigator.share({ title, url: rec.songlinkUrl }); } catch { /* cancelled */ }
+			try { await navigator.share({ title, url: shareUrl }); } catch { /* cancelled */ }
 		} else {
 			try {
-				await navigator.clipboard.writeText(rec.songlinkUrl);
+				await navigator.clipboard.writeText(shareUrl);
 				songShared.add(uri); songShared = songShared;
 				setTimeout(() => { songShared.delete(uri); songShared = songShared; }, 2000);
 			} catch { /* clipboard unavailable */ }
@@ -426,54 +447,105 @@
 
 
 
+	$: ogTitle = setlist?.value.title ?? 'Mixtape';
+	$: ogDesc = `${setlist?.value.items.length ?? 0} song${(setlist?.value.items.length ?? 0) === 1 ? '' : 's'} · a mixtape by @${sharedBy?.handle ?? handle} on ${APP_NAME}. Listen anywhere on Spotify, Apple Music, and more.`;
+	const ogImage = `${APP_URL}/apple-touch-icon.png`;
+
 	$: isOwn = $session?.handle === handle;
 
 	async function load() {
-		loading = true;
 		error = '';
-		try {
-			const profile = await getAgent().getProfile({ actor: handle });
-			const creatorDid = profile.data.did;
-			setlist = await fetchSetlist(creatorDid, rkey);
-			const records = await Promise.allSettled(
-				setlist.value.items.map((item) => {
-					const parts = item.songUri.split('/');
-					const repoDid = parts[2];
-					const itemRkey = parts[parts.length - 1];
-					return getAgent().com.atproto.repo.getRecord({
-						repo: repoDid,
-						collection: SONG_NSID,
-						rkey: itemRkey
-					}).then((r) => r.data.value as KhordSongRecord);
-				})
-			);
-			dndItems = setlist.value.items.map((item, i) => {
-				const live = records[i].status === 'fulfilled'
-					? (records[i] as PromiseFulfilledResult<KhordSongRecord>).value
-					: null;
-				const record: KhordSongRecord | null = live ?? (item.snapshot ? { ...item.snapshot, createdAt: item.addedAt } : null);
-				return { id: item.songUri, item, record };
-			});
 
-			// Vote counts
-			const uris = setlist.value.items.map((i) => i.songUri);
-			if (uris.length > 0) {
-				try {
-					const res = await fetch(`/api/votes/counts?uris=${uris.map(encodeURIComponent).join(',')}`);
-					if (res.ok) {
-						const data = await res.json();
-						voteCounts = new Map(Object.entries(data.counts as Record<string, number>));
+		if (!data.setlist) {
+			// SSR failed — fetch via public AT Protocol APIs (no auth needed)
+			loading = true;
+			try {
+				const resolveRes = await fetch(
+					`https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`
+				);
+				if (!resolveRes.ok) throw new Error('Could not resolve handle.');
+				const { did } = await resolveRes.json();
+
+				let pds = 'https://bsky.social';
+				if (did.startsWith('did:plc:')) {
+					const plcRes = await fetch(`https://plc.directory/${encodeURIComponent(did)}`);
+					if (plcRes.ok) {
+						const doc = await plcRes.json();
+						const endpoint = (doc.service ?? []).find(
+							(s: { id: string }) => s.id === '#atproto_pds'
+						)?.serviceEndpoint;
+						if (endpoint) pds = endpoint;
 					}
-				} catch { /* non-fatal */ }
-			}
+				}
 
-			// Load proposals for the owner after setlist is available
-			if ($session?.handle === handle) loadProposals();
-		} catch (e) {
-			error = e instanceof Error ? e.message : 'Could not load mixtape.';
-		} finally {
+				const recordRes = await fetch(
+					`${pds}/xrpc/com.atproto.repo.getRecord?repo=${encodeURIComponent(did)}&collection=app.khord.setlist&rkey=${encodeURIComponent(rkey)}`
+				);
+				if (!recordRes.ok) throw new Error('Mixtape not found.');
+				const { uri, cid, value } = await recordRes.json();
+				setlist = { uri, cid, value: value as KhordSetlistRecord };
+
+				const profileRes = await fetch(
+					`https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(did)}`
+				);
+				if (profileRes.ok) {
+					const p = await profileRes.json();
+					sharedBy = { did, handle: p.handle ?? handle, displayName: p.displayName, avatar: p.avatar };
+				}
+
+				dndItems = setlist.value.items.map((item) => ({
+					id: item.songUri,
+					item,
+					record: item.snapshot ? ({ ...item.snapshot, createdAt: item.addedAt } as KhordSongRecord) : null
+				}));
+			} catch (e) {
+				error = e instanceof Error ? e.message : 'Could not load mixtape.';
+				loading = false;
+				return;
+			}
 			loading = false;
 		}
+
+		if (!setlist) return;
+
+		// Enrich with live PDS records when authenticated
+		if ($session) {
+			try {
+				const liveRecords = await Promise.allSettled(
+					setlist.value.items.map((item) => {
+						const parts = item.songUri.split('/');
+						const repoDid = parts[2];
+						const itemRkey = parts[parts.length - 1];
+						return getAgent().com.atproto.repo.getRecord({
+							repo: repoDid,
+							collection: SONG_NSID,
+							rkey: itemRkey
+						}).then((r) => r.data.value as KhordSongRecord);
+					})
+				);
+				dndItems = setlist.value.items.map((item, i) => {
+					const live = liveRecords[i].status === 'fulfilled'
+						? (liveRecords[i] as PromiseFulfilledResult<KhordSongRecord>).value
+						: null;
+					const record: KhordSongRecord | null = live ?? (item.snapshot ? { ...item.snapshot, createdAt: item.addedAt } : null);
+					return { id: item.songUri, item, record };
+				});
+			} catch { /* non-fatal — keep snapshot-based records */ }
+		}
+
+		// Vote counts (no auth needed)
+		const uris = setlist.value.items.map((i) => i.songUri);
+		if (uris.length > 0) {
+			try {
+				const res = await fetch(`/api/votes/counts?uris=${uris.map(encodeURIComponent).join(',')}`);
+				if (res.ok) {
+					const voteData = await res.json();
+					voteCounts = new Map(Object.entries(voteData.counts as Record<string, number>));
+				}
+			} catch { /* non-fatal */ }
+		}
+
+		if ($session?.handle === handle) loadProposals();
 	}
 
 	$: if ($authReady) load();
@@ -555,7 +627,17 @@
 </script>
 
 <svelte:head>
-	<title>{setlist?.value.title ?? 'Mixtape'} — {APP_NAME}</title>
+	<title>{ogTitle} — {APP_NAME}</title>
+	<meta name="description" content={ogDesc} />
+	<meta property="og:title" content="{ogTitle} — {APP_NAME}" />
+	<meta property="og:description" content={ogDesc} />
+	<meta property="og:url" content={setlistUrl} />
+	<meta property="og:type" content="website" />
+	{#if ogImage}<meta property="og:image" content={ogImage} />{/if}
+	<meta name="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
+	<meta name="twitter:title" content="{ogTitle} — {APP_NAME}" />
+	<meta name="twitter:description" content={ogDesc} />
+	{#if ogImage}<meta name="twitter:image" content={ogImage} />{/if}
 </svelte:head>
 
 <!-- Delete confirm modal -->
@@ -1026,7 +1108,7 @@
 								</a>
 							{/if}
 							<!-- Share song -->
-							{#if rec.songlinkUrl}
+							{#if $session && rec.songlinkUrl}
 								<button on:click={() => shareNativeSong(uri, rec)}
 									aria-label="Share song"
 									title="Share this song"
@@ -1043,6 +1125,7 @@
 								</button>
 							{/if}
 							<!-- Upnote -->
+							{#if $session}
 							<button on:click={() => toggleSongLike(uri, dndItem.item.songCid)}
 								disabled={liking.has(uri)}
 								aria-label={liked ? 'Unlike' : 'Upnote'}
@@ -1060,6 +1143,7 @@
 									{#if count > 0}<span class="text-sm tabular-nums">{count}</span>{/if}
 								{/if}
 							</button>
+							{/if}
 							<!-- Resync (owner only) -->
 							{#if isOwn && rec.appleMusicUrl}
 								<button on:click={() => resyncSong(dndItem)}
@@ -1084,6 +1168,17 @@
 					{/if}
 				</div>
 			{/each}
+		</div>
+	{/if}
+
+	<!-- Join CTA for unauthenticated visitors -->
+	{#if $authReady && !$session && !loading && !error}
+		<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-8 text-center space-y-3 mt-2">
+			<p class="text-sm font-semibold {$t.textPrimary}">Join {APP_NAME} to share music</p>
+			<p class="text-xs {$t.textMuted}">Share songs across Spotify, Apple Music, Tidal, and more. Build mixtapes with friends.</p>
+			<a href="/login" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium {$t.btnPrimaryBg} {$t.btnPrimaryText} {$t.btnPrimaryHover} transition-colors">
+				Sign in to join
+			</a>
 		</div>
 	{/if}
 

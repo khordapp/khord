@@ -356,31 +356,60 @@
 	onMount(() => {
 		switchTab(activeTab);
 
+		const TABS: Tab[] = ['all', 'following', 'daily', 'setlists'];
+		const SWIPE_THRESHOLD = 60;
+		const DIR_LOCK_THRESHOLD = 10;
+
 		let startY = 0;
+		let startX = 0;
+		let currentX = 0;
 		let active = false;
+		let swipeDir: 'horizontal' | 'vertical' | null = null;
 
 		function onTouchStart(e: TouchEvent) {
-			if (window.scrollY > 0 || pullRefreshing) return;
 			startY = e.touches[0].clientY;
+			startX = e.touches[0].clientX;
+			currentX = startX;
 			active = true;
+			swipeDir = null;
 		}
 
 		function onTouchMove(e: TouchEvent) {
 			if (!active) return;
-			const delta = e.touches[0].clientY - startY;
-			if (delta > 0) {
-				pullDistance = Math.min(delta, PULL_THRESHOLD * 1.5);
-				if (pullDistance > 8) e.preventDefault(); // suppress browser pull-to-refresh
-			} else {
-				pullDistance = 0;
-				active = false;
+			currentX = e.touches[0].clientX;
+			const dx = currentX - startX;
+			const dy = e.touches[0].clientY - startY;
+
+			if (!swipeDir && (Math.abs(dx) > DIR_LOCK_THRESHOLD || Math.abs(dy) > DIR_LOCK_THRESHOLD)) {
+				swipeDir = Math.abs(dx) > Math.abs(dy) ? 'horizontal' : 'vertical';
+			}
+
+			if (swipeDir === 'horizontal') {
+				e.preventDefault();
+			} else if (swipeDir === 'vertical') {
+				if (window.scrollY > 0 || pullRefreshing) { pullDistance = 0; active = false; return; }
+				if (dy > 0) {
+					pullDistance = Math.min(dy, PULL_THRESHOLD * 1.5);
+					if (pullDistance > 8) e.preventDefault();
+				} else {
+					pullDistance = 0;
+					active = false;
+				}
 			}
 		}
 
 		function onTouchEnd() {
-			if (pullDistance >= PULL_THRESHOLD) triggerPullRefresh();
-			pullDistance = 0;
+			if (swipeDir === 'vertical') {
+				if (pullDistance >= PULL_THRESHOLD) triggerPullRefresh();
+				pullDistance = 0;
+			} else if (swipeDir === 'horizontal') {
+				const dx = currentX - startX;
+				const idx = TABS.indexOf(activeTab);
+				if (dx < -SWIPE_THRESHOLD && idx < TABS.length - 1) switchTab(TABS[idx + 1]);
+				else if (dx > SWIPE_THRESHOLD && idx > 0) switchTab(TABS[idx - 1]);
+			}
 			active = false;
+			swipeDir = null;
 		}
 
 		window.addEventListener('touchstart', onTouchStart, { passive: true });

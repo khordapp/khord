@@ -1,5 +1,5 @@
 import type { PageServerLoad } from './$types';
-import type { KhordSongRecord } from '$lib/atproto/lexicons/song';
+import type { KhordSetlistRecord } from '$lib/atproto/lexicons/setlist';
 import type { FollowedUser } from '$lib/atproto/social';
 
 export const load: PageServerLoad = async ({ params, fetch }) => {
@@ -14,26 +14,28 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
 			const resolveRes = await fetch(
 				`https://public.api.bsky.app/xrpc/com.atproto.identity.resolveHandle?handle=${encodeURIComponent(handle)}`
 			);
-			if (!resolveRes.ok) return { song: null, sharedBy: null };
+			if (!resolveRes.ok) return { setlist: null, sharedBy: null };
 			did = (await resolveRes.json()).did;
 		}
 
-		// 2. Find PDS URL from DID document
-		let pds = 'https://bsky.social'; // sensible default
+		// 2. Find PDS from DID document
+		let pds = 'https://bsky.social';
 		if (did.startsWith('did:plc:')) {
 			const plcRes = await fetch(`https://plc.directory/${encodeURIComponent(did)}`);
 			if (plcRes.ok) {
 				const doc = await plcRes.json();
-				const endpoint = (doc.service ?? []).find((s: { id: string }) => s.id === '#atproto_pds')?.serviceEndpoint;
+				const endpoint = (doc.service ?? []).find(
+					(s: { id: string }) => s.id === '#atproto_pds'
+				)?.serviceEndpoint;
 				if (endpoint) pds = endpoint;
 			}
 		}
 
-		// 3. Fetch the song record from the PDS (public endpoint, no auth needed)
+		// 3. Fetch the setlist record (public endpoint, no auth needed)
 		const recordRes = await fetch(
-			`${pds}/xrpc/com.atproto.repo.getRecord?repo=${encodeURIComponent(did)}&collection=app.khord.song&rkey=${encodeURIComponent(rkey)}`
+			`${pds}/xrpc/com.atproto.repo.getRecord?repo=${encodeURIComponent(did)}&collection=app.khord.setlist&rkey=${encodeURIComponent(rkey)}`
 		);
-		if (!recordRes.ok) return { song: null, sharedBy: null };
+		if (!recordRes.ok) return { setlist: null, sharedBy: null };
 		const { uri, cid, value } = await recordRes.json();
 
 		// 4. Fetch public profile for display name + avatar
@@ -47,10 +49,10 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
 		}
 
 		return {
-			song: { uri, cid, value: value as KhordSongRecord },
+			setlist: { uri, cid, value: value as KhordSetlistRecord },
 			sharedBy
 		};
 	} catch {
-		return { song: null, sharedBy: null };
+		return { setlist: null, sharedBy: null };
 	}
 };
