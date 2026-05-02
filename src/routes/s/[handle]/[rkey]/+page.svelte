@@ -710,9 +710,9 @@
 		{/if}
 
 		{#if !loading}
-			<div class="flex items-center gap-2">
+			<div class="flex items-center gap-2 min-h-[28px]">
 				<!-- Share button -->
-				{#if $session}
+				{#if $authReady && $session}
 					<button
 						on:click={shareNativeMixtape}
 						aria-label="Share mixtape"

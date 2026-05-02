@@ -258,7 +258,7 @@
 				>Powered by Khord</a>
 			</div>
 			<!-- API attributions -->
-			<div class="flex flex-wrap justify-center gap-x-4 gap-y-1.5 border-t {$t.borderFaded} pt-4">
+			<div class="flex flex-col items-center gap-1.5 sm:flex-row sm:flex-wrap sm:justify-center sm:gap-x-4 sm:gap-y-1.5 border-t {$t.borderFaded} pt-4">
 				<span>Cross-platform links via <a href="https://odesli.co" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">Odesli</a></span>
 				<span>Music search via <a href="https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">iTunes Search API</a></span>
 				<span>Spotify data via <a href="https://developer.spotify.com" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">Spotify Web API</a></span>

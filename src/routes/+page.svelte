@@ -12,6 +12,8 @@
 	import { getAgent } from '$lib/atproto/agent';
 	import { goto } from '$app/navigation';
 	import { onMount, tick } from 'svelte';
+	import { fly } from 'svelte/transition';
+	import { cubicOut } from 'svelte/easing';
 	import { browser } from '$app/environment';
 	import { theme as t } from '$lib/theme';
 	import { prefs } from '$lib/stores/prefs';
@@ -315,12 +317,49 @@
 		pendingClearTimeout = setTimeout(() => { pendingItem = null; }, 30000);
 	}
 
+	const TABS: Tab[] = ['all', 'following', 'daily', 'setlists'];
+
 	let tabEls: (HTMLButtonElement | null)[] = [];
 	let indicatorLeft = 0;
 	let indicatorWidth = 0;
 
+	// Swipe state (exposed for live visual feedback)
+	let swipeDx = 0;
+	let isSwiping = false;
+	let swipeEnterDir: 'left' | 'right' | null = null;
+
+	// Live indicator position that tracks the finger during swipe
+	let liveIndicatorLeft = 0;
+	let liveIndicatorWidth = 0;
+	$: {
+		if (!isSwiping || Math.abs(swipeDx) < 8) {
+			liveIndicatorLeft = indicatorLeft;
+			liveIndicatorWidth = indicatorWidth;
+		} else {
+			const idx = TABS.indexOf(activeTab);
+			const ratio = Math.max(-1, Math.min(1, swipeDx / 60));
+			const targetIdx = Math.max(0, Math.min(TABS.length - 1, idx + (ratio < 0 ? 1 : -1)));
+			const targetEl = tabEls[targetIdx];
+			if (targetEl && targetIdx !== idx) {
+				const p = Math.abs(ratio);
+				liveIndicatorLeft = indicatorLeft + (targetEl.offsetLeft - indicatorLeft) * p;
+				liveIndicatorWidth = indicatorWidth + (targetEl.offsetWidth - indicatorWidth) * p;
+			} else {
+				liveIndicatorLeft = indicatorLeft;
+				liveIndicatorWidth = indicatorWidth;
+			}
+		}
+	}
+	// Swipe progress and target index, used by tab label opacity
+	$: swipeP = isSwiping ? Math.min(1, Math.abs(swipeDx) / 60) : 0;
+	$: swipeTargetIdx = (() => {
+		if (!isSwiping || Math.abs(swipeDx) < 8) return -1;
+		const idx = TABS.indexOf(activeTab);
+		return Math.max(0, Math.min(TABS.length - 1, idx + (swipeDx < 0 ? 1 : -1)));
+	})();
+
 	function updateIndicator() {
-		const idx = (['all', 'following', 'daily', 'setlists'] as Tab[]).indexOf(activeTab);
+		const idx = TABS.indexOf(activeTab);
 		const el = tabEls[idx];
 		if (el) {
 			indicatorLeft = el.offsetLeft;
@@ -329,6 +368,9 @@
 	}
 
 	function switchTab(tab: Tab) {
+		const newIdx = TABS.indexOf(tab);
+		const oldIdx = TABS.indexOf(activeTab);
+		swipeEnterDir = newIdx > oldIdx ? 'left' : newIdx < oldIdx ? 'right' : null;
 		activeTab = tab;
 		sessionStorage.setItem('khord_tab', tab);
 		if (tab === 'setlists' && !setlistsLoaded) loadSetlists();
@@ -356,7 +398,6 @@
 	onMount(() => {
 		switchTab(activeTab);
 
-		const TABS: Tab[] = ['all', 'following', 'daily', 'setlists'];
 		const SWIPE_THRESHOLD = 60;
 		const DIR_LOCK_THRESHOLD = 10;
 
@@ -372,6 +413,8 @@
 			currentX = startX;
 			active = true;
 			swipeDir = null;
+			swipeDx = 0;
+			isSwiping = false;
 		}
 
 		function onTouchMove(e: TouchEvent) {
@@ -385,6 +428,8 @@
 			}
 
 			if (swipeDir === 'horizontal') {
+				swipeDx = dx;
+				isSwiping = true;
 				e.preventDefault();
 			} else if (swipeDir === 'vertical') {
 				if (window.scrollY > 0 || pullRefreshing) { pullDistance = 0; active = false; return; }
@@ -410,6 +455,8 @@
 			}
 			active = false;
 			swipeDir = null;
+			swipeDx = 0;
+			isSwiping = false;
 		}
 
 		window.addEventListener('touchstart', onTouchStart, { passive: true });
@@ -545,15 +592,18 @@
 					<button
 						bind:this={tabEls[i]}
 						on:click={() => switchTab(tab as Tab)}
-						class="px-4 py-2 text-base font-medium transition-colors whitespace-nowrap
+						class="px-4 py-2 text-base font-medium whitespace-nowrap
 							{activeTab === tab ? $t.textPrimary : `${$t.textMuted} ${$t.hoverTextSecondary}`}"
+						style={isSwiping
+							? `opacity: ${activeTab === tab ? 1 - swipeP * 0.35 : i === swipeTargetIdx ? 0.5 + swipeP * 0.5 : ''}; transition: none;`
+							: ''}
 					>
 						{label}
 					</button>
 				{/each}
 				<div
-					class="absolute bottom-0 h-0.5 {$t.btnPrimaryBg} rounded-full transition-all duration-200 ease-out pointer-events-none"
-					style="left: {indicatorLeft}px; width: {indicatorWidth}px"
+					class="absolute bottom-0 h-0.5 {$t.btnPrimaryBg} rounded-full pointer-events-none"
+					style="left: {liveIndicatorLeft}px; width: {liveIndicatorWidth}px; transition: {isSwiping ? 'none' : 'all 200ms ease-out'};"
 				></div>
 
 			</nav>
@@ -658,6 +708,11 @@
 				</div>
 			{/if}
 		</div>
+
+		<!-- Tab content — live translate follows finger, fly-in on tab change -->
+		<div style="transform: translateX({isSwiping ? swipeDx * 0.3 : 0}px); transition: {isSwiping ? 'none' : 'transform 200ms ease-out'}; overflow-x: clip;">
+		{#key activeTab}
+		<div in:fly={{ x: swipeEnterDir === 'left' ? 60 : swipeEnterDir === 'right' ? -60 : 0, duration: 220, easing: cubicOut }}>
 
 		<!-- All Songs tab -->
 		{#if activeTab === 'all'}
@@ -813,6 +868,10 @@
 				</div>
 			{/if}
 		{/if}
+
+		</div>
+		{/key}
+		</div>
 	</section>
 {:else}
 	<div class="space-y-4">
