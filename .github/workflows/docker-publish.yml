@@ -32,6 +32,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set version
+        run: echo "VERSION=$(cat version.txt | tr -d '[:space:]').$(git rev-list --count HEAD)" >> $GITHUB_ENV
+
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -42,10 +45,7 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix=build-
-
-      - name: Set version
-        run: echo "VERSION=$(cat version.txt | tr -d '[:space:]').$(git rev-list --count HEAD)" >> $GITHUB_ENV
+            type=raw,value=${{ env.VERSION }}
 
       - name: Build and push image
         uses: docker/build-push-action@v6
