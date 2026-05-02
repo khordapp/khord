@@ -927,7 +927,7 @@
 	{/if}
 
 	<!-- Proposals section (owner) -->
-	{#if isOwn && !loading && (proposalsLoading || proposals.length > 0)}
+	{#if isOwn && !loading && proposals.length > 0}
 		<div class="space-y-2">
 			<div class="flex items-center gap-2">
 				<h2 class="text-xs font-semibold {$t.textMuted} uppercase tracking-wider">Proposals</h2>
