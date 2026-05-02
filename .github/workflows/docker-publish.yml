@@ -9,6 +9,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE: ghcr.io/${{ github.repository_owner }}/khord
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   build-and-push:
@@ -46,7 +47,7 @@ jobs:
         run: echo "VERSION=$(cat version.txt | tr -d '[:space:]').$(git rev-list --count HEAD)" >> $GITHUB_ENV
 
       - name: Build and push image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           dockerfile: Dockerfile
