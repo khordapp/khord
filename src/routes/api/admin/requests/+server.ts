@@ -22,10 +22,12 @@ export const GET: RequestHandler = ({ url }) => {
 	const did = url.searchParams.get('did') ?? '';
 	if (!isOwner(did)) error(403, 'Forbidden');
 
+	const dbRw = getDbRw();
+	if (!dbRw) error(503, 'Database unavailable');
+	dbRw.exec(ENSURE_TABLE);
+
 	const db = getDb();
 	if (!db) error(503, 'Database unavailable');
-
-	db.exec(ENSURE_TABLE);
 
 	const status = url.searchParams.get('status') ?? null;
 	const rows = status
