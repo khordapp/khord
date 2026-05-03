@@ -33,7 +33,10 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set version
-        run: echo "VERSION=$(cat version.txt | tr -d '[:space:]').$(git rev-list --count HEAD)" >> $GITHUB_ENV
+        run: |
+          BASE=$(cat version.txt 2>/dev/null | tr -d '[:space:]')
+          if [ -z "$BASE" ]; then BASE="0.0.0"; fi
+          echo "VERSION=${BASE}.$(git rev-list --count HEAD)" >> $GITHUB_ENV
 
       - name: Extract metadata
         id: meta
