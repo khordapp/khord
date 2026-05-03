@@ -30,3 +30,6 @@ data/
 # Claude Code session files
 .claude/
 BUILDING.md
+
+# Local build version bump — CI derives full version from this file + commit count
+version.txt
