@@ -1,5 +1,6 @@
 import { getAgent } from './agent';
 import { SONG_NSID, type KhordSongRecord, type KhordSong } from './lexicons/song';
+import { VOTE_NSID } from './lexicons/vote';
 import { SETLIST_NSID, type KhordSetlistRecord, type KhordSetlist, type KhordSetlistItem } from './lexicons/setlist';
 import { PROPOSAL_NSID, type KhordProposalRecord, type KhordProposal, type KhordProposalSnapshot } from './lexicons/proposal';
 
@@ -115,6 +116,44 @@ export async function deleteSetlist(did: string, rkey: string): Promise<void> {
 		collection: SETLIST_NSID,
 		rkey
 	});
+}
+
+// Deletes the user's Khord records from their PDS.
+// instanceUrl: if provided, only songs matching that URL (or with no instanceUrl) are deleted.
+//              Pass null to delete songs from all instances.
+// Votes, setlists, and proposals are always deleted — they are Khord-specific and lack instanceUrl.
+// Paginated — handles users with more than 100 records per collection.
+export async function deleteUserData(did: string, instanceUrl: string | null): Promise<void> {
+	const agent = getAgent();
+
+	// Songs — filter by instanceUrl if scoping to one instance
+	let cursor: string | undefined;
+	do {
+		const res = await agent.com.atproto.repo.listRecords({ repo: did, collection: SONG_NSID, limit: 100, cursor });
+		const toDelete = instanceUrl
+			? res.data.records.filter((r: any) => !r.value?.instanceUrl || r.value.instanceUrl === instanceUrl)
+			: res.data.records;
+		await Promise.all(
+			toDelete.map((r: any) =>
+				agent.com.atproto.repo.deleteRecord({ repo: did, collection: SONG_NSID, rkey: r.uri.split('/').pop()! })
+			)
+		);
+		cursor = res.data.cursor;
+	} while (cursor);
+
+	// Votes, setlists, proposals — always delete regardless of scope
+	for (const collection of [VOTE_NSID, SETLIST_NSID, PROPOSAL_NSID]) {
+		let cursor: string | undefined;
+		do {
+			const res = await agent.com.atproto.repo.listRecords({ repo: did, collection, limit: 100, cursor });
+			await Promise.all(
+				res.data.records.map((r: any) =>
+					agent.com.atproto.repo.deleteRecord({ repo: did, collection, rkey: r.uri.split('/').pop()! })
+				)
+			);
+			cursor = res.data.cursor;
+		} while (cursor);
+	}
 }
 
 export async function createProposal(

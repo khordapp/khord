@@ -6,6 +6,7 @@ import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { isOwner } from '$lib/server/access';
 import { getDbRw } from '$lib/server/db';
+import { env } from '$env/dynamic/private';
 
 export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.json().catch(() => null);
@@ -36,6 +37,12 @@ export const POST: RequestHandler = async ({ request }) => {
 	})();
 
 	db.exec('VACUUM');
+
+	// Re-register owner DIDs so admins aren't locked out after reset
+	const ownerDids = (env.OWNER_DIDS ?? '').split(',').map((d) => d.trim()).filter(Boolean);
+	for (const did of ownerDids) {
+		db.prepare('INSERT INTO registered_users(did) VALUES(?) ON CONFLICT(did) DO NOTHING').run(did);
+	}
 
 	return json({ ok: true });
 };

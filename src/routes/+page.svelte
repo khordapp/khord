@@ -152,26 +152,31 @@
 		allLoading = true;
 		allError = '';
 		try {
-			// Try AppView first
-			const res = await fetch('/api/feed?all=true&limit=50');
+			if (!$session) return;
+			const self: FollowedUser = { did: $session.did, handle: $session.handle };
+
+			// AppView + own PDS in parallel — own PDS fills historical gaps the indexer may not have
+			const [res, ownSongs] = await Promise.all([
+				fetch('/api/feed?all=true&limit=50'),
+				fetchSongs($session.did)
+					.then((songs) => songs.map((s) => ({ uri: s.uri, cid: s.cid, record: s.value, sharedBy: self })))
+					.catch(() => [] as FeedItem[])
+			]);
+
 			if (res.ok) {
 				const data = await res.json();
-				const raw = data.items as FeedItem[];
-				if (raw.length > 0) {
-					// Merge: keep any existing items (e.g. PDS-loaded historical songs) not
-					// yet in the AppView — indexer only has songs from when it started.
-					const appViewUris = new Set(raw.map((i) => i.uri));
-					const preserved = allItems.filter((i) => !appViewUris.has(i.uri) && !deletedUris.has(i.uri));
-					const merged = [...raw, ...preserved].sort((a, b) => b.record.createdAt.localeCompare(a.record.createdAt));
-					allItems = merged;
-					allLastRefreshed = new Date();
-					loadVoteCounts(allItems.map((i) => i.uri));
-					return;
-				}
+				const appViewItems = data.items as FeedItem[];
+				const appViewUris = new Set(appViewItems.map((i) => i.uri));
+				const ownNotInAppView = ownSongs.filter((i) => !appViewUris.has(i.uri));
+				const preserved = allItems.filter((i) => !appViewUris.has(i.uri) && !ownNotInAppView.some((o) => o.uri === i.uri) && !deletedUris.has(i.uri));
+				const merged = [...appViewItems, ...ownNotInAppView, ...preserved].sort((a, b) => b.record.createdAt.localeCompare(a.record.createdAt));
+				allItems = merged;
+				allLastRefreshed = new Date();
+				loadVoteCounts(allItems.map((i) => i.uri));
+				return;
 			}
 
-			// AppView empty or unavailable — fall back to querying all registered users' PDSes
-			if (!$session) return;
+			// AppView unavailable — fall back to querying all registered users' PDSes
 			const usersRes = await fetch(`/api/registered-users?did=${encodeURIComponent($session.did)}`);
 			if (!usersRes.ok) {
 				allError = 'Could not load songs.';
@@ -235,11 +240,11 @@
 		feedLoading = true;
 		feedError = '';
 		try {
-			const dids = [currentSession.did, ...follows.map((f) => f.did)];
+			const dids = follows.map((f) => f.did);
+
 			const appViewItems = await loadFeedFromAppView(dids);
 			let rawItems: FeedItem[];
-			if (appViewItems && appViewItems.length > 0) {
-				// Merge AppView results with any existing items not yet indexed
+			if (appViewItems) {
 				const appViewUris = new Set(appViewItems.map((i) => i.uri));
 				const preserved = feedItems.filter((i) => !appViewUris.has(i.uri) && !deletedUris.has(i.uri));
 				rawItems = [...appViewItems, ...preserved].sort((a, b) => b.record.createdAt.localeCompare(a.record.createdAt));

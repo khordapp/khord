@@ -967,7 +967,7 @@
 						bind:value={resetInput}
 						placeholder="RESET"
 						disabled={resetting}
-						class="w-full text-sm font-mono {$t.surfaceBg} border border-red-800 rounded-lg px-3 py-2 {$t.textPrimary} placeholder:{$t.textFaint} focus:outline-none focus:ring-1 focus:ring-red-700"
+						class="w-full text-base font-mono {$t.surfaceBg} border border-red-800 rounded-lg px-3 py-2 {$t.textPrimary} placeholder:{$t.textFaint} focus:outline-none focus:ring-1 focus:ring-red-700"
 					/>
 					{#if resetError}
 						<p class="text-xs text-red-400">Reset failed — check server logs.</p>
