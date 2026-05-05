@@ -12,8 +12,6 @@
 	import { getAgent } from '$lib/atproto/agent';
 	import { goto } from '$app/navigation';
 	import { onMount, tick } from 'svelte';
-	import { fly } from 'svelte/transition';
-	import { cubicOut } from 'svelte/easing';
 	import { browser } from '$app/environment';
 	import { theme as t } from '$lib/theme';
 	import { prefs } from '$lib/stores/prefs';
@@ -36,13 +34,11 @@
 	let allError = '';
 	let allLastRefreshed: Date | null = null;
 
-	// ── Following ─────────────────────────────────────────────────────────────
-	let feedItems: FeedItem[] = [];
-	let feedLoading = false;
-	let feedError = '';
+	// ── Following (derived from allItems) ─────────────────────────────────────
 	let voteCounts = new Map<string, number>();
-	let lastRefreshed: Date | null = null;
 	let selectedUris = new Set<string>();
+	$: followedDids = new Set($following.map((f) => f.did));
+	$: feedItems = allItems.filter((i) => followedDids.has(i.sharedBy.did));
 	let dailySelectedUris = new Set<string>();
 	let removing = false;
 	let confirmOpen = false;
@@ -54,12 +50,12 @@
 	let setlistPendingUris = new Set<string>();
 
 	$: confirmItems = [...selectedUris]
-		.map((uri) => feedItems.find((i) => i.uri === uri))
+		.map((uri) => allItems.find((i) => i.uri === uri))
 		.filter((i) => i?.sharedBy.did === $session?.did)
 		.filter(Boolean) as FeedItem[];
 
 	$: ownSelected = [...selectedUris].filter(
-		(uri) => feedItems.find((i) => i.uri === uri)?.sharedBy.did === $session?.did
+		(uri) => allItems.find((i) => i.uri === uri)?.sharedBy.did === $session?.did
 	);
 
 	function toggleSelected(uri: string) {
@@ -99,7 +95,6 @@
 			);
 			ownSelected.forEach((uri) => deletedUris.add(uri));
 			allItems = allItems.filter((i) => !ownSelected.includes(i.uri));
-			feedItems = feedItems.filter((i) => !ownSelected.includes(i.uri));
 			selectedUris = new Set([...selectedUris].filter((u) => !ownSelected.includes(u)));
 		} finally {
 			removing = false;
@@ -111,7 +106,7 @@
 		creatingSetlist = true;
 		try {
 			const items = [...setlistPendingUris].map((uri) => {
-				const item = feedItems.find((i) => i.uri === uri)!;
+				const item = allItems.find((i) => i.uri === uri)!;
 				const r = item.record;
 				return {
 					songUri: uri,
@@ -195,13 +190,6 @@
 		}
 	}
 
-	async function loadFeedFromAppView(dids: string[]): Promise<FeedItem[] | null> {
-		const res = await fetch(`/api/feed?dids=${dids.join(',')}&limit=50`);
-		if (!res.ok) return null;
-		const data = await res.json();
-		return data.items as FeedItem[];
-	}
-
 	async function loadFeedFromPds(
 		currentSession: { did: string; handle: string },
 		follows: FollowedUser[]
@@ -232,42 +220,7 @@
 		}
 	}
 
-	async function loadFeed(
-		currentSession: { did: string; handle: string } | null,
-		follows: FollowedUser[]
-	) {
-		if (!currentSession) return;
-		feedLoading = true;
-		feedError = '';
-		try {
-			const dids = follows.map((f) => f.did);
-
-			const appViewItems = await loadFeedFromAppView(dids);
-			let rawItems: FeedItem[];
-			if (appViewItems) {
-				const appViewUris = new Set(appViewItems.map((i) => i.uri));
-				const preserved = feedItems.filter((i) => !appViewUris.has(i.uri) && !deletedUris.has(i.uri));
-				rawItems = [...appViewItems, ...preserved].sort((a, b) => b.record.createdAt.localeCompare(a.record.createdAt));
-			} else {
-				rawItems = await loadFeedFromPds(currentSession, follows);
-			}
-			feedItems = deletedUris.size > 0 ? rawItems.filter((i) => !deletedUris.has(i.uri)) : rawItems;
-			lastRefreshed = new Date();
-			loadVoteCounts(feedItems.map((i) => i.uri));
-		} catch (e) {
-			feedError = e instanceof Error ? e.message : 'Could not load feed.';
-		} finally {
-			feedLoading = false;
-		}
-	}
-
-	async function refreshFeed() {
-		await loadFeed($session, $following);
-		window.scrollTo({ top: 0, behavior: 'smooth' });
-	}
-
 	$: if (browser && $session) loadAllSongs();
-	$: if (browser && $followingLoaded) loadFeed($session, $following);
 
 	$: if ($lastSharedSong && $session) {
 		pendingItem = null;
@@ -278,16 +231,13 @@
 		if (!allItems.some((i) => i.uri === incoming.uri)) {
 			allItems = [{ uri: incoming.uri, cid: incoming.cid, record: incoming.value, sharedBy: self }, ...allItems];
 		}
-		if (!feedItems.some((i) => i.uri === incoming.uri)) {
-			feedItems = [{ uri: incoming.uri, cid: incoming.cid, record: incoming.value, sharedBy: self }, ...feedItems];
-		}
 		window.scrollTo({ top: 0, behavior: 'smooth' });
 	}
 
 	// ── Daily ─────────────────────────────────────────────────────────────────
 	let dailyDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
-	$: dailyItems = feedItems.filter((i) => i.record.createdAt.slice(0, 10) === dailyDate);
+	$: dailyItems = allItems.filter((i) => i.record.createdAt.slice(0, 10) === dailyDate);
 	$: if (dailyDate) dailySelectedUris = new Set(); // reset selection when date changes
 
 	// ── Setlists ──────────────────────────────────────────────────────────────
@@ -331,7 +281,6 @@
 	// Swipe state (exposed for live visual feedback)
 	let swipeDx = 0;
 	let isSwiping = false;
-	let swipeEnterDir: 'left' | 'right' | null = null;
 
 	// Live indicator position that tracks the finger during swipe
 	let liveIndicatorLeft = 0;
@@ -363,6 +312,15 @@
 		return Math.max(0, Math.min(TABS.length - 1, idx + (swipeDx < 0 ? 1 : -1)));
 	})();
 
+	$: activeTabIdx = TABS.indexOf(activeTab);
+	// 1:1 swipe tracking; rubber-band at the first/last tab edges
+	$: effectiveSwipeDx = (() => {
+		if (!isSwiping) return 0;
+		const atStart = activeTabIdx === 0 && swipeDx > 0;
+		const atEnd = activeTabIdx === TABS.length - 1 && swipeDx < 0;
+		return (atStart || atEnd) ? swipeDx * 0.2 : swipeDx;
+	})();
+
 	function updateIndicator() {
 		const idx = TABS.indexOf(activeTab);
 		const el = tabEls[idx];
@@ -373,9 +331,6 @@
 	}
 
 	function switchTab(tab: Tab) {
-		const newIdx = TABS.indexOf(tab);
-		const oldIdx = TABS.indexOf(activeTab);
-		swipeEnterDir = newIdx > oldIdx ? 'left' : newIdx < oldIdx ? 'right' : null;
 		activeTab = tab;
 		sessionStorage.setItem('khord_tab', tab);
 		if (tab === 'setlists' && !setlistsLoaded) loadSetlists();
@@ -391,9 +346,7 @@
 		if (pullRefreshing) return;
 		pullRefreshing = true;
 		try {
-			if (activeTab === 'all') await loadAllSongs();
-			else if (activeTab === 'following') await refreshFeed();
-			else if (activeTab === 'daily') await refreshFeed();
+			if (activeTab === 'all' || activeTab === 'following' || activeTab === 'daily') await loadAllSongs();
 			else { setlistsLoaded = false; await loadSetlists(); }
 		} finally {
 			pullRefreshing = false;
@@ -533,7 +486,7 @@
 					/>
 				</div>
 				<ul class="space-y-1.5 max-h-40 overflow-y-auto">
-					{#each [...setlistPendingUris].map(uri => feedItems.find(i => i.uri === uri)).filter(Boolean) as item}
+					{#each [...setlistPendingUris].map(uri => allItems.find(i => i.uri === uri)).filter(Boolean) as item}
 						<li class="flex items-center gap-2 text-xs {$t.textMuted}">
 							<span class="{$t.textFaint} shrink-0">♪</span>
 							<span class="truncate">
@@ -615,14 +568,15 @@
 
 			<!-- All Songs / Following: shared action buttons -->
 			{#if activeTab === 'all' || activeTab === 'following'}
+				<p class="text-xs mt-1 invisible select-none" aria-hidden="true">&nbsp;</p>
 				<div class="flex items-center gap-2 mt-2">
 					<button
-						on:click={() => activeTab === 'all' ? loadAllSongs() : refreshFeed()}
-						disabled={activeTab === 'all' ? allLoading : feedLoading}
+						on:click={loadAllSongs}
+						disabled={allLoading}
 						aria-label="Refresh"
 						class="flex items-center gap-1.5 text-xs {$t.textMuted} {$t.hoverText} border {$t.borderBase} {$t.hoverBorderBase} px-2.5 py-1 rounded-full disabled:opacity-40 transition-colors"
 					>
-						<svg viewBox="0 0 24 24" fill="none" class="w-3.5 h-3.5 {(activeTab === 'all' ? allLoading : feedLoading) ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
+						<svg viewBox="0 0 24 24" fill="none" class="w-3.5 h-3.5 {allLoading ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
 							<path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 						</svg>
 						Refresh
@@ -652,20 +606,18 @@
 					{/if}
 				</div>
 
-			<!-- Daily: subtitle + refresh + date picker + setlist button -->
+			<!-- Daily: refresh + date picker + setlist button -->
 			{:else if activeTab === 'daily'}
-				<p class="{$t.textFaint} text-xs mt-1">
-					{dailyItems.length} {dailyItems.length === 1 ? 'song' : 'songs'} shared on {new Date(dailyDate + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
-				</p>
+				<p class="text-xs mt-1 invisible select-none" aria-hidden="true">&nbsp;</p>
 				<div class="flex items-center gap-2 mt-2">
 					<button
-						on:click={refreshFeed}
-						disabled={feedLoading || allLoading}
+						on:click={loadAllSongs}
+						disabled={allLoading}
 						aria-label="Refresh"
 						title="Reload songs"
 						class="flex items-center gap-1.5 text-xs {$t.textMuted} {$t.hoverText} border {$t.borderBase} {$t.hoverBorderBase} px-2.5 py-1 rounded-full disabled:opacity-40 transition-colors"
 					>
-						<svg viewBox="0 0 24 24" fill="none" class="w-3.5 h-3.5 {feedLoading ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
+						<svg viewBox="0 0 24 24" fill="none" class="w-3.5 h-3.5 {allLoading ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
 							<path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 						</svg>
 						Refresh
@@ -697,6 +649,7 @@
 
 			<!-- Setlists: refresh -->
 			{:else if activeTab === 'setlists'}
+				<p class="text-xs mt-1 invisible select-none" aria-hidden="true">&nbsp;</p>
 				<div class="flex items-center gap-2 mt-2">
 					<button
 						on:click={loadSetlists}
@@ -714,168 +667,170 @@
 			{/if}
 		</div>
 
-		<!-- Tab content — live translate follows finger, fly-in on tab change -->
-		<div style="transform: translateX({isSwiping ? swipeDx * 0.3 : 0}px); transition: {isSwiping ? 'none' : 'transform 200ms ease-out'}; overflow-x: clip;">
-		{#key activeTab}
-		<div in:fly={{ x: swipeEnterDir === 'left' ? 60 : swipeEnterDir === 'right' ? -60 : 0, duration: 220, easing: cubicOut }}>
-
-		<!-- All Songs tab -->
-		{#if activeTab === 'all'}
-			{#if allLastRefreshed}
-				<p class="text-xs {$t.textFaint} mt-2">Updated {allLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</p>
-			{/if}
-			{#if allLoading && allItems.length === 0 && !pendingItem}
-				<p class="{$t.textMuted} text-sm">Loading…</p>
-			{:else if allError}
-				<p class="text-red-400 text-sm">{allError}</p>
-			{:else if allItems.length === 0 && !pendingItem}
-				<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-10 text-center space-y-2">
-					<p class="{$t.textSecondary} text-sm font-medium">No songs yet</p>
-					<p class="{$t.textMuted} text-xs">Songs shared by anyone on this instance will appear here.</p>
-				</div>
-			{:else}
-				<div class="space-y-0 sm:space-y-3">
-					{#if pendingItem}
-						<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} pl-5 pr-16 py-3 flex items-center gap-3 relative">
-							<div class="w-12 h-12 rounded {$t.recessedBg} shrink-0 animate-pulse"></div>
-							<div class="flex-1 min-w-0 space-y-1">
-								<p class="text-sm font-semibold {$t.textPrimary} truncate">{pendingItem.title}</p>
-								<p class="text-xs {$t.textMuted} truncate">{pendingItem.artist}{pendingItem.album ? ` · ${pendingItem.album}` : ''}</p>
-								<p class="text-xs {$t.textFaint}">Resolving streaming links…</p>
-							</div>
-							<div class="absolute right-4 inset-y-0 flex items-center">
-								<div class="w-10 h-10 rounded-full {$t.recessedBg} flex items-center justify-center">
-									<span class="w-4 h-4 border-2 {$t.borderStrong} border-t-transparent rounded-full animate-spin"></span>
+		<!-- Tab carousel — all panels live side by side; the strip translates 1:1 with the finger -->
+		<div class="relative overflow-x-clip">
+		{#each TABS as tab, i}
+			{@const offset = i - activeTabIdx}
+			<div
+				class="{offset === 0 ? 'w-full' : 'absolute top-0 left-0 w-full pointer-events-none select-none'}"
+				style="transform: translateX(calc({offset * 100}% + {offset * 20 + effectiveSwipeDx}px)); transition: {isSwiping ? 'none' : 'transform 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94)'}; will-change: transform;"
+				inert={offset !== 0}
+			>
+			{#if tab === 'all'}
+				{#if allLastRefreshed}
+					<p class="text-xs {$t.textFaint} mt-2">Updated {allLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</p>
+				{/if}
+				{#if allLoading && allItems.length === 0 && !pendingItem}
+					<p class="{$t.textMuted} text-sm">Loading…</p>
+				{:else if allError}
+					<p class="text-red-400 text-sm">{allError}</p>
+				{:else if allItems.length === 0 && !pendingItem}
+					<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-10 text-center space-y-2">
+						<p class="{$t.textSecondary} text-sm font-medium">No songs yet</p>
+						<p class="{$t.textMuted} text-xs">Songs shared by anyone on this instance will appear here.</p>
+					</div>
+				{:else}
+					<div class="space-y-0 sm:space-y-3">
+						{#if pendingItem}
+							<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} pl-5 pr-16 py-3 flex items-center gap-3 relative">
+								<div class="w-12 h-12 rounded {$t.recessedBg} shrink-0 animate-pulse"></div>
+								<div class="flex-1 min-w-0 space-y-1">
+									<p class="text-sm font-semibold {$t.textPrimary} truncate">{pendingItem.title}</p>
+									<p class="text-xs {$t.textMuted} truncate">{pendingItem.artist}{pendingItem.album ? ` · ${pendingItem.album}` : ''}</p>
+									<p class="text-xs {$t.textFaint}">Resolving streaming links…</p>
+								</div>
+								<div class="absolute right-4 inset-y-0 flex items-center">
+									<div class="w-10 h-10 rounded-full {$t.recessedBg} flex items-center justify-center">
+										<span class="w-4 h-4 border-2 {$t.borderStrong} border-t-transparent rounded-full animate-spin"></span>
+									</div>
 								</div>
 							</div>
-						</div>
-					{/if}
-					{#each allItems as item (item.uri)}
-						<SongCard
-							uri={item.uri}
-							cid={item.cid}
-							record={item.record}
-							sharedBy={item.sharedBy}
-							selected={selectedUris.has(item.uri)}
-							onselect={toggleSelected}
-							voteCount={voteCounts.get(item.uri) ?? 0}
-						/>
-					{/each}
-				</div>
-			{/if}
-
-		<!-- Following tab -->
-		{:else if activeTab === 'following'}
-			{#if lastRefreshed}
-				<p class="text-xs {$t.textFaint} mt-2">Updated {lastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</p>
-			{/if}
-			{#if !$followingLoaded || feedLoading}
-				<p class="{$t.textMuted} text-sm">Loading…</p>
-			{:else if feedError}
-				<p class="text-red-400 text-sm">{feedError}</p>
-			{:else if feedItems.length === 0}
-				<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-10 space-y-6">
-					<div class="text-center space-y-2">
-						<p class="{$t.textSecondary} text-sm font-medium">Your following feed is empty</p>
-						<p class="{$t.textMuted} text-xs">Songs shared by people you follow on {AUTH_PROVIDER_NAME} will appear here.</p>
+						{/if}
+						{#each allItems as item (item.uri)}
+							<SongCard
+								uri={item.uri}
+								cid={item.cid}
+								record={item.record}
+								sharedBy={item.sharedBy}
+								selected={selectedUris.has(item.uri)}
+								onselect={toggleSelected}
+								voteCount={voteCounts.get(item.uri) ?? 0}
+							/>
+						{/each}
 					</div>
-					<ol class="space-y-4 text-sm max-w-xs mx-auto">
-						<li class="flex gap-3">
-							<span class="{$t.textFaint} font-mono text-xs mt-0.5 shrink-0">1</span>
-							<div>
-								<p class="{$t.textSecondary} font-medium">Follow people on {AUTH_PROVIDER_NAME}</p>
-								<p class="{$t.textMuted} text-xs mt-0.5">{APP_NAME} uses your {AUTH_PROVIDER_NAME} follows — anyone you follow there shows up here.</p>
-							</div>
-						</li>
-						<li class="flex gap-3">
-							<span class="{$t.textFaint} font-mono text-xs mt-0.5 shrink-0">2</span>
-							<div>
-								<p class="{$t.textSecondary} font-medium">Share a song</p>
-								<p class="{$t.textMuted} text-xs mt-0.5">Tap <span class="{$t.textSecondary}">+</span> to search for a song and share it.</p>
-							</div>
-						</li>
-					</ol>
-				</div>
-			{:else}
-				<div class="space-y-0 sm:space-y-3">
-					{#each feedItems as item (item.uri)}
-						<SongCard
-							uri={item.uri}
-							cid={item.cid}
-							record={item.record}
-							sharedBy={item.sharedBy}
-							selected={selectedUris.has(item.uri)}
-							onselect={toggleSelected}
-							voteCount={voteCounts.get(item.uri) ?? 0}
-						/>
-					{/each}
-				</div>
-			{/if}
+				{/if}
 
-		<!-- Daily tab -->
-		{:else if activeTab === 'daily'}
-			{#if !$followingLoaded || feedLoading}
-				<p class="{$t.textMuted} text-sm">Loading…</p>
-			{:else if dailyItems.length === 0}
-				<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-10 text-center space-y-2">
-					<p class="{$t.textSecondary} text-sm font-medium">No songs shared</p>
-					<p class="{$t.textMuted} text-xs">Try a different date, or share something.</p>
-				</div>
-			{:else}
-				<div class="space-y-3">
-					{#each dailyItems as item (item.uri)}
-						<SongCard
-							uri={item.uri}
-							cid={item.cid}
-							record={item.record}
-							sharedBy={item.sharedBy}
-							selected={dailySelectedUris.has(item.uri)}
-							onselect={toggleDailySelected}
-							voteCount={voteCounts.get(item.uri) ?? 0}
-						/>
-					{/each}
-				</div>
-			{/if}
+			{:else if tab === 'following'}
+				{#if allLastRefreshed}
+					<p class="text-xs {$t.textFaint} mt-2">Updated {allLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</p>
+				{/if}
+				{#if !$followingLoaded || allLoading}
+					<p class="{$t.textMuted} text-sm">Loading…</p>
+				{:else if allError}
+					<p class="text-red-400 text-sm">{allError}</p>
+				{:else if feedItems.length === 0}
+					<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-10 space-y-6">
+						<div class="text-center space-y-2">
+							<p class="{$t.textSecondary} text-sm font-medium">Your following feed is empty</p>
+							<p class="{$t.textMuted} text-xs">Songs shared by people you follow on {AUTH_PROVIDER_NAME} will appear here.</p>
+						</div>
+						<ol class="space-y-4 text-sm max-w-xs mx-auto">
+							<li class="flex gap-3">
+								<span class="{$t.textFaint} font-mono text-xs mt-0.5 shrink-0">1</span>
+								<div>
+									<p class="{$t.textSecondary} font-medium">Follow people on {AUTH_PROVIDER_NAME}</p>
+									<p class="{$t.textMuted} text-xs mt-0.5">{APP_NAME} uses your {AUTH_PROVIDER_NAME} follows — anyone you follow there shows up here.</p>
+								</div>
+							</li>
+							<li class="flex gap-3">
+								<span class="{$t.textFaint} font-mono text-xs mt-0.5 shrink-0">2</span>
+								<div>
+									<p class="{$t.textSecondary} font-medium">Share a song</p>
+									<p class="{$t.textMuted} text-xs mt-0.5">Tap <span class="{$t.textSecondary}">+</span> to search for a song and share it.</p>
+								</div>
+							</li>
+						</ol>
+					</div>
+				{:else}
+					<div class="space-y-0 sm:space-y-3">
+						{#each feedItems as item (item.uri)}
+							<SongCard
+								uri={item.uri}
+								cid={item.cid}
+								record={item.record}
+								sharedBy={item.sharedBy}
+								selected={selectedUris.has(item.uri)}
+								onselect={toggleSelected}
+								voteCount={voteCounts.get(item.uri) ?? 0}
+							/>
+						{/each}
+					</div>
+				{/if}
 
-		<!-- Setlists tab -->
-		{:else if activeTab === 'setlists'}
-			{#if setlistsLastRefreshed}
-				<p class="text-xs {$t.textFaint} mt-2">Updated {setlistsLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</p>
-			{/if}
-			{#if setlistsLoading}
-				<p class="{$t.textMuted} text-sm">Loading mixtapes…</p>
-			{:else if setlists.length === 0}
-				<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-10 text-center space-y-2">
-					<p class="{$t.textSecondary} text-sm font-medium">No mixtapes yet</p>
-					<p class="{$t.textMuted} text-xs">Select songs in the Feed tab to create your first mixtape.</p>
-				</div>
-			{:else}
-				<div class="space-y-2">
-					{#each setlists as setlist (setlist.uri)}
-						{@const rkey = setlist.uri.split('/').pop()!}
-						<a
-							href="/s/{$session?.handle}/{rkey}"
-							class="flex items-center justify-between gap-4 rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-4
-								{$t.hoverBorderBase} {$t.hoverBg} transition-colors"
-						>
-							<div class="min-w-0">
-								<p class="text-sm font-semibold {$t.textPrimary} truncate">{setlist.value.title}</p>
-								<p class="text-xs {$t.textMuted} mt-0.5">
-									{setlist.value.items.length} {setlist.value.items.length === 1 ? 'song' : 'songs'}
-									· {new Date(setlist.value.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-								</p>
-							</div>
-							<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 {$t.textFaint} shrink-0" xmlns="http://www.w3.org/2000/svg">
-								<path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-							</svg>
-						</a>
-					{/each}
-				</div>
-			{/if}
-		{/if}
+			{:else if tab === 'daily'}
+				<p class="text-xs {$t.textFaint} mt-2">
+					{dailyItems.length} {dailyItems.length === 1 ? 'song' : 'songs'} shared on {new Date(dailyDate + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
+				</p>
+				{#if !$followingLoaded || allLoading}
+					<p class="{$t.textMuted} text-sm">Loading…</p>
+				{:else if dailyItems.length === 0}
+					<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-10 text-center space-y-2">
+						<p class="{$t.textSecondary} text-sm font-medium">No songs shared</p>
+						<p class="{$t.textMuted} text-xs">Try a different date, or share something.</p>
+					</div>
+				{:else}
+					<div class="space-y-3">
+						{#each dailyItems as item (item.uri)}
+							<SongCard
+								uri={item.uri}
+								cid={item.cid}
+								record={item.record}
+								sharedBy={item.sharedBy}
+								selected={dailySelectedUris.has(item.uri)}
+								onselect={toggleDailySelected}
+								voteCount={voteCounts.get(item.uri) ?? 0}
+							/>
+						{/each}
+					</div>
+				{/if}
 
-		</div>
-		{/key}
+			{:else if tab === 'setlists'}
+				{#if setlistsLastRefreshed}
+					<p class="text-xs {$t.textFaint} mt-2">Updated {setlistsLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</p>
+				{/if}
+				{#if setlistsLoading}
+					<p class="{$t.textMuted} text-sm">Loading mixtapes…</p>
+				{:else if setlists.length === 0}
+					<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-10 text-center space-y-2">
+						<p class="{$t.textSecondary} text-sm font-medium">No mixtapes yet</p>
+						<p class="{$t.textMuted} text-xs">Select songs in the Feed tab to create your first mixtape.</p>
+					</div>
+				{:else}
+					<div class="space-y-2">
+						{#each setlists as setlist (setlist.uri)}
+							{@const rkey = setlist.uri.split('/').pop()!}
+							<a
+								href="/s/{$session?.handle}/{rkey}"
+								class="flex items-center justify-between gap-4 rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-4
+									{$t.hoverBorderBase} {$t.hoverBg} transition-colors"
+							>
+								<div class="min-w-0">
+									<p class="text-sm font-semibold {$t.textPrimary} truncate">{setlist.value.title}</p>
+									<p class="text-xs {$t.textMuted} mt-0.5">
+										{setlist.value.items.length} {setlist.value.items.length === 1 ? 'song' : 'songs'}
+										· {new Date(setlist.value.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+									</p>
+								</div>
+								<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 {$t.textFaint} shrink-0" xmlns="http://www.w3.org/2000/svg">
+									<path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+							</a>
+						{/each}
+					</div>
+				{/if}
+			{/if}
+			</div>
+		{/each}
 		</div>
 	</section>
 {:else}
