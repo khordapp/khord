@@ -70,13 +70,14 @@
 
 	let menuOpen = false;
 	let fabOpen = false;
+	let creditsOpen = false;
 
 	function toggleMenu() { menuOpen = !menuOpen; }
 	function closeMenu() { menuOpen = false; }
 	function closeFab() { fabOpen = false; }
 </script>
 
-<div class="min-h-screen {$t.pageBg} {$t.textPrimary}">
+<div class="min-h-screen flex flex-col {$t.pageBg} {$t.textPrimary}">
 	<header class="border-b {$t.borderBase} px-6 py-3 flex items-center justify-between">
 		<a href="/" class="text-xl font-bold tracking-tight">{APP_NAME.toLowerCase()}</a>
 
@@ -240,11 +241,11 @@
 		</div>
 	</header>
 
-	<main class="max-w-2xl mx-auto px-6 py-8">
+	<main class="flex-1 w-full max-w-2xl mx-auto px-6 pt-8 pb-20 sm:py-8">
 		<slot />
 	</main>
 
-	<footer class="border-t {$t.borderBase} mt-16 px-6 py-8">
+	<footer class="hidden sm:block border-t {$t.borderBase} mt-16 px-6 py-8">
 		<div class="max-w-2xl mx-auto space-y-4 text-xs {$t.textFaint}">
 			<!-- App name + powered-by -->
 			<div class="flex flex-col items-center gap-1">
@@ -269,7 +270,7 @@
 
 	{#if $isLoggedIn}
 		<!-- FAB -->
-		<div class="fixed bottom-6 right-6 z-30 flex flex-col items-end gap-3">
+		<div class="fixed bottom-14 right-6 sm:bottom-6 z-30 flex flex-col items-end gap-3">
 			{#if fabOpen}
 				<button class="fixed inset-0 z-10" aria-label="Close" on:click={closeFab}></button>
 				<div class="relative z-20 flex flex-col items-end gap-3">
@@ -308,6 +309,51 @@
 		</div>
 	{/if}
 </div>
+
+<!-- Mobile credits bar -->
+<div class="fixed bottom-0 left-0 right-0 z-20 sm:hidden border-t {$t.borderBase} {$t.pageBg}">
+	<button
+		on:click={() => (creditsOpen = true)}
+		class="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs {$t.textFaint} {$t.hoverText} transition-colors"
+	>
+		<span class="font-medium {$t.textMuted}">{APP_NAME.toLowerCase()}</span>
+		<span>·</span>
+		<span>v{VERSION}</span>
+		<span>·</span>
+		<span>Credits</span>
+	</button>
+</div>
+
+<!-- Credits bottom-sheet modal -->
+{#if creditsOpen}
+	<button class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" aria-label="Close credits" on:click={() => (creditsOpen = false)}></button>
+	<div
+		transition:fly={{ y: 400, duration: 280 }}
+		class="fixed bottom-0 left-0 right-0 z-50 {$t.surfaceBg} border-t {$t.borderStrong} rounded-t-2xl shadow-2xl"
+	>
+		<div class="flex justify-center pt-3 pb-2">
+			<div class="w-9 h-1 rounded-full opacity-30 bg-current"></div>
+		</div>
+		<div class="px-6 pb-2 space-y-4 text-xs {$t.textFaint}">
+			<div class="flex flex-col items-center gap-1">
+				<span class="text-sm font-semibold {$t.textMuted}">{APP_NAME.toLowerCase()}</span>
+				<span>v{VERSION}</span>
+				<a href="https://khord.app" target="_blank" rel="noopener noreferrer" class="{$t.textFaint} {$t.hoverTextSecondary} transition-colors">Powered by Khord</a>
+			</div>
+			<div class="flex flex-col items-center gap-1.5 border-t {$t.borderFaded} pt-4">
+				<span>Cross-platform links via <a href="https://odesli.co" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">Odesli</a></span>
+				<span>Music search via <a href="https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">iTunes Search API</a></span>
+				<span>Spotify data via <a href="https://developer.spotify.com" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">Spotify Web API</a></span>
+				<span>Identity via <a href="https://atproto.com" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">AT Protocol</a></span>
+			</div>
+		</div>
+		<div class="pb-8 pt-4 flex justify-center">
+			<button on:click={() => (creditsOpen = false)} class="px-8 py-2 rounded-full text-sm {$t.textSecondary} {$t.elevatedBg} {$t.hoverBgStrong} transition-colors">
+				Close
+			</button>
+		</div>
+	</div>
+{/if}
 
 {#if $shareSongOpen}
 	<ShareSongModal />
