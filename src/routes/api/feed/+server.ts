@@ -83,5 +83,5 @@ export const GET: RequestHandler = ({ url }) => {
 
 	const nextCursor = items.length === limit ? items[items.length - 1].record.createdAt : null;
 
-	return json({ items, cursor: nextCursor });
+	return json({ items, cursor: nextCursor, feedScoped });
 };

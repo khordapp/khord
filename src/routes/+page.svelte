@@ -162,7 +162,9 @@
 				const data = await res.json();
 				const appViewItems = data.items as FeedItem[];
 				const appViewUris = new Set(appViewItems.map((i) => i.uri));
-				const ownNotInAppView = ownSongs.filter((i) => !appViewUris.has(i.uri));
+				// When feed_scoped is active, skip the PDS merge — own songs from other instances
+				// would bypass the scope filter since PDS records carry no instance info.
+				const ownNotInAppView = data.feedScoped ? [] : ownSongs.filter((i) => !appViewUris.has(i.uri));
 				const preserved = allItems.filter((i) => !appViewUris.has(i.uri) && !ownNotInAppView.some((o) => o.uri === i.uri) && !deletedUris.has(i.uri));
 				const merged = [...appViewItems, ...ownNotInAppView, ...preserved].sort((a, b) => b.record.createdAt.localeCompare(a.record.createdAt));
 				allItems = merged;
