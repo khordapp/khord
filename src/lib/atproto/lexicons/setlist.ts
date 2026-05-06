@@ -29,6 +29,7 @@ export interface KhordSetlistRecord {
 	items: KhordSetlistItem[];
 	collaborators?: string[];
 	open?: boolean;
+	instanceUrl?: string;
 	createdAt: string;
 }
 

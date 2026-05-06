@@ -8,7 +8,8 @@
 	import type { KhordSetlist } from '$lib/atproto/lexicons/setlist';
 	import { lastSharedSong, pendingSharedSong, type PendingSong } from '$lib/stores/shareSong';
 	import SongCard from '$lib/components/SongCard.svelte';
-	import { APP_NAME, APP_TAGLINE, AUTH_PROVIDER_NAME } from '$lib/config';
+	import { APP_NAME, APP_TAGLINE, AUTH_PROVIDER_NAME, APP_URL } from '$lib/config';
+	import { instanceConfig } from '$lib/stores/instance';
 	import { getAgent } from '$lib/atproto/agent';
 	import { goto } from '$app/navigation';
 	import { onMount, tick } from 'svelte';
@@ -275,7 +276,10 @@
 		if (!$session || setlistsLoading) return;
 		setlistsLoading = true;
 		try {
-			setlists = await fetchSetlists($session.did);
+			const all = await fetchSetlists($session.did);
+			setlists = $instanceConfig.feedScoped
+				? all.filter((s) => !s.value.instanceUrl || s.value.instanceUrl === APP_URL)
+				: all;
 			setlistsLoaded = true;
 			setlistsLastRefreshed = new Date();
 		} finally {

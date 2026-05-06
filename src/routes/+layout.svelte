@@ -46,6 +46,7 @@
 		fetch(statusUrl).then(r => r.json()).then(data => {
 			instanceConfig.set({
 				albumArtDisabled: data.albumArtDisabled ?? false,
+				feedScoped: data.feedScoped ?? false,
 				isOwner: data.isOwner ?? false,
 				loaded: true
 			});

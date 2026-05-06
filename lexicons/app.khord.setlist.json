@@ -39,6 +39,11 @@
 						"type": "boolean",
 						"description": "If true, any follower may propose additions (v2). Default false."
 					},
+					"instanceUrl": {
+						"type": "string",
+						"description": "URL of the Khord instance where this setlist was created. Used for instance-scoped feeds.",
+						"maxLength": 512
+					},
 					"createdAt": {
 						"type": "string",
 						"format": "datetime"

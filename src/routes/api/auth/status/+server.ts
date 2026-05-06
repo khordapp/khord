@@ -29,9 +29,10 @@ export const GET: RequestHandler = ({ url }) => {
 		getSetting('album_art_disabled', env.DISABLE_ALBUM_ART === 'true' ? 'true' : 'false') === 'true';
 
 	const inviteOnly = getSetting('invite_only', 'false') === 'true';
+	const feedScoped = getSetting('feed_scoped', 'false') === 'true';
 
 	const did = url.searchParams.get('did');
 	const owner = did ? isOwner(did) : false;
 
-	return json({ restricted, full, maxUsers, albumArtDisabled, inviteOnly, isOwner: owner });
+	return json({ restricted, full, maxUsers, albumArtDisabled, inviteOnly, feedScoped, isOwner: owner });
 };

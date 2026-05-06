@@ -3,6 +3,7 @@ import { SONG_NSID, type KhordSongRecord, type KhordSong } from './lexicons/song
 import { VOTE_NSID } from './lexicons/vote';
 import { SETLIST_NSID, type KhordSetlistRecord, type KhordSetlist, type KhordSetlistItem } from './lexicons/setlist';
 import { PROPOSAL_NSID, type KhordProposalRecord, type KhordProposal, type KhordProposalSnapshot } from './lexicons/proposal';
+import { APP_URL } from '$lib/config';
 
 export interface FollowedUser {
 	did: string;
@@ -91,6 +92,7 @@ export async function createSetlist(
 			items,
 			collaborators: [],
 			open: false,
+			instanceUrl: APP_URL,
 			createdAt: new Date().toISOString()
 		}
 	});
