@@ -92,7 +92,7 @@
 			const createRes = await getAgent().com.atproto.repo.createRecord({
 				repo: $session.did,
 				collection: SONG_NSID,
-				record: { $type: SONG_NSID, ...record }
+				record: { $type: SONG_NSID, ...record, listed: false }
 			});
 
 			songs = [...songs, {
