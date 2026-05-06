@@ -235,9 +235,13 @@
 	}
 
 	// ── Daily ─────────────────────────────────────────────────────────────────
-	let dailyDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+	function localDateStr(d: Date): string {
+		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+	}
 
-	$: dailyItems = allItems.filter((i) => i.record.createdAt.slice(0, 10) === dailyDate);
+	let dailyDate = localDateStr(new Date()); // local date, not UTC
+
+	$: dailyItems = allItems.filter((i) => localDateStr(new Date(i.record.createdAt)) === dailyDate);
 	$: if (dailyDate) dailySelectedUris = new Set(); // reset selection when date changes
 
 	// ── Setlists ──────────────────────────────────────────────────────────────
@@ -625,7 +629,7 @@
 					<input
 						type="date"
 						bind:value={dailyDate}
-						max={new Date().toISOString().slice(0, 10)}
+						max={localDateStr(new Date())}
 						class="bg-transparent text-xs {$t.textSecondary} border {$t.borderStrong} rounded-lg px-2 py-1 focus:outline-none {$t.hoverBorderStrong} transition-colors"
 					/>
 					{#if dailyItems.length > 0}
