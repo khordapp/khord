@@ -34,6 +34,11 @@
 			}
 
 			session.set(s);
+			try {
+				localStorage.setItem('khord_last_handle', '@' + s.handle);
+				localStorage.setItem('khord_last_did', s.did);
+				localStorage.removeItem('khord_signed_out');
+			} catch {}
 			followingLoaded.set(false);
 			getFollowing(s.did).then((follows) => {
 				following.set(follows);

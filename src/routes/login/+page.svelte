@@ -1,8 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { signIn } from '$lib/atproto/agent';
+	import { signIn, tryRestoreSession } from '$lib/atproto/agent';
 	import { APP_NAME, AUTH_PROVIDER_NAME } from '$lib/config';
 	import { theme as t } from '$lib/theme';
+	import { session } from '$lib/stores/auth';
+	import { following, followingLoaded } from '$lib/stores/following';
+	import { getFollowing } from '$lib/atproto/social';
+	import { votes } from '$lib/stores/votes';
+	import { goto } from '$app/navigation';
 
 	let handle = '';
 	let error = '';
@@ -12,7 +17,11 @@
 	let instanceRestricted = false;
 	let handleInput: HTMLInputElement | undefined;
 
+	let storedDid = '';
+
 	onMount(async () => {
+		try { handle = localStorage.getItem('khord_last_handle') ?? ''; } catch {}
+		try { storedDid = localStorage.getItem('khord_last_did') ?? ''; } catch {}
 		handleInput?.focus();
 		try {
 			const res = await fetch('/api/auth/status');
@@ -34,6 +43,26 @@
 		loading = true;
 		error = '';
 		try {
+			// If the user previously signed in, try to silently restore their session using
+			// the stored refresh token — avoids the Bluesky redirect and consent screen.
+			if (storedDid) {
+				const s = await tryRestoreSession(storedDid);
+				if (s) {
+					session.set(s);
+					try {
+						localStorage.setItem('khord_last_handle', '@' + s.handle);
+						localStorage.removeItem('khord_signed_out');
+					} catch {}
+					votes.load(s.did).catch(() => {});
+					followingLoaded.set(false);
+					getFollowing(s.did).then((follows) => {
+						following.set(follows);
+						followingLoaded.set(true);
+					});
+					goto('/');
+					return;
+				}
+			}
 			await signIn(handle.trim().replace(/^@/, ''));
 			// Browser navigates to {AUTH_PROVIDER_NAME} for auth — /oauth/callback completes the flow.
 		} catch (e) {

@@ -35,7 +35,11 @@
 
 		if (window.location.pathname === '/oauth/callback') { authReady.set(true); return; }
 
-		const s = await initAuth(true);
+		// Skip auto-restore if the user explicitly signed out — they'll re-auth via login page.
+		let signedOut = false;
+		try { signedOut = localStorage.getItem('khord_signed_out') === 'true'; } catch {}
+
+		const s = signedOut ? null : await initAuth(true);
 
 		// Fetch instance config — pass DID when available so isOwner is resolved
 		const statusUrl = s ? `/api/auth/status?did=${encodeURIComponent(s.did)}` : '/api/auth/status';
@@ -49,6 +53,11 @@
 
 		if (s) {
 			session.set(s);
+			try {
+				localStorage.setItem('khord_last_handle', '@' + s.handle);
+				localStorage.setItem('khord_last_did', s.did);
+				localStorage.removeItem('khord_signed_out');
+			} catch {}
 			votes.load(s.did).catch(() => {});
 			followingLoaded.set(false);
 			getFollowing(s.did).then((follows) => {

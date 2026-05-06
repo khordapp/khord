@@ -85,15 +85,33 @@ export async function signIn(handle: string): Promise<void> {
 
 
 export async function signOut(): Promise<void> {
-	if (_agent?.did) {
-		try {
-			const client = await getClient();
-			await client.revoke(_agent.did);
-		} catch {
-			// Best-effort revocation
-		}
-	}
 	_agent = null;
+	// Leave the AT Protocol session in IndexedDB so the next sign-in can call
+	// restore() silently — without triggering Bluesky's consent screen again.
+	// The flag tells the layout not to auto-restore on page load.
+	try { localStorage.setItem('khord_signed_out', 'true'); } catch {}
+}
+
+// Silently restores a stored session by DID using the saved refresh token.
+// Returns user info on success, null if the session is expired or absent.
+export async function tryRestoreSession(did: string): Promise<{ did: string; handle: string; avatar?: string } | null> {
+	if (!browser) return null;
+	try {
+		const client = await getClient();
+		const oauthSession = await client.restore(did);
+		_agent = new Agent(oauthSession);
+		let handle: string = did;
+		let avatar: string | undefined;
+		try {
+			const profile = await _agent.getProfile({ actor: did });
+			handle = profile.data.handle;
+			avatar = profile.data.avatar;
+		} catch {}
+		return { did, handle, avatar };
+	} catch {
+		_agent = null;
+		return null;
+	}
 }
 
 export function getAgent(): Agent {
