@@ -147,7 +147,7 @@
 				<button
 					on:click={() => { deleteModalOpen = false; deleteInput = ''; deleteError = false; }}
 					disabled={deleting}
-					class="px-4 py-2 rounded-lg border {$t.borderStrong} {$t.textMuted} text-sm hover:{$t.surfaceHover} transition-colors"
+					class="px-4 py-2 rounded-lg border {$t.borderStrong} {$t.textMuted} text-sm {$t.hoverBg} transition-colors"
 				>
 					Cancel
 				</button>

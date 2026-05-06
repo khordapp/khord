@@ -239,7 +239,26 @@
 		return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 	}
 
+	function formatDateLabel(dateStr: string): string {
+		const d = new Date(dateStr + 'T12:00:00');
+		const today = localDateStr(new Date());
+		const yesterday = localDateStr(new Date(Date.now() - 86400000));
+		if (dateStr === today) return 'Today';
+		if (dateStr === yesterday) return 'Yesterday';
+		return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: d.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined });
+	}
+
 	let dailyDate = localDateStr(new Date()); // local date, not UTC
+	let showDateModal = false;
+
+	$: datesWithActivity = (() => {
+		const counts = new Map<string, number>();
+		for (const item of allItems) {
+			const d = localDateStr(new Date(item.record.createdAt));
+			counts.set(d, (counts.get(d) ?? 0) + 1);
+		}
+		return [...counts.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+	})();
 
 	$: dailyItems = allItems.filter((i) => localDateStr(new Date(i.record.createdAt)) === dailyDate);
 	$: if (dailyDate) dailySelectedUris = new Set(); // reset selection when date changes
@@ -438,6 +457,35 @@
 </svelte:head>
 
 <!-- Modals -->
+{#if showDateModal}
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-6">
+		<button class="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-label="Cancel" on:click={() => (showDateModal = false)}></button>
+		<div class="relative w-full max-w-sm {$t.surfaceBg} border {$t.borderStrong} rounded-2xl shadow-2xl overflow-hidden">
+			<div class="px-6 pt-5 pb-2 flex items-center justify-between">
+				<h2 class="text-base font-semibold {$t.textPrimary}">Days with songs</h2>
+				<button on:click={() => (showDateModal = false)} class="text-sm {$t.textMuted} {$t.hoverText} transition-colors">Done</button>
+			</div>
+			{#if datesWithActivity.length === 0}
+				<p class="px-6 py-5 text-sm {$t.textMuted}">No songs yet.</p>
+			{:else}
+				<ul class="max-h-80 overflow-y-auto divide-y {$t.borderFaded}">
+					{#each datesWithActivity as [dateStr, count]}
+						<li>
+							<button
+								on:click={() => { dailyDate = dateStr; showDateModal = false; }}
+								class="w-full flex items-center justify-between px-6 py-3.5 text-base transition-colors {dateStr === dailyDate ? `${$t.accentText} ${$t.accentBg}` : `${$t.textSecondary} ${$t.hoverBg} ${$t.hoverText}`}"
+							>
+								<span>{formatDateLabel(dateStr)}</span>
+								<span class="text-sm {dateStr === dailyDate ? $t.accentText : $t.textFaint}">{count} {count === 1 ? 'song' : 'songs'}</span>
+							</button>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
+	</div>
+{/if}
+
 {#if confirmOpen}
 	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
 		<button class="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-label="Cancel" on:click={() => (confirmOpen = false)}></button>
@@ -626,12 +674,16 @@
 						</svg>
 						Refresh
 					</button>
-					<input
-						type="date"
-						bind:value={dailyDate}
-						max={localDateStr(new Date())}
-						class="bg-transparent text-xs {$t.textSecondary} border {$t.borderStrong} rounded-lg px-2 py-1 focus:outline-none {$t.hoverBorderStrong} transition-colors"
-					/>
+					<button
+						on:click={() => (showDateModal = true)}
+						title="Pick a date"
+						class="flex items-center gap-1.5 text-xs {$t.textSecondary} border {$t.borderStrong} {$t.hoverBorderStrong} px-2.5 py-1 rounded-full transition-colors"
+					>
+						<svg viewBox="0 0 24 24" fill="none" class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg">
+							<path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+						{formatDateLabel(dailyDate)}
+					</button>
 					{#if dailyItems.length > 0}
 						<button
 							on:click={() => {
