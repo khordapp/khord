@@ -19,7 +19,8 @@ export const GET: RequestHandler = async ({ url }) => {
 		youtubeMusicEnabled ? findYoutubeMusicUrl(title, artist) : Promise.resolve(null),
 		findDeezerUrl(title, artist),
 	]);
-	console.log(`[resolve] spotify=${spotifyEnabled} youtube=${youtubeMusicEnabled} deezer=true total=${(performance.now() - t0).toFixed(0)}ms`);
+	const found = [spotifyUrl && 'spotify', youtubeMusicUrl && 'youtube', deezerUrl && 'deezer'].filter(Boolean).join('+') || 'none';
+	console.log(`[resolve] found=${found} spotify=${spotifyEnabled} youtube=${youtubeMusicEnabled} total=${(performance.now() - t0).toFixed(0)}ms`);
 	return json({
 		spotifyUrl:      spotifyUrl      ?? undefined,
 		youtubeMusicUrl: youtubeMusicUrl ?? undefined,

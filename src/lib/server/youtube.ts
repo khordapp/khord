@@ -23,7 +23,10 @@ export async function findYoutubeMusicUrl(title: string, artist: string): Promis
 		});
 
 		const res = await fetch(`${SEARCH_URL}?${params}`);
-		if (!res.ok) return null;
+		if (!res.ok) {
+			console.warn(`[youtube] API error ${res.status} for "${title}" by "${artist}"`);
+			return null;
+		}
 
 		const data = await res.json();
 		const videoId: string | undefined = data.items?.[0]?.id?.videoId;
