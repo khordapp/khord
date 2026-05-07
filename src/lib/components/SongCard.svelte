@@ -16,9 +16,6 @@
 		{ key: 'spotifyUrl',      label: 'Spotify',       color: '#1DB954' },
 		{ key: 'youtubeMusicUrl', label: 'YouTube Music', color: '#FF0000' },
 		{ key: 'deezerUrl',       label: 'Deezer',        color: '#EF5466' },
-		{ key: 'tidalUrl',        label: 'Tidal',         color: '#9bf0e1' },
-		{ key: 'amazonMusicUrl',  label: 'Amazon Music',  color: '#00A8E1' },
-		{ key: 'soundcloudUrl',   label: 'SoundCloud',    color: '#FF5500' },
 	];
 
 	export let uri: string;

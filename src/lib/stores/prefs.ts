@@ -4,7 +4,7 @@ import type { KhordSongRecord } from '$lib/atproto/lexicons/song';
 
 export type PlatformKey = Extract<
 	keyof KhordSongRecord,
-	'spotifyUrl' | 'appleMusicUrl' | 'youtubeMusicUrl' | 'tidalUrl' | 'deezerUrl' | 'amazonMusicUrl' | 'soundcloudUrl'
+	'appleMusicUrl' | 'spotifyUrl' | 'youtubeMusicUrl' | 'deezerUrl'
 >;
 
 const STORAGE_KEY = 'khord_preferred_platform';
