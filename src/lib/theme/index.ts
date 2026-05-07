@@ -79,7 +79,11 @@ function resolveTheme(name: string): Theme {
 function loadInitialName(): string {
 	if (browser) {
 		const stored = localStorage.getItem(STORAGE_KEY);
-		if (stored && themes[stored]) return stored;
+		// Only honor stored preference if it's in the same dark/light pair as the
+		// instance default — so changing PUBLIC_THEME isn't overridden by localStorage.
+		if (stored && themes[stored] && (stored === instanceDefault || pairs[stored] === instanceDefault)) {
+			return stored;
+		}
 	}
 	return instanceDefault;
 }
