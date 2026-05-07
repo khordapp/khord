@@ -230,7 +230,7 @@ When a song is added to a setlist (via CreateSetlistModal, feed selection, or da
 - SQLite AppView indexer lives in a separate repo (github.com/khordapp/khord-indexer); feed/votes API routes exist but app falls back to PDS fetch when DB unavailable (returns 503)
 - Setlists are creator-only writes in v1; collaborator contribution (proposal pattern or delegated writes) is v2
 - `svelte-dnd-action` used for drag-to-reorder on setlist detail page
-- Theme uses `$env/static/public` (not dynamic) — baked at build time so server and client always agree, preventing hydration mismatches
+- Theme uses `$env/dynamic/public` — read from process environment at server startup so changing `PUBLIC_THEME` in Docker/Unraid takes effect on container restart without rebuilding the image; SvelteKit injects the value into the page so client and server always agree
 - Setlist item snapshots are embedded data (not separate records) — keeps setlist as a single atomic AT Protocol record
 - `listed` boolean on `app.khord.song`: absent/`true` = appears in feed; `false` = setlist-only. PDS fetch filters in `social.ts`; AppView feed filters with `WHERE listed != 0`. Songs added via the setlist add-song panel default to `listed: false` unless "Also share to feed" is checked
 - Post-to-feed compose sheet has fixed header (title+artist with link facet) and footer ("Shared from…") with only the middle note section editable — prevents accidental removal of attribution and ensures consistent post structure

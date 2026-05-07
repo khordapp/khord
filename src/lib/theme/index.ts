@@ -4,7 +4,7 @@
 
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
-import { PUBLIC_THEME } from '$env/static/public';
+import { env } from '$env/dynamic/public';
 import type { Theme } from './types';
 
 // ── Neutral dark themes ───────────────────────────────────────────────────────
@@ -70,7 +70,7 @@ const pairs: Record<string, string> = {
 };
 
 const STORAGE_KEY = 'khord_theme';
-const instanceDefault = PUBLIC_THEME ?? 'dark';
+const instanceDefault = env.PUBLIC_THEME ?? 'dark';
 
 function resolveTheme(name: string): Theme {
 	return themes[name] ?? themes[instanceDefault] ?? zinc;
