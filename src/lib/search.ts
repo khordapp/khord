@@ -1,6 +1,5 @@
 // Unified track search using the iTunes Search API.
-// Free, no auth required. The appleMusicUrl is used downstream for Odesli resolution
-// to obtain all platform links before creating a song record.
+// Free, no auth required. Results include appleMusicUrl and artworkUrl used when creating song records.
 
 import { searchItunes } from '$lib/itunes/client';
 

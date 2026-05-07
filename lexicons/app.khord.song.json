@@ -4,7 +4,7 @@
 	"defs": {
 		"main": {
 			"type": "record",
-			"description": "A song shared on Khord, identified by ISRC for cross-platform resolution. Platform URLs are populated automatically via Odesli.",
+			"description": "A song shared on Khord with platform URLs for direct playback on Apple Music, Spotify, YouTube Music, Deezer, and more.",
 			"key": "tid",
 			"record": {
 				"type": "object",
@@ -29,12 +29,12 @@
 					},
 					"odesliKey": {
 						"type": "string",
-						"description": "Odesli entity unique ID — can be used to re-resolve platform links.",
+						"description": "Deprecated. Legacy Odesli entity ID from previous integration.",
 						"maxLength": 200
 					},
 					"thumbnailUrl": {
 						"type": "string",
-						"description": "Album art thumbnail URL from Odesli (hosted on streaming CDN, not stored locally).",
+						"description": "Album art thumbnail URL (from streaming CDN, not stored locally).",
 						"maxLength": 500
 					},
 					"spotifyUrl": {
@@ -74,7 +74,7 @@
 					},
 					"songlinkUrl": {
 						"type": "string",
-						"description": "song.link page URL — aggregates all platform links (Odesli attribution).",
+						"description": "Deprecated. Legacy song.link page URL from previous Odesli integration.",
 						"maxLength": 300
 					},
 					"note": {

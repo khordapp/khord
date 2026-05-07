@@ -2,7 +2,6 @@
 	import type { KhordSongRecord } from '$lib/atproto/lexicons/song';
 	import { SONG_NSID } from '$lib/atproto/lexicons/song';
 	import type { FollowedUser } from '$lib/atproto/social';
-	import { extractPlatformUrls, getCanonicalEntity, type OdesliResponse } from '$lib/odesli/client';
 	import { votes } from '$lib/stores/votes';
 	import { session } from '$lib/stores/auth';
 	import { getAgent } from '$lib/atproto/agent';
@@ -13,11 +12,11 @@
 	import type { PlatformKey } from '$lib/stores/prefs';
 
 	const PLATFORMS: { key: PlatformKey; label: string; color: string }[] = [
-		{ key: 'spotifyUrl',      label: 'Spotify',       color: '#1DB954' },
 		{ key: 'appleMusicUrl',   label: 'Apple Music',   color: '#FC3C44' },
+		{ key: 'spotifyUrl',      label: 'Spotify',       color: '#1DB954' },
 		{ key: 'youtubeMusicUrl', label: 'YouTube Music', color: '#FF0000' },
-		{ key: 'tidalUrl',        label: 'Tidal',         color: '#9bf0e1' },
 		{ key: 'deezerUrl',       label: 'Deezer',        color: '#EF5466' },
+		{ key: 'tidalUrl',        label: 'Tidal',         color: '#9bf0e1' },
 		{ key: 'amazonMusicUrl',  label: 'Amazon Music',  color: '#00A8E1' },
 		{ key: 'soundcloudUrl',   label: 'SoundCloud',    color: '#FF5500' },
 	];
@@ -94,20 +93,19 @@
 	}
 
 	async function resync() {
-		if (!$session || resyncing || !record.appleMusicUrl) return;
+		if (!$session || resyncing) return;
 		resyncing = true;
 		resyncError = '';
 		try {
-			const res = await fetch(`/api/resolve?url=${encodeURIComponent(record.appleMusicUrl)}`);
+			const p = new URLSearchParams({ title: record.title, artist: record.artist });
+			const res = await fetch(`/api/resolve?${p}`);
 			if (!res.ok) throw new Error(`Resolve failed (${res.status})`);
-			const odesliResult: OdesliResponse = await res.json();
-			const platformUrls = extractPlatformUrls(odesliResult);
-			const entity = getCanonicalEntity(odesliResult);
+			const { spotifyUrl, youtubeMusicUrl, deezerUrl } = await res.json();
 			const updated: KhordSongRecord = {
 				...record,
-				title: entity?.title ?? record.title,
-				artist: entity?.artistName ?? record.artist,
-				...platformUrls
+				...(spotifyUrl      && { spotifyUrl }),
+				...(youtubeMusicUrl && { youtubeMusicUrl }),
+				...(deezerUrl       && { deezerUrl }),
 			};
 			const rkey = uri.split('/').pop()!;
 			await getAgent().com.atproto.repo.putRecord({
@@ -286,7 +284,7 @@
 					{/if}
 				{/if}
 			</button>
-			{#if isOwn && record.appleMusicUrl}
+			{#if isOwn}
 				<button
 					on:click={resync}
 					disabled={resyncing}

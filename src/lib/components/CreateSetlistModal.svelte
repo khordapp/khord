@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { closeCreateSetlist } from '$lib/stores/createSetlist';
 	import { type TrackResult } from '$lib/search';
-	import { extractPlatformUrls, getCanonicalEntity, type OdesliResponse } from '$lib/odesli/client';
 	import { getAgent } from '$lib/atproto/agent';
 	import { session } from '$lib/stores/auth';
 	import { SONG_NSID, type KhordSongRecord } from '$lib/atproto/lexicons/song';
@@ -69,26 +68,24 @@
 		query = '';
 		searchResults = [];
 		try {
-			let record: KhordSongRecord = {
+			let phase1: { spotifyUrl?: string; youtubeMusicUrl?: string; deezerUrl?: string } = {};
+			if (track.title && track.artist) {
+				const p = new URLSearchParams({ title: track.title, artist: track.artist });
+				const r = await fetch(`/api/resolve?${p}`);
+				if (r.ok) phase1 = await r.json();
+			}
+
+			const record: KhordSongRecord = {
 				title: track.title,
 				artist: track.artist,
-				...(track.album && { album: track.album }),
+				...(track.album        && { album:          track.album }),
+				...(track.artworkUrl   && { thumbnailUrl:   track.artworkUrl }),
+				...(track.appleMusicUrl && { appleMusicUrl: track.appleMusicUrl }),
+				...(phase1.spotifyUrl       && { spotifyUrl:      phase1.spotifyUrl }),
+				...(phase1.youtubeMusicUrl  && { youtubeMusicUrl: phase1.youtubeMusicUrl }),
+				...(phase1.deezerUrl        && { deezerUrl:       phase1.deezerUrl }),
 				createdAt: new Date().toISOString()
 			};
-
-			if (track.appleMusicUrl) {
-				const res = await fetch(`/api/resolve?url=${encodeURIComponent(track.appleMusicUrl)}`);
-				if (!res.ok) throw new Error(`Could not resolve song links (${res.status})`);
-				const odesliResult: OdesliResponse = await res.json();
-				const platformUrls = extractPlatformUrls(odesliResult);
-				const entity = getCanonicalEntity(odesliResult);
-				record = {
-					...record,
-					title: entity?.title ?? track.title,
-					artist: entity?.artistName ?? track.artist,
-					...platformUrls
-				};
-			}
 
 			const createRes = await getAgent().com.atproto.repo.createRecord({
 				repo: $session.did,
@@ -106,14 +103,13 @@
 					artist: record.artist,
 					...(record.album && { album: record.album }),
 					...(record.thumbnailUrl && { thumbnailUrl: record.thumbnailUrl }),
-					...(record.spotifyUrl && { spotifyUrl: record.spotifyUrl }),
 					...(record.appleMusicUrl && { appleMusicUrl: record.appleMusicUrl }),
+					...(record.spotifyUrl && { spotifyUrl: record.spotifyUrl }),
 					...(record.youtubeMusicUrl && { youtubeMusicUrl: record.youtubeMusicUrl }),
-					...(record.tidalUrl && { tidalUrl: record.tidalUrl }),
 					...(record.deezerUrl && { deezerUrl: record.deezerUrl }),
+					...(record.tidalUrl && { tidalUrl: record.tidalUrl }),
 					...(record.amazonMusicUrl && { amazonMusicUrl: record.amazonMusicUrl }),
-					...(record.soundcloudUrl && { soundcloudUrl: record.soundcloudUrl }),
-					...(record.songlinkUrl && { songlinkUrl: record.songlinkUrl })
+					...(record.soundcloudUrl && { soundcloudUrl: record.soundcloudUrl })
 				}
 			}];
 		} catch (e) {

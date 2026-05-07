@@ -18,9 +18,10 @@ Copy `.env.example` to `.env` and fill in values before running. `PUBLIC_APP_URL
 
 - **SvelteKit** + TypeScript + TailwindCSS
 - **AT Protocol** (`@atproto/api`) — user identity, record storage
-- **Odesli API** (song.link) — cross-platform URL resolution (free, no key required)
-- **Spotify Web API** — client credentials search to fill the Spotify gap Odesli leaves
-- **iTunes Search API** — free text search for song discovery (no auth)
+- **iTunes Search API** — free text search for song discovery (no auth); provides Apple Music URL + artwork
+- **Spotify Web API** — client credentials search for Spotify track URLs (server-only)
+- **Deezer API** — free search for Deezer track URLs (no credentials required, always-on)
+- **YouTube Music** — via YouTube Data API v3 (optional; disabled by default due to quota limits)
 
 ## Project structure
 
@@ -35,10 +36,10 @@ src/
         setlist.ts          # app.khord.setlist types + KhordSetlistItemSnapshot
         proposal.ts         # app.khord.setlist.proposal types + KhordProposal
       social.ts             # fetchSongs, fetchSetlists, fetchSetlist, createSetlist, updateSetlist, deleteSetlist, createProposal, fetchProposalsFromPDSes
-    odesli/
-      client.ts             # resolveUrl(), extractPlatformUrls() (includes songlinkUrl, thumbnailUrl)
     server/
       spotify.ts            # client credentials token + track search (server-only)
+      deezer.ts             # free Deezer track search — no credentials needed (always-on)
+      youtube.ts            # YouTube Music track search via Data API v3 (server-only; disabled by default)
       db.ts                 # getDb() read-only / getDbRw() read-write SQLite connections (null if no DB)
       access.ts             # checkAndRegister(did) — OWNER_DIDS, BANNED_DIDS, ALLOWED_DIDS + MAX_USERS enforcement; isOwner(did) exported helper; reads env via $env/dynamic/private
       settings.ts           # getSetting/setSetting/getAllSettings — DB-backed instance settings (instance_settings table); auto-creates table on first use
@@ -53,7 +54,7 @@ src/
       navy.ts / teal.ts / emerald.ts / rose.ts / violet.ts  # chromatic dark variants
       index.ts              # reads PUBLIC_THEME, exports resolved `theme` object
     components/
-      ShareSongModal.svelte        # search → Odesli resolve → AT Protocol record create; note field (300 char limit)
+      ShareSongModal.svelte        # search → /api/resolve (Spotify+YouTube+Deezer in parallel) → AT Protocol record create; note field (300 char limit)
       SongCard.svelte              # feed card: platform links, selection, upnote, post-to-feed, resync metadata
       SongSearch.svelte            # iTunes-backed search input
       StreamingPill.svelte         # branded pill + chevron dropdown; preferred platform first; play icon on primary; bottom-sheet on mobile; shared by feed + setlists
@@ -79,7 +80,7 @@ src/
     s/[handle]/[rkey]/        # setlist detail: drag reorder, add songs, propose songs, review proposals, share
     setlists/[handle]/[rkey]/ # 301 redirect → /s/[handle]/[rkey]/
     song/[handle]/[rkey]/   # public song permalink; SSR OG tags; SongCard in publicView mode; join CTA for logged-out visitors
-    api/resolve/            # server-side Odesli proxy + Spotify augmentation
+    api/resolve/            # GET ?title=&artist= — Spotify + YouTube Music + Deezer lookup in parallel; returns { spotifyUrl?, youtubeMusicUrl?, deezerUrl? }
     api/auth/status/        # GET — returns { restricted, full, albumArtDisabled, inviteOnly, isOwner }; accepts ?did= to resolve isOwner
     api/auth/check/         # POST { did } — access control check + register user; returns { pendingRequest: true } when invite-only and request submitted
     api/feed/               # GET — SQLite AppView feed (returns 503 if DB unavailable)
@@ -135,23 +136,21 @@ To add a new theme: create `src/lib/theme/mytheme.ts` implementing `Theme`, then
 
 ## Song sharing flow
 
-1. User searches by text (iTunes API) → selects a result
-2. Apple Music URL passed to `/api/resolve` (server-side proxy):
-   - Calls Odesli → returns Deezer, Tidal, Amazon Music, Apple Music, SoundCloud, song.link page URL
-   - Odesli does not return Spotify or YouTube Music — Spotify separately searched via client credentials; YouTube Music skipped (API quota too limiting)
-3. `app.khord.song` record created in PDS with platform URLs for: Spotify, Apple Music, Deezer, Tidal, Amazon Music, SoundCloud, plus `songlinkUrl` for attribution
+1. User searches by text (iTunes API) → selects a result; iTunes provides title, artist, album, Apple Music URL, artwork
+2. `/api/resolve?title=...&artist=...` called server-side — runs Spotify + YouTube Music + Deezer lookups in parallel (~300ms)
+3. `app.khord.song` record created immediately with: Apple Music URL, artwork, Spotify URL, Deezer URL (and YouTube Music URL if enabled)
 4. Feed updates immediately (optimistic prepend via `lastSharedSong` store)
 
 ## SongCard behaviour (feed)
 
 - Album art: 48×48 thumbnail top-left (from `record.thumbnailUrl`); hidden if `albumArtDisabled` instance config is set or URL absent
 - Selected state: check icon overlays thumbnail (or plain circle if no art); clicking upper card area toggles selection
-- Preferred platform (set in `/settings`, stored in localStorage) shown first as a branded pill (bg/text/border inline styles) via `StreamingPill`; remaining platforms behind a chevron dropdown; song.link shown separately in link color
+- Preferred platform (set in `/settings`, stored in localStorage) shown first as a branded pill (bg/text/border inline styles) via `StreamingPill`; remaining platforms behind a chevron dropdown; `songlinkUrl` (legacy field) shown as link icon when present on existing records
 - Action row (bottom-right): Resync (owner-only) → Post to AT Protocol feed → Upnote; all buttons are pill-style (icon + always-visible label) with tooltips; no expand-on-hover layout shift
-- Resync: re-resolves `appleMusicUrl` via `/api/resolve`, does a `putRecord` to update the PDS record in place; updates card reactively
+- Resync: calls `/api/resolve?title=...&artist=...` to refresh Spotify/YouTube/Deezer URLs, does a `putRecord` to update the PDS record in place; updates card reactively
 - No per-card delete button — deletion is handled from the feed header
 - Note (optional, ≤300 chars) shown below metadata with dynamic left padding matching art/no-art alignment
-- Tooltips (`title` attribute) on all interactive elements: selection button, song.link, action row buttons
+- Tooltips (`title` attribute) on all interactive elements: selection button, action row buttons
 
 ## Setlist detail page (`/s/[handle]/[rkey]`)
 
@@ -159,9 +158,9 @@ To add a new theme: create `src/lib/theme/mytheme.ts` implementing `Theme`, then
 - Resolves handle → DID via `getProfile`, then fetches setlist record + all song records in parallel
 - If a song record is missing (deleted), falls back to the embedded `snapshot` in the setlist item — renders identically
 - Drag-to-reorder via `svelte-dnd-action`; on drop, calls `updateSetlist` with reordered items array
-- Per-row streaming pill: preferred platform first (branded), chevron expands dropdown; song.link shown separately
+- Per-row streaming pill: preferred platform first (branded), chevron expands dropdown; `songlinkUrl` shown as link icon when present on existing records
 - Owner can: edit title inline, remove individual songs, delete the entire setlist (with confirm modal); all owner actions use consistent pill-style buttons (icon + label)
-- Owner "Add song" panel: search → Odesli resolve → creates PDS record → appends to setlist; "Also share to feed" checkbox (default unchecked) controls `listed` field on the created song record
+- Owner "Add song" panel: search → `/api/resolve` → creates PDS record → appends to setlist; "Also share to feed" checkbox (default unchecked) controls `listed` field on the created song record
 - Share button opens a compose sheet pre-filled with setlist title + URL; URL gets a link facet; editable before posting
 - Non-owners see the setlist read-only (no drag, no remove, no edit)
 - Vote counts fetched from `/api/votes/counts` and displayed per row
@@ -216,12 +215,13 @@ When a song is added to a setlist (via CreateSetlistModal, feed selection, or da
 - No central database — everything lives in AT Protocol PDS
 - Feed assembled by fetching `app.khord.song` records directly from each followed user's PDS; falls back gracefully from AppView (503) to PDS fetch
 - Vote counts fetched in batch from `/api/votes/counts`; displayed with optimistic updates in SongCard
-- Odesli does not return Spotify or YouTube Music — confirmed empirically (not a free-tier restriction, just absent); Spotify filled via client credentials; YouTube Music skipped
 - No user-level Spotify or Apple Music auth — platform links open natively in user's app
-- `/api/resolve` caches Odesli + Spotify results in-process (stable data, no TTL needed)
+- `/api/resolve` runs Spotify + YouTube + Deezer lookups in parallel; no caching (results are per-query, not URL-stable)
+- Deezer uses a free public search API (no credentials, always-on); Spotify requires client credentials; YouTube Music requires Data API v3 key (disabled by default due to quota)
 - AT Protocol OAuth uses redirect flow (not popup); requires a public URL — `npm run tunnel` uses the stable `dev.khord.app` named Cloudflare tunnel
 - Spotify Web API requires the developer account owner to have an active Spotify Premium subscription
-- Album art URLs sourced from Odesli `thumbnailUrl`; longevity is a known tradeoff; `DISABLE_ALBUM_ART` env var available as CDN reliability escape hatch
+- `odesliKey` and `songlinkUrl` fields retained in `KhordSongRecord` and lexicon as deprecated backward-compat fields; existing records display correctly, new records don't include them
+- Album art URLs sourced from iTunes CDN (`artworkUrl` from iTunes Search API); longevity is a known tradeoff; `DISABLE_ALBUM_ART` env var available as CDN reliability escape hatch
 - `/api/thumbnail` proxies third-party image URLs server-side to avoid CORS; validates protocol and content-type; 24h cache headers
 - App name, tagline, and auth provider name all configurable via env vars (`PUBLIC_APP_NAME`, `PUBLIC_APP_TAGLINE`, `PUBLIC_AUTH_PROVIDER_NAME`)
 - Access control: `OWNER_DIDS` (admin), `BANNED_DIDS` (denylist), `ALLOWED_DIDS` (allowlist), `MAX_USERS` (cap) env vars; all enforced at OAuth callback via `/api/auth/check`. `isOwner` resolved at session load via `/api/auth/status?did=` and stored in `instanceConfig`. Dynamic bans also supported via `banned_users` SQLite table (no restart needed). All server-side env var reads use `$env/dynamic/private` (not `process.env`) — required for SvelteKit/Vite dev to pick up `.env` values correctly.
@@ -239,6 +239,23 @@ When a song is added to a setlist (via CreateSetlistModal, feed selection, or da
 - `APP_URL` reads from `env.PUBLIC_APP_URL` (dynamic) not a hardcoded constant — required for the share URL to match whichever domain the instance is running on
 - Capacitor wrapper planned for iOS/Android
 - Setlist export to streaming services planned: Spotify first (user OAuth + ISRC lookup), then Apple Music via MusicKit JS
+
+## Adding Tidal (future point release)
+
+Pattern: identical to `src/lib/server/spotify.ts`.
+
+1. Register at developer.tidal.com → get client_id + client_secret
+2. Add env vars: `TIDAL_CLIENT_ID` (public), `TIDAL_CLIENT_SECRET` (private)
+3. Create `src/lib/server/tidal.ts`:
+   - OAuth2 client credentials token via POST to `https://auth.tidal.com/v1/oauth2/token`
+   - Search via GET `https://openapi.tidal.com/v2/searchresults/{query}/relationships/tracks?countryCode=US&limit=1`
+   - Return first result's track URL (construct as `https://tidal.com/browse/track/{id}`)
+   - Cache token with expiry buffer (same pattern as `spotify.ts`)
+4. Add `TIDAL_CLIENT_ID` to `.env.example` with a comment
+5. Add admin toggle: `tidal_enabled` instance setting (default `false` — requires credentials)
+6. Add to `Promise.all` in `src/routes/api/resolve/+server.ts` (guarded by setting), return `tidalUrl`
+7. PLATFORMS arrays in `SongCard.svelte`, `StreamingPill.svelte`, `StreamingServiceModal.svelte` already include `tidalUrl` — no UI changes needed
+8. Verify: `npm run check`; share a track; confirm Tidal pill appears
 
 ## Environment variables
 

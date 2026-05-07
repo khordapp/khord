@@ -5,11 +5,11 @@
 	export let open = false;
 
 	const PLATFORMS: { key: PlatformKey; label: string; color: string }[] = [
-		{ key: 'spotifyUrl',      label: 'Spotify',       color: '#1DB954' },
 		{ key: 'appleMusicUrl',   label: 'Apple Music',   color: '#FC3C44' },
+		{ key: 'spotifyUrl',      label: 'Spotify',       color: '#1DB954' },
 		{ key: 'youtubeMusicUrl', label: 'YouTube Music', color: '#FF0000' },
-		{ key: 'tidalUrl',        label: 'Tidal',         color: '#9bf0e1' },
 		{ key: 'deezerUrl',       label: 'Deezer',        color: '#EF5466' },
+		{ key: 'tidalUrl',        label: 'Tidal',         color: '#9bf0e1' },
 		{ key: 'amazonMusicUrl',  label: 'Amazon Music',  color: '#00A8E1' },
 		{ key: 'soundcloudUrl',   label: 'SoundCloud',    color: '#FF5500' },
 	];

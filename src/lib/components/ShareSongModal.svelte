@@ -2,11 +2,9 @@
 	import { closeShareSong, lastSharedSong } from '$lib/stores/shareSong';
 	import SongSearch from './SongSearch.svelte';
 	import { type TrackResult } from '$lib/search';
-	import { extractPlatformUrls, getCanonicalEntity } from '$lib/odesli/client';
 	import { getAgent } from '$lib/atproto/agent';
 	import { session } from '$lib/stores/auth';
 	import { SONG_NSID, type KhordSongRecord } from '$lib/atproto/lexicons/song';
-	import { updateSong } from '$lib/atproto/social';
 	import { APP_URL } from '$lib/config';
 	import { theme as t } from '$lib/theme';
 
@@ -43,10 +41,9 @@
 		const did = $session.did;
 
 		try {
-			// Phase 1 — Spotify + YouTube in parallel (~300ms), iTunes provides everything else.
-			let phase1: { spotifyUrl?: string; youtubeMusicUrl?: string } = {};
+			let phase1: { spotifyUrl?: string; youtubeMusicUrl?: string; deezerUrl?: string } = {};
 			if (track.title && track.artist) {
-				const p = new URLSearchParams({ phase: '1', title: track.title, artist: track.artist });
+				const p = new URLSearchParams({ title: track.title, artist: track.artist });
 				const r = await fetch(`/api/resolve?${p}`);
 				if (r.ok) phase1 = await r.json();
 			}
@@ -54,11 +51,12 @@
 			const record: KhordSongRecord = {
 				title: track.title,
 				artist: track.artist,
-				...(track.album       && { album:          track.album }),
-				...(track.artworkUrl  && { thumbnailUrl:   track.artworkUrl }),
+				...(track.album        && { album:          track.album }),
+				...(track.artworkUrl   && { thumbnailUrl:   track.artworkUrl }),
 				...(track.appleMusicUrl && { appleMusicUrl: track.appleMusicUrl }),
-				...(phase1.spotifyUrl      && { spotifyUrl:      phase1.spotifyUrl }),
-				...(phase1.youtubeMusicUrl && { youtubeMusicUrl: phase1.youtubeMusicUrl }),
+				...(phase1.spotifyUrl       && { spotifyUrl:      phase1.spotifyUrl }),
+				...(phase1.youtubeMusicUrl  && { youtubeMusicUrl: phase1.youtubeMusicUrl }),
+				...(phase1.deezerUrl        && { deezerUrl:       phase1.deezerUrl }),
 				...(trimmedNote && { note: trimmedNote }),
 				instanceUrl: APP_URL,
 				createdAt: new Date().toISOString()
@@ -69,40 +67,10 @@
 				collection: SONG_NSID,
 				record: { $type: SONG_NSID, ...record }
 			});
-			const rkey = createRes.data.uri.split('/').pop()!;
 
 			lastSharedSong.set({ uri: createRes.data.uri, cid: createRes.data.cid, value: record });
 			shared = true;
 			setTimeout(closeShareSong, 800);
-
-			// Phase 2 — background Odesli enrichment (Deezer, Tidal, Amazon, SoundCloud, song.link).
-			if (track.appleMusicUrl) {
-				const p = new URLSearchParams({ url: track.appleMusicUrl, title: track.title, artist: track.artist });
-				fetch(`/api/resolve?${p}`)
-					.then((r) => r.ok ? r.json() : null)
-					.then((result) => {
-						if (!result) return;
-						const platformUrls = extractPlatformUrls(result);
-						const entity = getCanonicalEntity(result);
-						const enriched: KhordSongRecord = {
-							...record,
-							title:           entity?.title       ?? record.title,
-							artist:          entity?.artistName  ?? record.artist,
-							thumbnailUrl:    record.thumbnailUrl ?? platformUrls.thumbnailUrl,
-							appleMusicUrl:   record.appleMusicUrl  ?? platformUrls.appleMusicUrl,
-							spotifyUrl:      record.spotifyUrl     ?? platformUrls.spotifyUrl,
-							youtubeMusicUrl: record.youtubeMusicUrl ?? platformUrls.youtubeMusicUrl,
-							...(platformUrls.odesliKey    && { odesliKey:      platformUrls.odesliKey }),
-							...(platformUrls.deezerUrl    && { deezerUrl:      platformUrls.deezerUrl }),
-							...(platformUrls.tidalUrl     && { tidalUrl:       platformUrls.tidalUrl }),
-							...(platformUrls.amazonMusicUrl && { amazonMusicUrl: platformUrls.amazonMusicUrl }),
-							...(platformUrls.soundcloudUrl  && { soundcloudUrl:  platformUrls.soundcloudUrl }),
-							...(platformUrls.songlinkUrl    && { songlinkUrl:    platformUrls.songlinkUrl }),
-						};
-						updateSong(did, rkey, enriched).catch((e) => console.error('[ShareSong] Phase 2 update failed:', e));
-					})
-					.catch((e) => console.error('[ShareSong] Phase 2 resolve failed:', e));
-			}
 		} catch (e) {
 			sharing = false;
 			shareError = e instanceof Error ? e.message : 'Something went wrong.';
@@ -151,7 +119,6 @@
 			<div class="py-6 text-center space-y-2">
 				<p class="{$t.textPrimary} text-sm font-medium">Added to your lineup</p>
 				<p class="{$t.textMuted} text-xs">{selected?.title} · {selected?.artist}</p>
-				<p class="{$t.textFaint} text-xs">Fetching remaining platform links…</p>
 			</div>
 		{:else if !selected}
 			<SongSearch autofocus on:select={handleSelect} />

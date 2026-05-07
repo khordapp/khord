@@ -8,11 +8,11 @@
 	export let record: KhordSongRecord;
 
 	const PLATFORMS: { key: PlatformKey; label: string; brand: { bg: string; text: string; border: string } }[] = [
-		{ key: 'spotifyUrl',      label: 'Spotify',     brand: { bg: '#1DB954', text: '#000000', border: '#1DB954' } },
 		{ key: 'appleMusicUrl',   label: 'Apple',       brand: { bg: '#FC3C44', text: '#ffffff', border: '#FC3C44' } },
+		{ key: 'spotifyUrl',      label: 'Spotify',     brand: { bg: '#1DB954', text: '#000000', border: '#1DB954' } },
 		{ key: 'youtubeMusicUrl', label: 'YouTube',     brand: { bg: '#FF0000', text: '#ffffff', border: '#FF0000' } },
-		{ key: 'tidalUrl',        label: 'Tidal',       brand: { bg: '#000000', text: '#ffffff', border: '#ffffff' } },
 		{ key: 'deezerUrl',       label: 'Deezer',      brand: { bg: '#EF5466', text: '#ffffff', border: '#EF5466' } },
+		{ key: 'tidalUrl',        label: 'Tidal',       brand: { bg: '#000000', text: '#ffffff', border: '#ffffff' } },
 		{ key: 'amazonMusicUrl',  label: 'Amazon',      brand: { bg: '#00A8E1', text: '#ffffff', border: '#00A8E1' } },
 		{ key: 'soundcloudUrl',   label: 'SoundCloud',  brand: { bg: '#FF5500', text: '#ffffff', border: '#FF5500' } },
 	];
