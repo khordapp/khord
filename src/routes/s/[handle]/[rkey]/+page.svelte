@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { session, authReady } from '$lib/stores/auth';
-	import { updateSetlist, deleteSetlist, createProposal, fetchProposalsFromPDSes, getFollowing } from '$lib/atproto/social';
+	import { updateSetlist, updateSong, deleteSetlist, createProposal, fetchProposalsFromPDSes, getFollowing } from '$lib/atproto/social';
 	import type { FollowedUser } from '$lib/atproto/social';
 	import type { KhordSetlist, KhordSetlistItem, KhordSetlistRecord } from '$lib/atproto/lexicons/setlist';
 	import type { KhordSongRecord } from '$lib/atproto/lexicons/song';
@@ -107,26 +107,25 @@
 		addQuery = '';
 		addResults = [];
 		try {
-			let record: KhordSongRecord = {
+			// Phase 1 — fast: Spotify + YouTube in parallel with iTunes data
+			let phase1: { spotifyUrl?: string; youtubeMusicUrl?: string } = {};
+			if (track.title && track.artist) {
+				const p = new URLSearchParams({ phase: '1', title: track.title, artist: track.artist });
+				const r = await fetch(`/api/resolve?${p}`);
+				if (r.ok) phase1 = await r.json();
+			}
+
+			const record: KhordSongRecord = {
 				title: track.title,
 				artist: track.artist,
-				...(track.album && { album: track.album }),
+				...(track.album        && { album:          track.album }),
+				...(track.artworkUrl   && { thumbnailUrl:   track.artworkUrl }),
+				...(track.appleMusicUrl && { appleMusicUrl: track.appleMusicUrl }),
+				...(phase1.spotifyUrl       && { spotifyUrl:      phase1.spotifyUrl }),
+				...(phase1.youtubeMusicUrl  && { youtubeMusicUrl: phase1.youtubeMusicUrl }),
+				instanceUrl: APP_URL,
 				createdAt: new Date().toISOString()
 			};
-
-			if (track.appleMusicUrl) {
-				const res = await fetch(`/api/resolve?url=${encodeURIComponent(track.appleMusicUrl)}`);
-				if (!res.ok) throw new Error(`Could not resolve song links (${res.status})`);
-				const odesliResult: OdesliResponse = await res.json();
-				const platformUrls = extractPlatformUrls(odesliResult);
-				const entity = getCanonicalEntity(odesliResult);
-				record = {
-					...record,
-					title: entity?.title ?? track.title,
-					artist: entity?.artistName ?? track.artist,
-					...platformUrls
-				};
-			}
 
 			const createRes = await getAgent().com.atproto.repo.createRecord({
 				repo: $session.did,
@@ -161,6 +160,38 @@
 			await updateSetlist($session.did, rkey, updated);
 			setlist = { ...setlist, value: updated };
 			dndItems = [...dndItems, { id: newItem.songUri, item: newItem, record }];
+
+			// Phase 2 — background Odesli enrichment
+			if (track.appleMusicUrl) {
+				const songRkey = createRes.data.uri.split('/').pop()!;
+				const did = $session.did;
+				const p = new URLSearchParams({ url: track.appleMusicUrl, title: track.title, artist: track.artist });
+				fetch(`/api/resolve?${p}`)
+					.then((r) => r.ok ? r.json() : null)
+					.then((result) => {
+						if (!result) return;
+						const platformUrls = extractPlatformUrls(result);
+						const entity = getCanonicalEntity(result);
+						const enriched: KhordSongRecord = {
+							...record,
+							listed: addShareToFeed,
+							title:           entity?.title       ?? record.title,
+							artist:          entity?.artistName  ?? record.artist,
+							thumbnailUrl:    record.thumbnailUrl ?? platformUrls.thumbnailUrl,
+							appleMusicUrl:   record.appleMusicUrl  ?? platformUrls.appleMusicUrl,
+							spotifyUrl:      record.spotifyUrl     ?? platformUrls.spotifyUrl,
+							youtubeMusicUrl: record.youtubeMusicUrl ?? platformUrls.youtubeMusicUrl,
+							...(platformUrls.odesliKey      && { odesliKey:      platformUrls.odesliKey }),
+							...(platformUrls.deezerUrl      && { deezerUrl:      platformUrls.deezerUrl }),
+							...(platformUrls.tidalUrl       && { tidalUrl:       platformUrls.tidalUrl }),
+							...(platformUrls.amazonMusicUrl && { amazonMusicUrl: platformUrls.amazonMusicUrl }),
+							...(platformUrls.soundcloudUrl  && { soundcloudUrl:  platformUrls.soundcloudUrl }),
+							...(platformUrls.songlinkUrl    && { songlinkUrl:    platformUrls.songlinkUrl }),
+						};
+						updateSong(did, songRkey, enriched).catch((e) => console.error('[addSong] Phase 2 update failed:', e));
+					})
+					.catch((e) => console.error('[addSong] Phase 2 resolve failed:', e));
+			}
 		} catch (e) {
 			addError = e instanceof Error ? e.message : 'Failed to add song.';
 		} finally {
@@ -205,25 +236,23 @@
 		proposeQuery = '';
 		proposeResults = [];
 		try {
-			let snapshot = {
+			// Phase 1 only — proposals are snapshots, no Phase 2 enrichment needed
+			let phase1: { spotifyUrl?: string; youtubeMusicUrl?: string } = {};
+			if (track.title && track.artist) {
+				const p = new URLSearchParams({ phase: '1', title: track.title, artist: track.artist });
+				const r = await fetch(`/api/resolve?${p}`);
+				if (r.ok) phase1 = await r.json();
+			}
+
+			const snapshot = {
 				title: track.title,
 				artist: track.artist,
-				...(track.album && { album: track.album })
+				...(track.album        && { album:          track.album }),
+				...(track.artworkUrl   && { thumbnailUrl:   track.artworkUrl }),
+				...(track.appleMusicUrl && { appleMusicUrl: track.appleMusicUrl }),
+				...(phase1.spotifyUrl       && { spotifyUrl:      phase1.spotifyUrl }),
+				...(phase1.youtubeMusicUrl  && { youtubeMusicUrl: phase1.youtubeMusicUrl }),
 			};
-
-			if (track.appleMusicUrl) {
-				const res = await fetch(`/api/resolve?url=${encodeURIComponent(track.appleMusicUrl)}`);
-				if (!res.ok) throw new Error(`Could not resolve song links (${res.status})`);
-				const odesliResult: OdesliResponse = await res.json();
-				const platformUrls = extractPlatformUrls(odesliResult);
-				const entity = getCanonicalEntity(odesliResult);
-				snapshot = {
-					...snapshot,
-					title: entity?.title ?? track.title,
-					artist: entity?.artistName ?? track.artist,
-					...platformUrls
-				};
-			}
 
 			await createProposal(
 				$session.did,

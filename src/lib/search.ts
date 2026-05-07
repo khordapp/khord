@@ -9,7 +9,8 @@ export interface TrackResult {
 	artist: string;
 	album?: string;
 	year?: string;
-	appleMusicUrl?: string; // used as input to Odesli for cross-platform resolution
+	appleMusicUrl?: string;
+	artworkUrl?: string; // 600x600 album art from iTunes CDN
 }
 
 export async function searchTracks(query: string, limit = 6): Promise<TrackResult[]> {
@@ -19,6 +20,7 @@ export async function searchTracks(query: string, limit = 6): Promise<TrackResul
 		artist: r.artistName,
 		album: r.collectionName,
 		year: r.releaseDate?.split('-')[0],
-		appleMusicUrl: r.trackViewUrl
+		appleMusicUrl: r.trackViewUrl,
+		artworkUrl: r.artworkUrl100?.replace('100x100bb', '600x600bb')
 	}));
 }

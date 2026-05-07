@@ -10,6 +10,7 @@ export interface ItunesTrack {
 	collectionName?: string;
 	releaseDate?: string; // ISO 8601
 	trackViewUrl?: string; // Apple Music URL
+	artworkUrl100?: string; // 100x100 album art — URL is templatable to larger sizes
 }
 
 export async function searchItunes(query: string, limit = 6): Promise<ItunesTrack[]> {

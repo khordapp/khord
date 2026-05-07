@@ -99,6 +99,15 @@ export async function createSetlist(
 	return { uri: res.data.uri, cid: res.data.cid };
 }
 
+export async function updateSong(did: string, rkey: string, record: KhordSongRecord): Promise<void> {
+	await getAgent().com.atproto.repo.putRecord({
+		repo: did,
+		collection: SONG_NSID,
+		rkey,
+		record: { $type: SONG_NSID, ...record }
+	});
+}
+
 export async function updateSetlist(
 	did: string,
 	rkey: string,
