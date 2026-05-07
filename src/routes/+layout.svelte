@@ -262,7 +262,7 @@
 				<span class="font-semibold {$t.textMuted}">{APP_NAME.toLowerCase()}</span>
 				<span class="{$t.textFaint}">v{VERSION}</span>
 				<a
-					href="https://khord.app"
+					href="https://www.khord.app"
 					target="_blank"
 					rel="noopener noreferrer"
 					class="{$t.textFaint} {$t.hoverTextSecondary} transition-colors"
@@ -349,7 +349,7 @@
 			<div class="flex flex-col items-center gap-1">
 				<span class="text-sm font-semibold {$t.textMuted}">{APP_NAME.toLowerCase()}</span>
 				<span>v{VERSION}</span>
-				<a href="https://khord.app" target="_blank" rel="noopener noreferrer" class="{$t.textFaint} {$t.hoverTextSecondary} transition-colors">Powered by Khord</a>
+				<a href="https://www.khord.app" target="_blank" rel="noopener noreferrer" class="{$t.textFaint} {$t.hoverTextSecondary} transition-colors">Powered by Khord</a>
 			</div>
 			<div class="flex flex-col items-center gap-1.5 border-t {$t.borderFaded} pt-4">
 				<span>Music search via <a href="https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">iTunes Search API</a></span>
