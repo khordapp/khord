@@ -43,18 +43,32 @@ export interface OdesliResponse {
 	linksByPlatform: Record<string, OdesliPlatformLink>;
 }
 
+const ODESLI_TIMEOUT_MS = 10_000;
+
 export async function resolveUrl(url: string, userCountry = 'US'): Promise<OdesliResponse> {
 	const params = new URLSearchParams({ url, userCountry });
-	const res = await fetch(`${ODESLI_BASE}/links?${params}`);
-	if (!res.ok) throw new Error(`Odesli error ${res.status}: ${await res.text()}`);
-	return res.json();
+	const ac = new AbortController();
+	const timer = setTimeout(() => ac.abort(), ODESLI_TIMEOUT_MS);
+	try {
+		const res = await fetch(`${ODESLI_BASE}/links?${params}`, { signal: ac.signal });
+		if (!res.ok) throw new Error(`Odesli error ${res.status}: ${await res.text()}`);
+		return res.json();
+	} finally {
+		clearTimeout(timer);
+	}
 }
 
 export async function resolveIsrc(isrc: string, userCountry = 'US'): Promise<OdesliResponse> {
 	const params = new URLSearchParams({ id: isrc, type: 'isrc', userCountry });
-	const res = await fetch(`${ODESLI_BASE}/links?${params}`);
-	if (!res.ok) throw new Error(`Odesli error ${res.status}: ${await res.text()}`);
-	return res.json();
+	const ac = new AbortController();
+	const timer = setTimeout(() => ac.abort(), ODESLI_TIMEOUT_MS);
+	try {
+		const res = await fetch(`${ODESLI_BASE}/links?${params}`, { signal: ac.signal });
+		if (!res.ok) throw new Error(`Odesli error ${res.status}: ${await res.text()}`);
+		return res.json();
+	} finally {
+		clearTimeout(timer);
+	}
 }
 
 export function getPlatformUrl(response: OdesliResponse, platform: Platform): string | undefined {
