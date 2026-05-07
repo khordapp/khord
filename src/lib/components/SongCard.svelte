@@ -9,7 +9,7 @@
 	import { instanceConfig } from '$lib/stores/instance';
 	import { theme as t } from '$lib/theme';
 	import { prefs } from '$lib/stores/prefs';
-	import { APP_URL } from '$lib/config';
+	import { APP_URL, thumbUrl } from '$lib/config';
 	import type { PlatformKey } from '$lib/stores/prefs';
 
 	const PLATFORMS: { key: PlatformKey; label: string; color: string }[] = [
@@ -155,7 +155,7 @@
 			<div class="shrink-0 relative">
 				{#if !$instanceConfig.albumArtDisabled && record.thumbnailUrl}
 					<img
-						src={record.thumbnailUrl}
+						src={thumbUrl(record.thumbnailUrl)}
 						alt=""
 						aria-hidden="true"
 						class="w-12 h-12 rounded-md object-cover"

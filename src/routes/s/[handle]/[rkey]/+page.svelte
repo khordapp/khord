@@ -14,7 +14,7 @@
 	import { dndzone } from 'svelte-dnd-action';
 	import { flip } from 'svelte/animate';
 	import { goto } from '$app/navigation';
-	import { APP_NAME, APP_URL } from '$lib/config';
+	import { APP_NAME, APP_URL, thumbUrl } from '$lib/config';
 	import { votes } from '$lib/stores/votes';
 	import { instanceConfig } from '$lib/stores/instance';
 	import { prefs, type PlatformKey } from '$lib/stores/prefs';
@@ -942,7 +942,7 @@
 				{@const s = proposal.value.snapshot}
 				<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} px-4 py-3 flex items-center gap-3">
 					{#if !$instanceConfig.albumArtDisabled && s.thumbnailUrl}
-						<img src={s.thumbnailUrl} alt="" aria-hidden="true" class="w-10 h-10 rounded-md object-cover shrink-0" />
+						<img src={thumbUrl(s.thumbnailUrl)} alt="" aria-hidden="true" class="w-10 h-10 rounded-md object-cover shrink-0" />
 					{/if}
 
 					<div class="flex-1 min-w-0">
@@ -1045,7 +1045,7 @@
 						{/if}
 
 						{#if !$instanceConfig.albumArtDisabled && dndItem.record?.thumbnailUrl}
-							<img src={dndItem.record.thumbnailUrl} alt="" aria-hidden="true" class="w-10 h-10 rounded-md object-cover shrink-0" />
+							<img src={thumbUrl(dndItem.record?.thumbnailUrl)} alt="" aria-hidden="true" class="w-10 h-10 rounded-md object-cover shrink-0" />
 						{/if}
 
 						<div class="flex-1 min-w-0">

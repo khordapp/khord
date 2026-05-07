@@ -6,6 +6,7 @@
 	import { session } from '$lib/stores/auth';
 	import { SONG_NSID, type KhordSongRecord } from '$lib/atproto/lexicons/song';
 	import { createSetlist } from '$lib/atproto/social';
+	import { thumbUrl } from '$lib/config';
 	import type { KhordSetlistItemSnapshot } from '$lib/atproto/lexicons/setlist';
 	import { goto } from '$app/navigation';
 	import { searchTracks } from '$lib/search';
@@ -258,7 +259,7 @@
 						{#each songs as song, i}
 							<li class="flex items-center gap-3 rounded-lg {$t.elevatedBg} px-3 py-2">
 								{#if song.record.thumbnailUrl}
-									<img src={song.record.thumbnailUrl} alt="" aria-hidden="true" class="w-8 h-8 rounded object-cover shrink-0" />
+									<img src={thumbUrl(song.record.thumbnailUrl)} alt="" aria-hidden="true" class="w-8 h-8 rounded object-cover shrink-0" />
 								{:else}
 									<span class="w-8 h-8 flex items-center justify-center {$t.textFaint} text-xs shrink-0">{i + 1}</span>
 								{/if}
