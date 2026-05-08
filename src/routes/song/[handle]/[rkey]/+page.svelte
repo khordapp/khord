@@ -6,6 +6,7 @@
 	import { APP_NAME, APP_URL } from '$lib/config';
 	import { votes } from '$lib/stores/votes';
 	import { theme as t } from '$lib/theme';
+	import { prefs } from '$lib/stores/prefs';
 	import SongCard from '$lib/components/SongCard.svelte';
 
 	export let data: {
@@ -23,6 +24,16 @@
 
 	onMount(async () => {
 		authResolved = true;
+
+		// Redirect logged-in users with a preferred platform directly to their streaming service
+		if (song && $session && $prefs) {
+			const preferredUrl = song.value[$prefs] as string | undefined;
+			if (preferredUrl) {
+				window.location.replace(preferredUrl);
+				return;
+			}
+		}
+
 		try {
 			// Fetch votes regardless — depends on who's logged in
 			if (song) {
