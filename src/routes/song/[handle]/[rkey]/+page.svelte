@@ -22,18 +22,19 @@
 	let error = '';
 	let authResolved = false;
 
+	// Redirect logged-in users with a preferred platform directly to their streaming service.
+	// Uses a reactive statement because $session loads asynchronously after mount.
+	let redirected = false;
+	$: if (!redirected && song && $session && $prefs) {
+		const preferredUrl = song.value[$prefs] as string | undefined;
+		if (preferredUrl) {
+			redirected = true;
+			window.location.replace(preferredUrl);
+		}
+	}
+
 	onMount(async () => {
 		authResolved = true;
-
-		// Redirect logged-in users with a preferred platform directly to their streaming service
-		if (song && $session && $prefs) {
-			const preferredUrl = song.value[$prefs] as string | undefined;
-			if (preferredUrl) {
-				window.location.replace(preferredUrl);
-				return;
-			}
-		}
-
 		try {
 			// Fetch votes regardless — depends on who's logged in
 			if (song) {
