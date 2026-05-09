@@ -34,7 +34,14 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
 			`${pds}/xrpc/com.atproto.repo.getRecord?repo=${encodeURIComponent(did)}&collection=app.khord.song&rkey=${encodeURIComponent(rkey)}`
 		);
 		if (!recordRes.ok) {
-			const removed = recordRes.status === 404;
+			// AT Protocol PDSes return 400 with error:"RecordNotFound" for deleted records, not 404
+			let removed = recordRes.status === 404;
+			if (!removed) {
+				try {
+					const err = await recordRes.json();
+					removed = err.error === 'RecordNotFound';
+				} catch { /* non-JSON body */ }
+			}
 			return { song: null, sharedBy: null, removed };
 		}
 		const { uri, cid, value } = await recordRes.json();
