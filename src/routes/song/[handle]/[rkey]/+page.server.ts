@@ -33,7 +33,10 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
 		const recordRes = await fetch(
 			`${pds}/xrpc/com.atproto.repo.getRecord?repo=${encodeURIComponent(did)}&collection=app.khord.song&rkey=${encodeURIComponent(rkey)}`
 		);
-		if (!recordRes.ok) return { song: null, sharedBy: null };
+		if (!recordRes.ok) {
+			const removed = recordRes.status === 404;
+			return { song: null, sharedBy: null, removed };
+		}
 		const { uri, cid, value } = await recordRes.json();
 
 		// 4. Fetch public profile for display name + avatar
@@ -48,9 +51,10 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
 
 		return {
 			song: { uri, cid, value: value as KhordSongRecord },
-			sharedBy
+			sharedBy,
+			removed: false
 		};
 	} catch {
-		return { song: null, sharedBy: null };
+		return { song: null, sharedBy: null, removed: false };
 	}
 };

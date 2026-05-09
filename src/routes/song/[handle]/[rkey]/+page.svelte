@@ -12,13 +12,15 @@
 	export let data: {
 		song: KhordSong | null;
 		sharedBy: FollowedUser | null;
+		removed: boolean;
 	};
 
 	// Initialise from server-loaded data — OG tags render on first HTML response
 	let song: KhordSong | null = data.song;
 	let sharedBy: FollowedUser | null = data.sharedBy;
+	let removed = data.removed;
 	let voteCount = 0;
-	let loading = !song; // skip loading state if SSR already gave us data
+	let loading = !song && !removed; // skip loading state if SSR already resolved
 	let error = '';
 	let authResolved = false;
 
@@ -99,6 +101,15 @@
 		</div>
 	{:else if error}
 		<p class="text-sm {$t.textMuted} text-center py-8">{error}</p>
+	{:else if removed}
+		<div class="sm:rounded-xl border {$t.borderBase} {$t.surfaceBg} px-6 py-10 flex flex-col items-center gap-3 text-center">
+			<svg viewBox="0 0 24 24" fill="none" class="w-8 h-8 {$t.textMuted}" xmlns="http://www.w3.org/2000/svg">
+				<path d="M9 9l6 6M15 9l-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+				<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
+			</svg>
+			<p class="text-sm font-medium {$t.textSecondary}">This song was removed by the original poster.</p>
+			<a href="/" class="text-xs {$t.textMuted} {$t.hoverTextSecondary} transition-colors">Browse {APP_NAME}</a>
+		</div>
 	{:else if song && sharedBy}
 		<SongCard
 			uri={song.uri}
