@@ -9,6 +9,7 @@
 	import { lastSharedSong, pendingSharedSong, openShareSong, type PendingSong } from '$lib/stores/shareSong';
 	import { openCreateSetlist as openNewSetlist } from '$lib/stores/createSetlist';
 	import SongCard from '$lib/components/SongCard.svelte';
+	import StreamingServiceModal from '$lib/components/StreamingServiceModal.svelte';
 	import { APP_NAME, APP_TAGLINE, AUTH_PROVIDER_NAME, APP_URL } from '$lib/config';
 	import { instanceConfig } from '$lib/stores/instance';
 	import { getAgent } from '$lib/atproto/agent';
@@ -18,6 +19,10 @@
 	import { theme as t } from '$lib/theme';
 	import { prefs } from '$lib/stores/prefs';
 	import LandingContent from '$lib/landing.svelte';
+
+	// Reactive light/dark — re-evaluates whenever $t changes so the glass nav updates on toggle
+	let isLightTheme = false;
+	$: if ($t) isLightTheme = t.isLight();
 
 	type Tab = 'all' | 'following' | 'daily' | 'setlists';
 
@@ -47,6 +52,7 @@
 	let deletedUris = new Set<string>();
 	let createSetlistOpen = false;
 	let mobileActionOpen = false;
+	let settingsOpen = false;
 	let newSetlistTitle = '';
 	let creatingSetlist = false;
 	// URIs that will be used when the create setlist modal is submitted
@@ -60,6 +66,31 @@
 	$: ownSelected = [...selectedUris].filter(
 		(uri) => allItems.find((i) => i.uri === uri)?.sharedBy.did === $session?.did
 	);
+
+	// Selection state for mobile bottom bar
+	$: activeSelectedUris = activeTab === 'daily' ? dailySelectedUris : selectedUris;
+	$: hasSelection = activeSelectedUris.size > 0;
+	$: canRemove = activeTab !== 'daily' && ownSelected.length > 0;
+
+	function clearSelection() {
+		if (activeTab === 'daily') dailySelectedUris = new Set();
+		else selectedUris = new Set();
+	}
+
+	function refreshCurrentTab() {
+		if (activeTab === 'setlists') { setlistsLoaded = false; loadSetlists(); }
+		else loadAllSongs();
+	}
+
+	$: isRefreshing = activeTab === 'setlists' ? setlistsLoading : allLoading;
+
+	function handleMobileSetlist() {
+		if (activeTab === 'daily') {
+			openCreateSetlist(dailySelectedUris.size > 0 ? dailySelectedUris : new Set(dailyItems.map(i => i.uri)));
+		} else {
+			openCreateSetlist(selectedUris);
+		}
+	}
 
 	function toggleSelected(uri: string) {
 		selectedUris = new Set(
@@ -268,6 +299,18 @@
 	$: dailyItems = allItems.filter((i) => localDateStr(new Date(i.record.createdAt)) === dailyDate);
 	$: if (dailyDate) dailySelectedUris = new Set(); // reset selection when date changes
 
+	// ── Pinned setlists ───────────────────────────────────────────────────────
+	interface PinnedSetlist { handle: string; rkey: string; title: string; }
+	let pinnedSetlists: PinnedSetlist[] = [];
+
+	async function loadPinnedSetlists() {
+		try {
+			const r = await fetch('/api/pinned-setlists');
+			if (!r.ok) return;
+			pinnedSetlists = (await r.json()).pins;
+		} catch { /* non-fatal */ }
+	}
+
 	// ── Setlists ──────────────────────────────────────────────────────────────
 	let setlists: KhordSetlist[] = [];
 	let setlistsLoading = false;
@@ -364,7 +407,10 @@
 	function switchTab(tab: Tab) {
 		activeTab = tab;
 		sessionStorage.setItem('khord_tab', tab);
-		if (tab === 'setlists' && !setlistsLoaded) loadSetlists();
+		if (tab === 'setlists') {
+			if (!setlistsLoaded) loadSetlists();
+			loadPinnedSetlists();
+		}
 		tick().then(updateIndicator);
 	}
 
@@ -385,6 +431,7 @@
 	}
 
 	onMount(() => {
+		loadPinnedSetlists();
 		switchTab(activeTab);
 
 		const SWIPE_THRESHOLD = 60;
@@ -576,7 +623,7 @@
 		<span class="text-2xl font-bold {$t.textFaint} tracking-tight">{APP_NAME.toLowerCase()}</span>
 	</div>
 {:else if $isLoggedIn}
-	<section class="space-y-4">
+	<section>
 		<!-- Pull to refresh indicator -->
 		<div
 			class="flex items-center justify-center overflow-hidden transition-[height] duration-150"
@@ -597,13 +644,13 @@
 
 		<!-- Streaming service hint -->
 		{#if !$prefs}
-			<p class="text-sm {$t.textFaint} px-1">
+			<p class="text-sm {$t.textFaint} px-1 mb-3">
 				🎧 <a href="/settings" class="{$t.textMuted} hover:{$t.textSecondary} underline underline-offset-2 transition-colors">Set a streaming service</a> to open songs in one tap.
 			</p>
 		{/if}
 
 		<!-- Sticky toolbar -->
-		<div class="sticky top-0 z-20 -mx-6 px-6 py-2 sm:py-3 {$t.headerBg} backdrop-blur-sm border-b {$t.borderFaded}">
+		<div class="sticky top-0 z-20 -mx-6 px-6 py-2 sm:py-3 {$t.headerBg} backdrop-blur-sm border-b-0 sm:border-b {$t.borderFaded}">
 			<!-- Tabs row — hidden on mobile (bottom nav handles it), visible on desktop -->
 			<nav class="relative hidden sm:flex items-center border-b {$t.borderFaded}">
 				{#each [['all', 'All Songs'], ['following', 'Following'], ['daily', 'Daily'], ['setlists', 'Mixtapes']] as [tab, label], i}
@@ -626,22 +673,10 @@
 
 			</nav>
 
-			<!-- All Songs / Following: shared action buttons -->
+			<!-- All Songs / Following: selection actions (desktop only — mobile uses bottom nav) -->
 			{#if activeTab === 'all' || activeTab === 'following'}
-				<p class="text-xs mt-1 invisible select-none hidden sm:block" aria-hidden="true">&nbsp;</p>
-				<div class="flex items-center gap-2 sm:mt-2">
-					<button
-						on:click={loadAllSongs}
-						disabled={allLoading}
-						aria-label="Refresh"
-						class="flex items-center gap-1.5 text-xs {$t.textMuted} {$t.hoverText} border {$t.borderBase} {$t.hoverBorderBase} px-2.5 py-1 rounded-full disabled:opacity-40 transition-colors"
-					>
-						<svg viewBox="0 0 24 24" fill="none" class="w-3.5 h-3.5 {allLoading ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
-							<path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
-						Refresh
-					</button>
-					{#if selectedUris.size > 0}
+				{#if selectedUris.size > 0}
+					<div class="hidden sm:flex items-center gap-2 sm:mt-2">
 						<button
 							on:click={() => openCreateSetlist(selectedUris)}
 							class="flex items-center gap-1.5 text-xs {$t.accentText} {$t.accentTextHover} border {$t.accentBorder} {$t.accentBorderHover}
@@ -663,25 +698,12 @@
 							</svg>
 							Remove {selectedUris.size}
 						</button>
-					{/if}
-				</div>
+					</div>
+				{/if}
 
-			<!-- Daily: refresh + date picker + setlist button -->
+			<!-- Daily: date picker + mixtape (desktop shows all; mobile shows only date picker) -->
 			{:else if activeTab === 'daily'}
-				<p class="text-xs mt-1 invisible select-none hidden sm:block" aria-hidden="true">&nbsp;</p>
 				<div class="flex items-center gap-2 sm:mt-2">
-					<button
-						on:click={loadAllSongs}
-						disabled={allLoading}
-						aria-label="Refresh"
-						title="Reload songs"
-						class="flex items-center gap-1.5 text-xs {$t.textMuted} {$t.hoverText} border {$t.borderBase} {$t.hoverBorderBase} px-2.5 py-1 rounded-full disabled:opacity-40 transition-colors"
-					>
-						<svg viewBox="0 0 24 24" fill="none" class="w-3.5 h-3.5 {allLoading ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
-							<path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
-						Refresh
-					</button>
 					<button
 						on:click={() => (showDateModal = true)}
 						title="Pick a date"
@@ -690,7 +712,7 @@
 						<svg viewBox="0 0 24 24" fill="none" class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg">
 							<path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 						</svg>
-						{formatDateLabel(dailyDate)}
+						{formatDateLabel(dailyDate)}{dailyItems.length > 0 ? ` · ${dailyItems.length} ${dailyItems.length === 1 ? 'song' : 'songs'}` : ''}
 					</button>
 					{#if dailyItems.length > 0}
 						<button
@@ -700,7 +722,7 @@
 							const title = isAll ? `Daily Mixtape ${new Date(dailyDate + 'T12:00:00').toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric' })}` : '';
 							openCreateSetlist(uris, title);
 						}}
-							class="flex items-center gap-1.5 text-xs {$t.accentText} {$t.accentTextHover} border {$t.accentBorder} {$t.accentBorderHover}
+							class="hidden sm:flex items-center gap-1.5 text-xs {$t.accentText} {$t.accentTextHover} border {$t.accentBorder} {$t.accentBorderHover}
 								{$t.accentBg} px-2.5 py-1 rounded-full transition-colors"
 						>
 							<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
@@ -710,29 +732,11 @@
 						</button>
 					{/if}
 				</div>
-
-			<!-- Setlists: refresh -->
-			{:else if activeTab === 'setlists'}
-				<p class="text-xs mt-1 invisible select-none hidden sm:block" aria-hidden="true">&nbsp;</p>
-				<div class="flex items-center gap-2 sm:mt-2">
-					<button
-						on:click={loadSetlists}
-						disabled={setlistsLoading}
-						aria-label="Refresh mixtapes"
-						title="Reload your mixtapes"
-						class="flex items-center gap-1.5 text-xs {$t.textMuted} {$t.hoverText} border {$t.borderBase} {$t.hoverBorderBase} px-2.5 py-1 rounded-full disabled:opacity-40 transition-colors"
-					>
-						<svg viewBox="0 0 24 24" fill="none" class="w-3.5 h-3.5 {setlistsLoading ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
-							<path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
-						Refresh
-					</button>
-				</div>
 			{/if}
 		</div>
 
 		<!-- Tab carousel — all panels live side by side; the strip translates 1:1 with the finger -->
-		<div class="relative overflow-x-clip">
+		<div class="relative overflow-x-clip mt-2">
 		{#each TABS as tab, i}
 			{@const offset = i - activeTabIdx}
 			<div
@@ -832,9 +836,6 @@
 				{/if}
 
 			{:else if tab === 'daily'}
-				<p class="text-xs {$t.textFaint} mt-2">
-					{dailyItems.length} {dailyItems.length === 1 ? 'song' : 'songs'} shared on {new Date(dailyDate + 'T12:00:00').toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' })}
-				</p>
 				{#if !$followingLoaded || allLoading}
 					<p class="{$t.textMuted} text-sm">Loading…</p>
 				{:else if dailyItems.length === 0}
@@ -862,15 +863,38 @@
 				{#if setlistsLastRefreshed}
 					<p class="text-xs {$t.textFaint} mt-2">Updated {setlistsLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</p>
 				{/if}
+				{#if pinnedSetlists.length > 0}
+					<div class="space-y-2 mt-2">
+						<p class="text-xs font-semibold {$t.textFaint} uppercase tracking-wider px-1">Pinned</p>
+						{#each pinnedSetlists as pin}
+							<a
+								href="/s/{pin.handle}/{pin.rkey}"
+								class="flex items-center justify-between gap-4 rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-4
+									{$t.hoverBorderBase} {$t.hoverBg} transition-colors"
+							>
+								<div class="min-w-0">
+									<p class="text-sm font-semibold {$t.textPrimary} truncate">{pin.title}</p>
+									<p class="text-xs {$t.textMuted} mt-0.5">@{pin.handle}</p>
+								</div>
+								<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 {$t.textFaint} shrink-0" xmlns="http://www.w3.org/2000/svg">
+									<path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+							</a>
+						{/each}
+					</div>
+				{/if}
 				{#if setlistsLoading}
-					<p class="{$t.textMuted} text-sm">Loading mixtapes…</p>
-				{:else if setlists.length === 0}
+					<p class="{$t.textMuted} text-sm mt-2">Loading mixtapes…</p>
+				{:else if setlists.length === 0 && pinnedSetlists.length === 0}
 					<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-10 text-center space-y-2">
 						<p class="{$t.textSecondary} text-sm font-medium">No mixtapes yet</p>
 						<p class="{$t.textMuted} text-xs">Select songs in the Feed tab to create your first mixtape.</p>
 					</div>
-				{:else}
-					<div class="space-y-2">
+				{:else if setlists.length > 0}
+					<div class="space-y-2 {pinnedSetlists.length > 0 ? 'mt-4' : 'mt-2'}">
+						{#if pinnedSetlists.length > 0}
+							<p class="text-xs font-semibold {$t.textFaint} uppercase tracking-wider px-1">Your Mixtapes</p>
+						{/if}
 						{#each setlists as setlist (setlist.uri)}
 							{@const rkey = setlist.uri.split('/').pop()!}
 							<a
@@ -897,7 +921,7 @@
 		{/each}
 		</div>
 		<!-- Space for the mobile bottom nav bar -->
-		<div class="h-20 sm:hidden" aria-hidden="true"></div>
+		<div class="h-24 sm:hidden" aria-hidden="true"></div>
 	</section>
 {:else}
 	<div class="space-y-4">
@@ -944,18 +968,18 @@
 	<nav
 		class="fixed bottom-0 left-0 right-0 z-30 sm:hidden"
 		style="
-			background: {t.isLight() ? 'rgba(255,255,255,0.72)' : 'rgba(9,9,11,0.72)'};
-			backdrop-filter: blur(28px) saturate(180%) brightness({t.isLight() ? '103%' : '115%'});
-			-webkit-backdrop-filter: blur(28px) saturate(180%) brightness({t.isLight() ? '103%' : '115%'});
-			border-top: 1px solid {t.isLight() ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.12)'};
-			box-shadow: inset 0 1px 0 {t.isLight() ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.07)'}, 0 -8px 32px {t.isLight() ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.35)'};
+			background: {isLightTheme ? 'rgba(255,255,255,0.60)' : 'rgba(9,9,11,0.60)'};
+			backdrop-filter: blur(32px) saturate(200%) brightness({isLightTheme ? '108%' : '120%'});
+			-webkit-backdrop-filter: blur(32px) saturate(200%) brightness({isLightTheme ? '108%' : '120%'});
+			border-top: 1px solid {isLightTheme ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.12)'};
+			box-shadow: inset 0 1px 0 {isLightTheme ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.07)'}, 0 -8px 32px {isLightTheme ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.35)'};
 			padding-bottom: env(safe-area-inset-bottom, 0px);
 		"
 	>
-		<!-- Inner specular sheen — gradient from light at top to transparent -->
-		<div class="absolute inset-0 pointer-events-none" style="background: linear-gradient(to bottom, {t.isLight() ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.05)'} 0%, transparent 60%); border-radius: inherit;"></div>
-		<!-- Action sheet — slides up from the + button -->
-		{#if mobileActionOpen}
+		<!-- Inner specular sheen -->
+		<div class="absolute inset-0 pointer-events-none" style="background: linear-gradient(to bottom, {isLightTheme ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.05)'} 0%, transparent 60%); border-radius: inherit;"></div>
+		<!-- Action sheet — slides up from the + button (only shown in tab mode) -->
+		{#if mobileActionOpen && !hasSelection}
 			<button class="fixed inset-0 z-10" aria-label="Close" on:click={() => (mobileActionOpen = false)}></button>
 			<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-20 {$t.elevatedBg} border {$t.borderStrong} rounded-2xl shadow-xl overflow-hidden w-52">
 				<button
@@ -980,70 +1004,148 @@
 			</div>
 		{/if}
 
-		<div class="flex h-14">
-			<!-- Feed -->
-			<button
-				on:click={() => switchTab('all')}
-				class="flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors"
-				aria-label="Feed"
-			>
-				<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 {activeTab === 'all' ? $t.accentText : $t.textMuted}" xmlns="http://www.w3.org/2000/svg">
-					<path d="M2 6.5 8 2l6 4.5V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6.5Z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/>
-					<path d="M6 15v-5h4v5" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/>
-				</svg>
-				<span class="text-[10px] leading-none {activeTab === 'all' ? $t.accentText : $t.textMuted}">Feed</span>
-			</button>
-
-			<!-- Following -->
-			<button
-				on:click={() => switchTab('following')}
-				class="flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors"
-				aria-label="Following"
-			>
-				<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 {activeTab === 'following' ? $t.accentText : $t.textMuted}" xmlns="http://www.w3.org/2000/svg">
-					<path d="M6 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM2 13s-.5-4 4-4 4 4 4 4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-					<path d="M11 6v4M13 8H9" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
-				</svg>
-				<span class="text-[10px] leading-none {activeTab === 'following' ? $t.accentText : $t.textMuted}">Following</span>
-			</button>
-
-			<!-- + action (center) -->
-			<button
-				on:click={() => (mobileActionOpen = !mobileActionOpen)}
-				class="flex-1 flex flex-col items-center justify-center"
-				aria-label="New"
-				aria-expanded={mobileActionOpen}
-			>
-				<div class="w-10 h-10 {$t.btnPrimaryBg} rounded-full flex items-center justify-center shadow-md">
-					<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 {$t.btnPrimaryText} transition-transform {mobileActionOpen ? 'rotate-45' : ''}" xmlns="http://www.w3.org/2000/svg">
-						<path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+		{#if hasSelection}
+			<!-- Selection mode — same icon+label style as tabs -->
+			<div class="flex h-16">
+				<!-- Cancel -->
+				<button
+					on:click={clearSelection}
+					class="flex-1 flex flex-col items-center justify-center gap-1 {$t.textMuted} transition-colors"
+				>
+					<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+						<path d="M3 3l10 10M13 3 3 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
 					</svg>
+					<span class="text-[11px] leading-none">Cancel</span>
+				</button>
+
+				<!-- Count -->
+				<div class="flex-1 flex flex-col items-center justify-center gap-0.5">
+					<span class="text-base font-bold {$t.textPrimary} leading-none">{activeSelectedUris.size}</span>
+					<span class="text-[11px] leading-none {$t.textMuted}">selected</span>
 				</div>
-			</button>
 
-			<!-- Daily -->
-			<button
-				on:click={() => switchTab('daily')}
-				class="flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors"
-				aria-label="Daily"
-			>
-				<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 {activeTab === 'daily' ? $t.accentText : $t.textMuted}" xmlns="http://www.w3.org/2000/svg">
-					<path d="M5 2v2M11 2v2M2 6h12M3 3h10a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
-				<span class="text-[10px] leading-none {activeTab === 'daily' ? $t.accentText : $t.textMuted}">Daily</span>
-			</button>
+				<!-- Mixtape -->
+				<button
+					on:click={handleMobileSetlist}
+					class="flex-1 flex flex-col items-center justify-center gap-1 {$t.accentText} transition-colors"
+				>
+					<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+						<path d="M2 4h12M2 8h8M2 12h5M13 9v6M10 12h6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+					</svg>
+					<span class="text-[11px] leading-none">Mixtape</span>
+				</button>
 
-			<!-- Mixtapes -->
-			<button
-				on:click={() => switchTab('setlists')}
-				class="flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors"
-				aria-label="Mixtapes"
-			>
-				<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 {activeTab === 'setlists' ? $t.accentText : $t.textMuted}" xmlns="http://www.w3.org/2000/svg">
-					<path d="M2 4h12M2 8h8M2 12h5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
-				</svg>
-				<span class="text-[10px] leading-none {activeTab === 'setlists' ? $t.accentText : $t.textMuted}">Mixtapes</span>
-			</button>
-		</div>
+				<!-- Remove (or spacer to keep layout balanced) -->
+				{#if canRemove}
+					<button
+						on:click={() => (confirmOpen = true)}
+						disabled={removing}
+						class="flex-1 flex flex-col items-center justify-center gap-1 text-red-400 transition-colors disabled:opacity-40"
+					>
+						<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+							<path d="M3 4.5h10M6 4.5V3.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v1M12 4.5l-.6 8.5a1 1 0 0 1-1 .9H5.6a1 1 0 0 1-1-.9L4 4.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+						<span class="text-[11px] leading-none">Remove</span>
+					</button>
+				{:else}
+					<div class="flex-1"></div>
+				{/if}
+			</div>
+		{:else}
+			<!-- Default tab bar -->
+			<div class="flex h-16">
+				<!-- Feed -->
+				<button
+					on:click={() => switchTab('all')}
+					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors"
+					aria-label="Feed"
+				>
+					<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6 {activeTab === 'all' ? $t.accentText : $t.textMuted}" xmlns="http://www.w3.org/2000/svg">
+						<path d="M2 6.5 8 2l6 4.5V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6.5Z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/>
+						<path d="M6 15v-5h4v5" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/>
+					</svg>
+					<span class="text-[11px] leading-none {activeTab === 'all' ? $t.accentText : $t.textMuted}">Feed</span>
+				</button>
+
+				<!-- Following -->
+				<button
+					on:click={() => switchTab('following')}
+					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors"
+					aria-label="Following"
+				>
+					<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6 {activeTab === 'following' ? $t.accentText : $t.textMuted}" xmlns="http://www.w3.org/2000/svg">
+						<path d="M6 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM2 13s-.5-4 4-4 4 4 4 4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+						<path d="M11 6v4M13 8H9" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+					</svg>
+					<span class="text-[11px] leading-none {activeTab === 'following' ? $t.accentText : $t.textMuted}">Following</span>
+				</button>
+
+				<!-- Daily -->
+				<button
+					on:click={() => switchTab('daily')}
+					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors"
+					aria-label="Daily"
+				>
+					<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6 {activeTab === 'daily' ? $t.accentText : $t.textMuted}" xmlns="http://www.w3.org/2000/svg">
+						<path d="M5 2v2M11 2v2M2 6h12M3 3h10a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+					<span class="text-[11px] leading-none {activeTab === 'daily' ? $t.accentText : $t.textMuted}">Daily</span>
+				</button>
+
+				<!-- + action (center) -->
+				<button
+					on:click={() => (mobileActionOpen = !mobileActionOpen)}
+					class="flex-1 flex flex-col items-center justify-center"
+					aria-label="New"
+					aria-expanded={mobileActionOpen}
+				>
+					<div class="w-11 h-11 {$t.btnPrimaryBg} rounded-full flex items-center justify-center shadow-md">
+						<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6 {$t.btnPrimaryText} transition-transform {mobileActionOpen ? 'rotate-45' : ''}" xmlns="http://www.w3.org/2000/svg">
+							<path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+						</svg>
+					</div>
+				</button>
+
+				<!-- Mixtapes -->
+				<button
+					on:click={() => switchTab('setlists')}
+					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors"
+					aria-label="Mixtapes"
+				>
+					<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6 {activeTab === 'setlists' ? $t.accentText : $t.textMuted}" xmlns="http://www.w3.org/2000/svg">
+						<path d="M2 4h12M2 8h8M2 12h5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+					</svg>
+					<span class="text-[11px] leading-none {activeTab === 'setlists' ? $t.accentText : $t.textMuted}">Mixtapes</span>
+				</button>
+
+				<!-- Refresh -->
+				<button
+					on:click={refreshCurrentTab}
+					disabled={isRefreshing}
+					class="flex-1 flex flex-col items-center justify-center gap-1 {$t.textMuted} transition-colors disabled:opacity-40"
+					aria-label="Refresh"
+				>
+					<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6 {isRefreshing ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
+						<path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+					<span class="text-[11px] leading-none">Refresh</span>
+				</button>
+
+				<!-- Settings -->
+				<button
+					on:click={() => (settingsOpen = true)}
+					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors"
+					aria-label="Streaming service"
+				>
+					<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6 {$t.textMuted}" xmlns="http://www.w3.org/2000/svg">
+						<path d="M8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" stroke="currentColor" stroke-width="1.25"/>
+						<path d="M13.3 6.6a1 1 0 0 0 .2-1.1l-.8-1.4a1 1 0 0 0-1-.5l-1 .2a5 5 0 0 0-.8-.5l-.2-1A1 1 0 0 0 8.8 2H7.2a1 1 0 0 0-1 .8l-.2 1a5 5 0 0 0-.8.5l-1-.2a1 1 0 0 0-1 .5L2.4 6a1 1 0 0 0 .2 1.1l.7.7v.4l-.7.7a1 1 0 0 0-.2 1.1l.8 1.4a1 1 0 0 0 1 .5l1-.2c.3.2.5.3.8.5l.2 1a1 1 0 0 0 1 .8h1.6a1 1 0 0 0 1-.8l.2-1c.3-.2.5-.3.8-.5l1 .2a1 1 0 0 0 1-.5l.8-1.4a1 1 0 0 0-.2-1.1l-.7-.7v-.4l.7-.7Z" stroke="currentColor" stroke-width="1.25"/>
+					</svg>
+					<span class="text-[11px] leading-none {$t.textMuted}">Settings</span>
+				</button>
+			</div>
+		{/if}
 	</nav>
+
+	<StreamingServiceModal bind:open={settingsOpen} />
 {/if}

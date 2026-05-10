@@ -93,10 +93,11 @@
 
 		<div class="flex items-center gap-4">
 			{#if $isLoggedIn}
+				<!-- Streaming selector — desktop only; mobile accesses this from the bottom toolbar -->
 				<button
 					on:click={() => (serviceSelectorOpen = true)}
 					title={currentPlatformLabel ? `Streaming on ${currentPlatformLabel} — change` : 'Set streaming service'}
-					class="flex items-center gap-1 transition-opacity hover:opacity-70 {currentPlatformLabel ? '' : $t.textFaint}"
+					class="hidden sm:flex items-center gap-1 transition-opacity hover:opacity-70 {currentPlatformLabel ? '' : $t.textFaint}"
 				>
 					<span class="text-2xl leading-none" aria-hidden="true">🎧</span>
 					<svg viewBox="0 0 10 10" fill="none" class="w-2 h-2 shrink-0" xmlns="http://www.w3.org/2000/svg">
@@ -259,7 +260,7 @@
 		</div>
 	</header>
 
-	<main class="flex-1 w-full max-w-2xl mx-auto px-6 pt-8 pb-6 sm:py-8">
+	<main class="flex-1 w-full max-w-2xl mx-auto px-6 pb-6 sm:py-8">
 		<slot />
 	</main>
 

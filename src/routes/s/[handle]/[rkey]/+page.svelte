@@ -20,6 +20,9 @@
 	import { prefs, type PlatformKey } from '$lib/stores/prefs';
 	import { theme as t } from '$lib/theme';
 
+	let isLightTheme = false;
+	$: if ($t) isLightTheme = t.isLight();
+
 	const PLATFORMS: { key: PlatformKey; label: string; color: string }[] = [
 		{ key: 'appleMusicUrl',   label: 'Apple Music',   color: '#FC3C44' },
 		{ key: 'spotifyUrl',      label: 'Spotify',       color: '#1DB954' },
@@ -657,7 +660,7 @@
 	</div>
 {/if}
 
-<section class="space-y-6">
+<section class="space-y-6 pb-20">
 	<!-- Header -->
 	<div class="sticky top-0 z-20 -mx-6 px-6 py-3 {$t.headerBg} backdrop-blur-sm border-b {$t.borderFaded} space-y-1.5">
 		<!-- Title row: back link left | title center | edit right -->
@@ -706,75 +709,6 @@
 			</p>
 		{/if}
 
-		{#if !loading}
-			<div class="flex items-center gap-2 min-h-[28px]">
-				<!-- Share button -->
-				{#if $authReady && $session}
-					<button
-						on:click={shareNativeMixtape}
-						aria-label="Share mixtape"
-						title="Share this mixtape"
-						class="flex items-center gap-1.5 text-xs border px-2.5 py-1 rounded-full transition-colors
-							{sharePosted
-								? `${$t.textPrimary} ${$t.elevatedBg} ${$t.borderStrong}`
-								: `${$t.textMuted} ${$t.hoverText} ${$t.borderBase} ${$t.hoverBorderBase}`}"
-					>
-						{#if sharePosted}
-							<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
-								<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-							</svg>
-							Copied
-						{:else}
-							<svg viewBox="0 0 24 24" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
-								<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-							</svg>
-							Share
-						{/if}
-					</button>
-				{/if}
-
-				<!-- Add song / Propose a song -->
-				{#if isOwn}
-					<button
-						on:click={() => (addOpen = !addOpen)}
-						class="flex items-center gap-1.5 text-xs border px-2.5 py-1 rounded-full transition-colors
-							{addOpen ? `${$t.textPrimary} ${$t.elevatedBg} ${$t.borderStrong}` : `${$t.textMuted} ${$t.hoverText} ${$t.borderBase} ${$t.hoverBorderBase}`}"
-					>
-						<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0 transition-transform {addOpen ? 'rotate-45' : ''}" xmlns="http://www.w3.org/2000/svg">
-							<path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-						</svg>
-						Add song
-					</button>
-				{:else if $session}
-					<button
-						on:click={() => (proposeOpen = !proposeOpen)}
-						class="flex items-center gap-1.5 text-xs border px-2.5 py-1 rounded-full transition-colors
-							{proposeOpen ? `${$t.textPrimary} ${$t.elevatedBg} ${$t.borderStrong}` : `${$t.textMuted} ${$t.hoverText} ${$t.borderBase} ${$t.hoverBorderBase}`}"
-					>
-						<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0 transition-transform {proposeOpen ? 'rotate-45' : ''}" xmlns="http://www.w3.org/2000/svg">
-							<path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-						</svg>
-						Propose a song
-					</button>
-				{/if}
-
-				<!-- Delete button (owner only), pushed to the right -->
-				{#if isOwn}
-					<button
-						on:click={() => (confirmDeleteOpen = true)}
-						aria-label="Delete mixtape"
-						title="Permanently delete this mixtape"
-						class="ml-auto flex items-center gap-1.5 text-xs border px-2.5 py-1 rounded-full transition-colors
-							text-red-400 hover:text-red-300 border-red-900 hover:border-red-700 bg-red-950"
-					>
-						<svg viewBox="0 0 24 24" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
-							<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
-						Delete
-					</button>
-				{/if}
-			</div>
-		{/if}
 	</div>
 
 	{#if addOpen && isOwn}
@@ -991,34 +925,13 @@
 			<p class="{$t.textMuted} text-xs">Select songs in the Feed tab and add them to a mixtape.</p>
 		</div>
 	{:else}
-		{#if isOwn}
-			<div class="flex items-center gap-3 -mt-3">
-				<label class="flex items-center gap-2 cursor-pointer select-none">
-					<button
-						role="switch"
-						aria-checked={editMode}
-						aria-label="Edit mode"
-						on:click={() => (editMode = !editMode)}
-						class="relative w-8 h-4.5 rounded-full transition-colors duration-200 focus-visible:outline-none
-							{editMode ? 'bg-violet-600' : $t.elevatedBg} border {editMode ? 'border-violet-500' : $t.borderStrong}"
-						style="height:18px;width:32px;"
-					>
-						<span
-							class="absolute top-0.5 w-3 h-3 rounded-full bg-white shadow transition-all duration-200"
-							style="left: {editMode ? '15px' : '2px'};"
-						></span>
-					</button>
-					<span class="text-xs {editMode ? $t.textSecondary : $t.textFaint}">Edit</span>
-				</label>
-				{#if editMode && dndItems.length > 1}
-					<span class="text-xs {$t.textFaint} flex items-center gap-1.5">
-						<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
-							<path d="M2 4h10M2 7h10M2 10h10" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
-						</svg>
-						Drag to reorder
-					</span>
-				{/if}
-			</div>
+		{#if isOwn && editMode && dndItems.length > 1}
+			<p class="text-xs {$t.textFaint} flex items-center gap-1.5 -mt-2">
+				<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
+					<path d="M2 4h10M2 7h10M2 10h10" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+				</svg>
+				Drag to reorder
+			</p>
 		{/if}
 
 		<div
@@ -1176,6 +1089,123 @@
 			<a href="/login" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium {$t.btnPrimaryBg} {$t.btnPrimaryText} {$t.btnPrimaryHover} transition-colors">
 				Sign in to join
 			</a>
+		</div>
+	{/if}
+
+	<!-- Bottom action bar -->
+	{#if $authReady}
+		<div
+			class="fixed bottom-0 left-0 right-0 z-30"
+			style="background: {isLightTheme ? 'rgba(255,255,255,0.60)' : 'rgba(9,9,11,0.60)'}; backdrop-filter: blur(32px) saturate(200%) brightness({isLightTheme ? '108%' : '120%'}); border-top: 1px solid {isLightTheme ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)'};"
+		>
+			{#if isOwn && !loading}
+				<div class="flex h-16 max-w-2xl mx-auto">
+					<!-- Share -->
+					<button
+						on:click={shareNativeMixtape}
+						aria-label="Share mixtape"
+						class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {sharePosted ? $t.textPrimary : $t.textMuted}"
+					>
+						{#if sharePosted}
+							<svg viewBox="0 0 14 14" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+								<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+							<span class="text-[11px] leading-none">Copied</span>
+						{:else}
+							<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+								<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+							<span class="text-[11px] leading-none">Share</span>
+						{/if}
+					</button>
+					<!-- Add Song -->
+					<button
+						on:click={() => { addOpen = !addOpen; if (addOpen) window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+						aria-label="Add song"
+						class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {addOpen ? $t.accentText : $t.textMuted}"
+					>
+						<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6 transition-transform {addOpen ? 'rotate-45' : ''}" xmlns="http://www.w3.org/2000/svg">
+							<path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+						</svg>
+						<span class="text-[11px] leading-none">Add Song</span>
+					</button>
+					<!-- Edit -->
+					<button
+						on:click={() => (editMode = !editMode)}
+						aria-label="Toggle edit mode"
+						class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {editMode ? $t.accentText : $t.textMuted}"
+					>
+						<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+							<path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							<path d="M19.5 7.125L16.5 4.125" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+						<span class="text-[11px] leading-none">Edit</span>
+					</button>
+					<!-- Delete -->
+					<button
+						on:click={() => (confirmDeleteOpen = true)}
+						aria-label="Delete mixtape"
+						class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors text-red-400"
+					>
+						<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+							<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+						<span class="text-[11px] leading-none">Delete</span>
+					</button>
+				</div>
+			{:else if $session && !loading}
+				<div class="flex h-16 max-w-2xl mx-auto">
+					<!-- Share -->
+					<button
+						on:click={shareNativeMixtape}
+						aria-label="Share mixtape"
+						class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {sharePosted ? $t.textPrimary : $t.textMuted}"
+					>
+						{#if sharePosted}
+							<svg viewBox="0 0 14 14" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+								<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+							<span class="text-[11px] leading-none">Copied</span>
+						{:else}
+							<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+								<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+							<span class="text-[11px] leading-none">Share</span>
+						{/if}
+					</button>
+					<!-- Propose -->
+					<button
+						on:click={() => { proposeOpen = !proposeOpen; if (proposeOpen) window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+						aria-label="Propose a song"
+						class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {proposeOpen ? $t.accentText : $t.textMuted}"
+					>
+						<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6 transition-transform {proposeOpen ? 'rotate-45' : ''}" xmlns="http://www.w3.org/2000/svg">
+							<path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+						</svg>
+						<span class="text-[11px] leading-none">Propose</span>
+					</button>
+				</div>
+			{:else if !$session}
+				<div class="flex h-16 max-w-2xl mx-auto">
+					<button
+						on:click={shareNativeMixtape}
+						aria-label="Share mixtape"
+						class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {sharePosted ? $t.textPrimary : $t.textMuted}"
+					>
+						{#if sharePosted}
+							<svg viewBox="0 0 14 14" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+								<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+							<span class="text-[11px] leading-none">Copied</span>
+						{:else}
+							<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+								<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+							<span class="text-[11px] leading-none">Share</span>
+						{/if}
+					</button>
+				</div>
+			{/if}
 		</div>
 	{/if}
 
