@@ -6,7 +6,8 @@
 	import type { KhordSongRecord } from '$lib/atproto/lexicons/song';
 	import { SONG_NSID } from '$lib/atproto/lexicons/song';
 	import type { KhordSetlist } from '$lib/atproto/lexicons/setlist';
-	import { lastSharedSong, pendingSharedSong, type PendingSong } from '$lib/stores/shareSong';
+	import { lastSharedSong, pendingSharedSong, openShareSong, type PendingSong } from '$lib/stores/shareSong';
+	import { openCreateSetlist as openNewSetlist } from '$lib/stores/createSetlist';
 	import SongCard from '$lib/components/SongCard.svelte';
 	import { APP_NAME, APP_TAGLINE, AUTH_PROVIDER_NAME, APP_URL } from '$lib/config';
 	import { instanceConfig } from '$lib/stores/instance';
@@ -45,6 +46,7 @@
 	let confirmOpen = false;
 	let deletedUris = new Set<string>();
 	let createSetlistOpen = false;
+	let mobileActionOpen = false;
 	let newSetlistTitle = '';
 	let creatingSetlist = false;
 	// URIs that will be used when the create setlist modal is submitted
@@ -602,8 +604,8 @@
 
 		<!-- Sticky toolbar -->
 		<div class="sticky top-0 z-20 -mx-6 px-6 py-3 {$t.headerBg} backdrop-blur-sm border-b {$t.borderFaded}">
-			<!-- Tabs row — underline style with animated indicator -->
-			<nav class="relative flex items-center border-b {$t.borderFaded}">
+			<!-- Tabs row — hidden on mobile (bottom nav handles it), visible on desktop -->
+			<nav class="relative hidden sm:flex items-center border-b {$t.borderFaded}">
 				{#each [['all', 'All Songs'], ['following', 'Following'], ['daily', 'Daily'], ['setlists', 'Mixtapes']] as [tab, label], i}
 					<button
 						bind:this={tabEls[i]}
@@ -626,7 +628,7 @@
 
 			<!-- All Songs / Following: shared action buttons -->
 			{#if activeTab === 'all' || activeTab === 'following'}
-				<p class="text-xs mt-1 invisible select-none" aria-hidden="true">&nbsp;</p>
+				<p class="text-xs mt-1 invisible select-none hidden sm:block" aria-hidden="true">&nbsp;</p>
 				<div class="flex items-center gap-2 mt-2">
 					<button
 						on:click={loadAllSongs}
@@ -666,7 +668,7 @@
 
 			<!-- Daily: refresh + date picker + setlist button -->
 			{:else if activeTab === 'daily'}
-				<p class="text-xs mt-1 invisible select-none" aria-hidden="true">&nbsp;</p>
+				<p class="text-xs mt-1 invisible select-none hidden sm:block" aria-hidden="true">&nbsp;</p>
 				<div class="flex items-center gap-2 mt-2">
 					<button
 						on:click={loadAllSongs}
@@ -711,7 +713,7 @@
 
 			<!-- Setlists: refresh -->
 			{:else if activeTab === 'setlists'}
-				<p class="text-xs mt-1 invisible select-none" aria-hidden="true">&nbsp;</p>
+				<p class="text-xs mt-1 invisible select-none hidden sm:block" aria-hidden="true">&nbsp;</p>
 				<div class="flex items-center gap-2 mt-2">
 					<button
 						on:click={loadSetlists}
@@ -894,6 +896,8 @@
 			</div>
 		{/each}
 		</div>
+		<!-- Space for the mobile bottom nav bar -->
+		<div class="h-20 sm:hidden" aria-hidden="true"></div>
 	</section>
 {:else}
 	<div class="space-y-4">
@@ -933,4 +937,104 @@
 
 		<LandingContent />
 	</div>
+{/if}
+
+{#if $isLoggedIn}
+	<!-- Mobile bottom nav — replaces FAB + tab row on small screens -->
+	<nav
+		class="fixed bottom-0 left-0 right-0 z-30 sm:hidden {$t.pageBg} border-t {$t.borderBase}"
+		style="padding-bottom: env(safe-area-inset-bottom, 0px)"
+	>
+		<!-- Action sheet — slides up from the + button -->
+		{#if mobileActionOpen}
+			<button class="fixed inset-0 z-10" aria-label="Close" on:click={() => (mobileActionOpen = false)}></button>
+			<div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 z-20 {$t.elevatedBg} border {$t.borderStrong} rounded-2xl shadow-xl overflow-hidden w-52">
+				<button
+					on:click={() => { mobileActionOpen = false; openShareSong(); }}
+					class="w-full flex items-center gap-3 px-4 py-4 text-sm font-medium {$t.textPrimary} {$t.hoverBg} transition-colors"
+				>
+					<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 {$t.accentText} shrink-0" xmlns="http://www.w3.org/2000/svg">
+						<path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+					</svg>
+					Share a song
+				</button>
+				<div class="border-t {$t.borderFaded}"></div>
+				<button
+					on:click={() => { mobileActionOpen = false; openNewSetlist(); }}
+					class="w-full flex items-center gap-3 px-4 py-4 text-sm font-medium {$t.textPrimary} {$t.hoverBg} transition-colors"
+				>
+					<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 {$t.accentText} shrink-0" xmlns="http://www.w3.org/2000/svg">
+						<path d="M2 5h12M2 8h8M2 11h5M13 9v6M10 12h6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+					</svg>
+					New mixtape
+				</button>
+			</div>
+		{/if}
+
+		<div class="flex h-14">
+			<!-- Feed -->
+			<button
+				on:click={() => switchTab('all')}
+				class="flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors"
+				aria-label="Feed"
+			>
+				<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 {activeTab === 'all' ? $t.accentText : $t.textMuted}" xmlns="http://www.w3.org/2000/svg">
+					<path d="M2 6.5 8 2l6 4.5V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6.5Z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/>
+					<path d="M6 15v-5h4v5" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/>
+				</svg>
+				<span class="text-[10px] leading-none {activeTab === 'all' ? $t.accentText : $t.textMuted}">Feed</span>
+			</button>
+
+			<!-- Following -->
+			<button
+				on:click={() => switchTab('following')}
+				class="flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors"
+				aria-label="Following"
+			>
+				<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 {activeTab === 'following' ? $t.accentText : $t.textMuted}" xmlns="http://www.w3.org/2000/svg">
+					<path d="M6 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM2 13s-.5-4 4-4 4 4 4 4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+					<path d="M11 6v4M13 8H9" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+				</svg>
+				<span class="text-[10px] leading-none {activeTab === 'following' ? $t.accentText : $t.textMuted}">Following</span>
+			</button>
+
+			<!-- + action (center) -->
+			<button
+				on:click={() => (mobileActionOpen = !mobileActionOpen)}
+				class="flex-1 flex flex-col items-center justify-center"
+				aria-label="New"
+				aria-expanded={mobileActionOpen}
+			>
+				<div class="w-10 h-10 {$t.btnPrimaryBg} rounded-full flex items-center justify-center shadow-md">
+					<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 {$t.btnPrimaryText} transition-transform {mobileActionOpen ? 'rotate-45' : ''}" xmlns="http://www.w3.org/2000/svg">
+						<path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
+					</svg>
+				</div>
+			</button>
+
+			<!-- Daily -->
+			<button
+				on:click={() => switchTab('daily')}
+				class="flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors"
+				aria-label="Daily"
+			>
+				<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 {activeTab === 'daily' ? $t.accentText : $t.textMuted}" xmlns="http://www.w3.org/2000/svg">
+					<path d="M5 2v2M11 2v2M2 6h12M3 3h10a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+				<span class="text-[10px] leading-none {activeTab === 'daily' ? $t.accentText : $t.textMuted}">Daily</span>
+			</button>
+
+			<!-- Mixtapes -->
+			<button
+				on:click={() => switchTab('setlists')}
+				class="flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors"
+				aria-label="Mixtapes"
+			>
+				<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 {activeTab === 'setlists' ? $t.accentText : $t.textMuted}" xmlns="http://www.w3.org/2000/svg">
+					<path d="M2 4h12M2 8h8M2 12h5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+				</svg>
+				<span class="text-[10px] leading-none {activeTab === 'setlists' ? $t.accentText : $t.textMuted}">Mixtapes</span>
+			</button>
+		</div>
+	</nav>
 {/if}
