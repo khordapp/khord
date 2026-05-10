@@ -182,7 +182,7 @@
 		<p class="text-sm {$t.textMuted}">Opening…</p>
 	</div>
 {:else}
-	<div class="min-h-dvh {$t.pageBg} {$t.textPrimary} flex flex-col">
+	<div class="h-dvh {$t.pageBg} {$t.textPrimary} flex flex-col">
 
 		<!-- Header -->
 		<div class="px-6 pt-5 pb-3 flex items-center gap-3 border-b {$t.borderFaded}">
@@ -310,9 +310,6 @@
 
 <style>
 	.share-footer {
-		padding-bottom: max(1rem, calc(4.5rem + env(safe-area-inset-bottom, 0px)));
-	}
-	@media (min-width: 640px) {
-		.share-footer { padding-bottom: 1rem; }
+		padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
 	}
 </style>
