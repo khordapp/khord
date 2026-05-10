@@ -470,8 +470,8 @@
 		<button class="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-label="Cancel" on:click={() => (showDateModal = false)}></button>
 		<div class="relative w-full max-w-sm {$t.surfaceBg} border {$t.borderStrong} rounded-2xl shadow-2xl overflow-hidden">
 			<div class="px-6 pt-5 pb-2 flex items-center justify-between">
-				<h2 class="text-base font-semibold {$t.textPrimary}">Days with songs</h2>
-				<button on:click={() => (showDateModal = false)} class="text-sm {$t.textMuted} {$t.hoverText} transition-colors">Done</button>
+				<h2 class="text-base font-semibold {$t.textPrimary}">Daily History</h2>
+				<button on:click={() => (showDateModal = false)} class="text-sm {$t.textMuted} {$t.hoverText} transition-colors">Close</button>
 			</div>
 			{#if datesWithActivity.length === 0}
 				<p class="px-6 py-5 text-sm {$t.textMuted}">No songs yet.</p>
