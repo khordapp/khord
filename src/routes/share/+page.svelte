@@ -264,7 +264,7 @@
 		</div>
 
 		<!-- Footer: progress or create button -->
-		<div class="px-6 py-4 border-t {$t.borderFaded} space-y-3">
+		<div class="px-6 pt-4 border-t {$t.borderFaded} space-y-3 share-footer">
 			{#if createError}
 				<p class="text-xs text-red-400">{createError}</p>
 			{/if}
@@ -294,3 +294,12 @@
 		</div>
 	</div>
 {/if}
+
+<style>
+	.share-footer {
+		padding-bottom: max(1rem, calc(4.5rem + env(safe-area-inset-bottom, 0px)));
+	}
+	@media (min-width: 640px) {
+		.share-footer { padding-bottom: 1rem; }
+	}
+</style>
