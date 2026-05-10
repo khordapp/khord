@@ -276,7 +276,7 @@
 
 	<!-- Fixed bottom action bar — same glass treatment as setlist and feed toolbars -->
 	<div
-		class="fixed bottom-0 left-0 right-0 z-30 px-4 pt-3 relative"
+		class="fixed bottom-0 left-0 right-0 z-30 px-4 pt-3"
 		style="
 			background: {isLightTheme ? 'rgba(255,255,255,0.60)' : 'rgba(9,9,11,0.60)'};
 			backdrop-filter: blur(32px) saturate(200%) brightness({isLightTheme ? '108%' : '120%'});
