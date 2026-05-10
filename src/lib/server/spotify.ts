@@ -71,16 +71,27 @@ export async function fetchSpotifyPlaylist(id: string): Promise<{
 } | null> {
 	try {
 		const token = await getToken();
-		const fields = 'name,tracks.items(track(id,name,artists(name),album(name,images)))';
-		const res = await fetch(
-			`https://api.spotify.com/v1/playlists/${encodeURIComponent(id)}?fields=${encodeURIComponent(fields)}`,
-			{ headers: { Authorization: `Bearer ${token}` } }
-		);
-		if (!res.ok) return null;
-		const data = await res.json();
-		const tracks: SpotifyPlaylistTrack[] = (data.tracks?.items ?? [])
+
+		// Fetch playlist name and tracks in parallel using separate endpoints —
+		// avoids the fields filter syntax which breaks when URL-encoded.
+		const [metaRes, tracksRes] = await Promise.all([
+			fetch(`https://api.spotify.com/v1/playlists/${encodeURIComponent(id)}?fields=name`, {
+				headers: { Authorization: `Bearer ${token}` }
+			}),
+			fetch(`https://api.spotify.com/v1/playlists/${encodeURIComponent(id)}/tracks?limit=50`, {
+				headers: { Authorization: `Bearer ${token}` }
+			}),
+		]);
+
+		if (!metaRes.ok || !tracksRes.ok) {
+			console.error(`[spotify playlist] meta=${metaRes.status} tracks=${tracksRes.status}`);
+			return null;
+		}
+
+		const [meta, tracksData] = await Promise.all([metaRes.json(), tracksRes.json()]);
+
+		const tracks: SpotifyPlaylistTrack[] = (tracksData.items ?? [])
 			.filter((item: { track?: { id?: string } }) => item?.track?.id)
-			.slice(0, 50)
 			.map((item: { track: { id: string; name: string; artists: { name: string }[]; album?: { name?: string; images?: { url: string }[] } } }) => ({
 				id:         item.track.id,
 				title:      item.track.name,
@@ -88,8 +99,10 @@ export async function fetchSpotifyPlaylist(id: string): Promise<{
 				album:      item.track.album?.name,
 				artworkUrl: item.track.album?.images?.[0]?.url,
 			}));
-		return { title: data.name, tracks };
-	} catch {
+
+		return { title: meta.name, tracks };
+	} catch (e) {
+		console.error('[spotify playlist] error:', e);
 		return null;
 	}
 }
