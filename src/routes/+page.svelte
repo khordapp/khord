@@ -654,7 +654,7 @@
 		{/if}
 
 		<!-- Sticky toolbar -->
-		<div class="sticky top-0 z-20 -mx-6 px-6 py-2 sm:py-3 {$t.headerBg} backdrop-blur-sm border-b-0 sm:border-b {$t.borderFaded}">
+		<div class="sticky top-0 z-20 -mx-6 px-6 pt-2 pb-3 sm:py-3 {$t.headerBg} backdrop-blur-sm border-b-0 sm:border-b {$t.borderFaded}">
 			<!-- Tabs row — hidden on mobile (bottom nav handles it), visible on desktop -->
 			<nav class="relative hidden sm:flex items-center border-b {$t.borderFaded}">
 				{#each [['all', 'All Songs'], ['following', 'Following'], ['daily', 'Daily'], ['setlists', 'Mixtapes']] as [tab, label], i}
