@@ -603,7 +603,7 @@
 		{/if}
 
 		<!-- Sticky toolbar -->
-		<div class="sticky top-0 z-20 -mx-6 px-6 py-3 {$t.headerBg} backdrop-blur-sm border-b {$t.borderFaded}">
+		<div class="sticky top-0 z-20 -mx-6 px-6 py-2 sm:py-3 {$t.headerBg} backdrop-blur-sm border-b {$t.borderFaded}">
 			<!-- Tabs row — hidden on mobile (bottom nav handles it), visible on desktop -->
 			<nav class="relative hidden sm:flex items-center border-b {$t.borderFaded}">
 				{#each [['all', 'All Songs'], ['following', 'Following'], ['daily', 'Daily'], ['setlists', 'Mixtapes']] as [tab, label], i}
@@ -629,7 +629,7 @@
 			<!-- All Songs / Following: shared action buttons -->
 			{#if activeTab === 'all' || activeTab === 'following'}
 				<p class="text-xs mt-1 invisible select-none hidden sm:block" aria-hidden="true">&nbsp;</p>
-				<div class="flex items-center gap-2 mt-2">
+				<div class="flex items-center gap-2 sm:mt-2">
 					<button
 						on:click={loadAllSongs}
 						disabled={allLoading}
@@ -669,7 +669,7 @@
 			<!-- Daily: refresh + date picker + setlist button -->
 			{:else if activeTab === 'daily'}
 				<p class="text-xs mt-1 invisible select-none hidden sm:block" aria-hidden="true">&nbsp;</p>
-				<div class="flex items-center gap-2 mt-2">
+				<div class="flex items-center gap-2 sm:mt-2">
 					<button
 						on:click={loadAllSongs}
 						disabled={allLoading}
@@ -714,7 +714,7 @@
 			<!-- Setlists: refresh -->
 			{:else if activeTab === 'setlists'}
 				<p class="text-xs mt-1 invisible select-none hidden sm:block" aria-hidden="true">&nbsp;</p>
-				<div class="flex items-center gap-2 mt-2">
+				<div class="flex items-center gap-2 sm:mt-2">
 					<button
 						on:click={loadSetlists}
 						disabled={setlistsLoading}
@@ -942,9 +942,18 @@
 {#if $isLoggedIn}
 	<!-- Mobile bottom nav — replaces FAB + tab row on small screens -->
 	<nav
-		class="fixed bottom-0 left-0 right-0 z-30 sm:hidden {$t.pageBg} border-t {$t.borderBase}"
-		style="padding-bottom: env(safe-area-inset-bottom, 0px)"
+		class="fixed bottom-0 left-0 right-0 z-30 sm:hidden"
+		style="
+			background: {t.isLight() ? 'rgba(255,255,255,0.72)' : 'rgba(9,9,11,0.72)'};
+			backdrop-filter: blur(28px) saturate(180%) brightness({t.isLight() ? '103%' : '115%'});
+			-webkit-backdrop-filter: blur(28px) saturate(180%) brightness({t.isLight() ? '103%' : '115%'});
+			border-top: 1px solid {t.isLight() ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.12)'};
+			box-shadow: inset 0 1px 0 {t.isLight() ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.07)'}, 0 -8px 32px {t.isLight() ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.35)'};
+			padding-bottom: env(safe-area-inset-bottom, 0px);
+		"
 	>
+		<!-- Inner specular sheen — gradient from light at top to transparent -->
+		<div class="absolute inset-0 pointer-events-none" style="background: linear-gradient(to bottom, {t.isLight() ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.05)'} 0%, transparent 60%); border-radius: inherit;"></div>
 		<!-- Action sheet — slides up from the + button -->
 		{#if mobileActionOpen}
 			<button class="fixed inset-0 z-10" aria-label="Close" on:click={() => (mobileActionOpen = false)}></button>
