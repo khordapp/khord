@@ -197,6 +197,7 @@
 					<div
 						transition:fly={{ x: 320, duration: 220 }}
 						class="fixed right-0 top-0 bottom-0 z-50 w-72 {$t.surfaceBg} border-l {$t.borderStrong} shadow-2xl flex flex-col overflow-y-auto"
+						style="padding-top: env(safe-area-inset-top, 0px)"
 					>
 						<!-- Drawer header: avatar + close -->
 						<div class="flex items-center justify-between px-5 py-5 border-b {$t.borderBase}">
