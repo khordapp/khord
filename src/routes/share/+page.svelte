@@ -1,28 +1,296 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { isLoggedIn, authReady } from '$lib/stores/auth';
+	import { isLoggedIn, authReady, session } from '$lib/stores/auth';
 	import { openShareSongWithTrack } from '$lib/stores/shareSong';
+	import { getAgent } from '$lib/atproto/agent';
+	import { createSetlist } from '$lib/atproto/social';
+	import { SONG_NSID, type KhordSongRecord } from '$lib/atproto/lexicons/song';
+	import type { KhordSetlistItem, KhordSetlistItemSnapshot } from '$lib/atproto/lexicons/setlist';
+	import { APP_URL } from '$lib/config';
 	import { theme as t } from '$lib/theme';
 
-	export let data: { track: import('$lib/search').TrackResult };
+	export let data: import('./$types').PageData;
+
+	// Playlist state
+	let mixtapeName = '';
+	let selected: Set<number> = new Set();
+	let creating = false;
+	let createStep = 0;
+	let createTotal = 0;
+	let createError = '';
 
 	onMount(() => {
-		// Wait for auth to settle before deciding what to do.
 		const unsub = authReady.subscribe((ready) => {
 			if (!ready) return;
 			unsub();
-			if ($isLoggedIn) {
+
+			if (!$isLoggedIn) {
+				goto('/login', { replaceState: true });
+				return;
+			}
+
+			if (data.type === 'track') {
 				openShareSongWithTrack(data.track);
 				goto('/', { replaceState: true });
-			} else {
-				goto('/login', { replaceState: true });
+				return;
 			}
+
+			// Playlist — initialise with all tracks selected, deduped by title+artist
+			mixtapeName = data.playlist.title;
+			const seen = new Set<string>();
+			data.playlist.tracks.forEach((track, i) => {
+				const key = `${track.title.toLowerCase()}|${track.artist.toLowerCase()}`;
+				if (!seen.has(key)) {
+					seen.add(key);
+					selected.add(i);
+				}
+			});
+			selected = selected; // trigger reactivity
 		});
 	});
+
+	$: playlist = data.type === 'playlist' ? data.playlist : null;
+	$: allSelected = playlist ? selected.size === playlist.tracks.length : false;
+	$: selectedCount = selected.size;
+	$: progressPct = createTotal > 0 ? Math.round((createStep / createTotal) * 100) : 0;
+
+	function toggleAll() {
+		if (allSelected) {
+			selected = new Set();
+		} else {
+			selected = new Set(playlist!.tracks.map((_, i) => i));
+		}
+	}
+
+	function toggleTrack(i: number) {
+		const next = new Set(selected);
+		if (next.has(i)) next.delete(i);
+		else next.add(i);
+		selected = next;
+	}
+
+	function sourceUrlFor(track: { sourceUrl: string }, key: 'spotify' | 'apple' | 'deezer' | 'youtube'): string | undefined {
+		const url = track.sourceUrl;
+		if (key === 'spotify'  && url.includes('open.spotify.com'))  return url;
+		if (key === 'apple'    && url.includes('music.apple.com'))   return url;
+		if (key === 'deezer'   && url.includes('deezer.com'))        return url;
+		if (key === 'youtube'  && (url.includes('music.youtube.com') || url.includes('youtube.com'))) return url;
+	}
+
+	async function handleCreate() {
+		if (!$session || creating || selectedCount === 0) return;
+		creating = true;
+		createError = '';
+
+		const tracks = playlist!.tracks.filter((_, i) => selected.has(i));
+		// Deduplicate by title+artist (catches any the user didn't notice)
+		const seen = new Set<string>();
+		const dedupedTracks = tracks.filter(track => {
+			const key = `${track.title.toLowerCase()}|${track.artist.toLowerCase()}`;
+			if (seen.has(key)) return false;
+			seen.add(key);
+			return true;
+		});
+
+		createTotal = dedupedTracks.length;
+		createStep = 0;
+
+		const did = $session.did;
+		const agent = getAgent();
+		const items: KhordSetlistItem[] = [];
+
+		for (const track of dedupedTracks) {
+			try {
+				// Resolve all platform URLs, preserving the source URL for its platform.
+				const p = new URLSearchParams({ title: track.title, artist: track.artist });
+				const resolveRes = await fetch(`/api/resolve?${p}`);
+				const resolved = resolveRes.ok ? await resolveRes.json() : {};
+
+				const spotifyUrl      = sourceUrlFor(track, 'spotify')  ?? resolved.spotifyUrl;
+				const appleMusicUrl   = sourceUrlFor(track, 'apple')    ?? resolved.appleMusicUrl;
+				const deezerUrl       = sourceUrlFor(track, 'deezer')   ?? resolved.deezerUrl;
+				const youtubeMusicUrl = sourceUrlFor(track, 'youtube')  ?? resolved.youtubeMusicUrl;
+
+				const record: KhordSongRecord = {
+					title:  track.title,
+					artist: track.artist,
+					...(track.album      && { album:          track.album }),
+					...(track.artworkUrl && { thumbnailUrl:   track.artworkUrl }),
+					...(spotifyUrl       && { spotifyUrl }),
+					...(appleMusicUrl    && { appleMusicUrl }),
+					...(youtubeMusicUrl  && { youtubeMusicUrl }),
+					...(deezerUrl        && { deezerUrl }),
+					listed:      false, // playlist-imported songs never appear in the feed
+					instanceUrl: APP_URL,
+					createdAt:   new Date().toISOString(),
+				};
+
+				const res = await agent.com.atproto.repo.createRecord({
+					repo: did,
+					collection: SONG_NSID,
+					record: { $type: SONG_NSID, ...record },
+				});
+
+				const snapshot: KhordSetlistItemSnapshot = {
+					title:  record.title,
+					artist: record.artist,
+					...(record.album          && { album:          record.album }),
+					...(record.thumbnailUrl   && { thumbnailUrl:   record.thumbnailUrl }),
+					...(record.spotifyUrl     && { spotifyUrl:     record.spotifyUrl }),
+					...(record.appleMusicUrl  && { appleMusicUrl:  record.appleMusicUrl }),
+					...(record.youtubeMusicUrl && { youtubeMusicUrl: record.youtubeMusicUrl }),
+					...(record.deezerUrl      && { deezerUrl:      record.deezerUrl }),
+				};
+
+				items.push({
+					songUri:  res.data.uri,
+					songCid:  res.data.cid,
+					addedBy:  did,
+					addedAt:  new Date().toISOString(),
+					snapshot,
+				});
+			} catch {
+				// Skip failed tracks rather than aborting the whole import
+			}
+			createStep++;
+		}
+
+		if (items.length === 0) {
+			createError = 'Could not create any tracks. Please try again.';
+			creating = false;
+			return;
+		}
+
+		try {
+			const name = mixtapeName.trim() || playlist!.title;
+			const { uri } = await createSetlist(did, name, items);
+			const rkey = uri.split('/').pop()!;
+			goto(`/s/${encodeURIComponent($session.handle ?? did)}/${rkey}`);
+		} catch {
+			createError = 'Failed to create mixtape. Please try again.';
+			creating = false;
+		}
+	}
 </script>
 
-<!-- Brief loading state shown while auth settles -->
-<div class="min-h-dvh flex items-center justify-center {$t.pageBg}">
-	<p class="text-sm {$t.textMuted}">Opening…</p>
-</div>
+{#if data.type === 'track' || !playlist}
+	<div class="min-h-dvh flex items-center justify-center {$t.pageBg}">
+		<p class="text-sm {$t.textMuted}">Opening…</p>
+	</div>
+{:else}
+	<div class="min-h-dvh {$t.pageBg} {$t.textPrimary} flex flex-col">
+
+		<!-- Header -->
+		<div class="px-6 pt-5 pb-3 flex items-center gap-3 border-b {$t.borderFaded}">
+			<button on:click={() => history.back()} class="shrink-0 {$t.textMuted} {$t.hoverTextSecondary} transition-colors" aria-label="Back">
+				<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
+					<path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+			</button>
+			<div class="min-w-0">
+				<p class="text-xs {$t.textFaint} mb-0.5">Import playlist</p>
+				<input
+					bind:value={mixtapeName}
+					disabled={creating}
+					maxlength="100"
+					placeholder="Mixtape name…"
+					class="text-base font-semibold {$t.textPrimary} bg-transparent focus:outline-none w-full truncate disabled:opacity-60"
+				/>
+			</div>
+		</div>
+
+		<!-- Track count + select controls -->
+		<div class="px-6 py-2 flex items-center justify-between border-b {$t.borderFaded}">
+			<p class="text-xs {$t.textFaint}">
+				{data.platform.charAt(0).toUpperCase() + data.platform.slice(1)} · {playlist.tracks.length} tracks
+				{#if playlist.tracks.length !== selectedCount}
+					<span class="{$t.accentText}"> · {selectedCount} selected</span>
+				{/if}
+			</p>
+			<button
+				on:click={toggleAll}
+				disabled={creating}
+				class="text-xs font-medium {$t.accentText} {$t.accentTextHover} transition-colors disabled:opacity-40"
+			>
+				{allSelected ? 'Deselect all' : 'Select all'}
+			</button>
+		</div>
+
+		<!-- Track list -->
+		<div class="flex-1 overflow-y-auto divide-y {$t.borderFaded}">
+			{#each playlist.tracks as track, i}
+				{@const isDupe = (() => {
+					const key = `${track.title.toLowerCase()}|${track.artist.toLowerCase()}`;
+					return playlist.tracks.findIndex(t => `${t.title.toLowerCase()}|${t.artist.toLowerCase()}` === key) !== i;
+				})()}
+				<button
+					class="w-full flex items-center gap-3 px-6 py-3 text-left transition-colors {selected.has(i) ? $t.hoverBg : 'opacity-40'} {creating ? 'pointer-events-none' : ''}"
+					on:click={() => toggleTrack(i)}
+					disabled={creating}
+				>
+					<!-- Checkbox -->
+					<div class="shrink-0 w-5 h-5 rounded-full border {selected.has(i) ? `${$t.accentBg} ${$t.accentBorder} flex items-center justify-center` : $t.borderStrong}">
+						{#if selected.has(i)}
+							<svg viewBox="0 0 10 10" fill="none" class="w-3 h-3" xmlns="http://www.w3.org/2000/svg">
+								<path d="M2 5l2.5 2.5L8 3" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+						{/if}
+					</div>
+
+					<!-- Artwork -->
+					{#if track.artworkUrl}
+						<img src={track.artworkUrl} alt="" class="w-10 h-10 rounded-md shrink-0 object-cover" />
+					{:else}
+						<div class="w-10 h-10 rounded-md shrink-0 {$t.surfaceBg} {$t.borderBase} border flex items-center justify-center">
+							<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 {$t.textFaint}" xmlns="http://www.w3.org/2000/svg">
+								<path d="M6 12V4.5l7-1.5V11" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+								<circle cx="4" cy="12" r="2" stroke="currentColor" stroke-width="1.25"/>
+								<circle cx="11" cy="11" r="2" stroke="currentColor" stroke-width="1.25"/>
+							</svg>
+						</div>
+					{/if}
+
+					<!-- Title / artist -->
+					<div class="min-w-0 flex-1">
+						<p class="text-sm font-medium {$t.textPrimary} truncate">
+							{track.title}
+							{#if isDupe}<span class="text-xs font-normal {$t.textFaint} ml-1">(duplicate)</span>{/if}
+						</p>
+						<p class="text-xs {$t.textMuted} truncate">{track.artist}{track.album ? ` · ${track.album}` : ''}</p>
+					</div>
+				</button>
+			{/each}
+		</div>
+
+		<!-- Footer: progress or create button -->
+		<div class="px-6 py-4 border-t {$t.borderFaded} space-y-3">
+			{#if createError}
+				<p class="text-xs text-red-400">{createError}</p>
+			{/if}
+
+			{#if creating}
+				<div class="space-y-2">
+					<div class="flex justify-between text-xs {$t.textMuted}">
+						<span>Creating mixtape…</span>
+						<span>{createStep} / {createTotal}</span>
+					</div>
+					<div class="w-full h-1.5 {$t.surfaceBg} rounded-full overflow-hidden">
+						<div
+							class="{$t.accentBg} h-full rounded-full transition-all duration-300"
+							style="width: {progressPct}%"
+						></div>
+					</div>
+				</div>
+			{:else}
+				<button
+					on:click={handleCreate}
+					disabled={selectedCount === 0}
+					class="w-full py-3 rounded-xl text-sm font-semibold {$t.btnPrimaryBg} {$t.btnPrimaryText} {$t.btnPrimaryHover} transition-colors disabled:opacity-40"
+				>
+					Create mixtape · {selectedCount} {selectedCount === 1 ? 'track' : 'tracks'}
+				</button>
+			{/if}
+		</div>
+	</div>
+{/if}

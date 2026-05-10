@@ -57,6 +57,43 @@ export async function fetchSpotifyTrack(id: string): Promise<{
 	}
 }
 
+export interface SpotifyPlaylistTrack {
+	id: string;
+	title: string;
+	artist: string;
+	album?: string;
+	artworkUrl?: string;
+}
+
+export async function fetchSpotifyPlaylist(id: string): Promise<{
+	title: string;
+	tracks: SpotifyPlaylistTrack[];
+} | null> {
+	try {
+		const token = await getToken();
+		const fields = 'name,tracks.items(track(id,name,artists(name),album(name,images)))';
+		const res = await fetch(
+			`https://api.spotify.com/v1/playlists/${encodeURIComponent(id)}?fields=${encodeURIComponent(fields)}`,
+			{ headers: { Authorization: `Bearer ${token}` } }
+		);
+		if (!res.ok) return null;
+		const data = await res.json();
+		const tracks: SpotifyPlaylistTrack[] = (data.tracks?.items ?? [])
+			.filter((item: { track?: { id?: string } }) => item?.track?.id)
+			.slice(0, 50)
+			.map((item: { track: { id: string; name: string; artists: { name: string }[]; album?: { name?: string; images?: { url: string }[] } } }) => ({
+				id:         item.track.id,
+				title:      item.track.name,
+				artist:     item.track.artists?.[0]?.name ?? '',
+				album:      item.track.album?.name,
+				artworkUrl: item.track.album?.images?.[0]?.url,
+			}));
+		return { title: data.name, tracks };
+	} catch {
+		return null;
+	}
+}
+
 // Returns the Spotify track URL, or null if not found / credentials not configured.
 export async function findSpotifyUrl(title: string, artist: string): Promise<string | null> {
 	try {
