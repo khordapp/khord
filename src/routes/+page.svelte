@@ -8,6 +8,7 @@
 	import type { KhordSetlist } from '$lib/atproto/lexicons/setlist';
 	import { lastSharedSong, pendingSharedSong, openShareSong, type PendingSong } from '$lib/stores/shareSong';
 	import { openCreateSetlist as openNewSetlist } from '$lib/stores/createSetlist';
+	import { openImportPlaylist } from '$lib/stores/importPlaylist';
 	import SongCard from '$lib/components/SongCard.svelte';
 	import StreamingServiceModal from '$lib/components/StreamingServiceModal.svelte';
 	import { APP_NAME, APP_TAGLINE, AUTH_PROVIDER_NAME, APP_URL } from '$lib/config';
@@ -1011,6 +1012,17 @@
 						<path d="M2 5h12M2 8h8M2 11h5M13 9v6M10 12h6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
 					</svg>
 					New mixtape
+				</button>
+				<div class="border-t {$t.borderFaded}"></div>
+				<button
+					on:click={() => { mobileActionOpen = false; openImportPlaylist(); }}
+					class="w-full flex items-center gap-3 px-4 py-4 text-sm font-medium {$t.textPrimary} {$t.hoverBg} transition-colors"
+				>
+					<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 {$t.accentText} shrink-0" xmlns="http://www.w3.org/2000/svg">
+						<path d="M2 2h10a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H9l-1 2-1-2H2a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/>
+						<path d="M4 6h6M4 8.5h4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+					</svg>
+					Import playlist
 				</button>
 			</div>
 		{/if}
