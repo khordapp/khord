@@ -12,11 +12,34 @@
 	const NOTE_LIMIT = 300;
 
 	let selected: TrackResult | null = null;
+	let resolving = false;
 
-	onMount(() => {
+	onMount(async () => {
 		if ($prefilledTrack) {
-			selected = $prefilledTrack;
+			const track = $prefilledTrack;
 			prefilledTrack.set(null);
+			selected = track;
+
+			// Immediately resolve other platform URLs so all services show in the modal.
+			if (track.title && track.artist) {
+				resolving = true;
+				try {
+					const p = new URLSearchParams({ title: track.title, artist: track.artist });
+					const r = await fetch(`/api/resolve?${p}`);
+					if (r.ok) {
+						const resolved = await r.json();
+						selected = {
+							...track,
+							...(resolved.spotifyUrl      && !track.spotifyUrl      && { spotifyUrl:       resolved.spotifyUrl }),
+							...(resolved.appleMusicUrl   && !track.appleMusicUrl   && { appleMusicUrl:    resolved.appleMusicUrl }),
+							...(resolved.youtubeMusicUrl && !track.youtubeMusicUrl && { youtubeMusicUrl:  resolved.youtubeMusicUrl }),
+							...(resolved.deezerUrl       && !track.deezerUrl       && { deezerUrl:        resolved.deezerUrl }),
+						};
+					}
+				} finally {
+					resolving = false;
+				}
+			}
 		}
 	});
 	let note = '';
@@ -49,8 +72,11 @@
 		const did = $session.did;
 
 		try {
-			let resolved: { spotifyUrl?: string; youtubeMusicUrl?: string; deezerUrl?: string } = {};
-			if (track.title && track.artist) {
+			// Only resolve if we're still missing platform URLs (pre-resolve on mount may have already filled them).
+			let resolved: { spotifyUrl?: string; appleMusicUrl?: string; youtubeMusicUrl?: string; deezerUrl?: string } = {};
+			const needsResolve = track.title && track.artist &&
+				(!track.spotifyUrl || !track.appleMusicUrl || !track.youtubeMusicUrl || !track.deezerUrl);
+			if (needsResolve) {
 				const p = new URLSearchParams({ title: track.title, artist: track.artist });
 				const r = await fetch(`/api/resolve?${p}`);
 				if (r.ok) resolved = await r.json();
@@ -138,6 +164,9 @@
 					<p class="text-xs {$t.textMuted}">
 						{selected.artist}{selected.album ? ` · ${selected.album}` : ''}{selected.year ? ` (${selected.year})` : ''}
 					</p>
+					{#if resolving}
+						<p class="text-xs {$t.textFaint} mt-1">Finding streaming links…</p>
+					{/if}
 				</div>
 				<button
 					on:click={clearSelection}
