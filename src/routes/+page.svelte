@@ -620,7 +620,11 @@
 
 {#if !$authReady}
 	<div class="flex items-center justify-center py-24">
-		<span class="text-2xl font-bold {$t.textFaint} tracking-tight">{APP_NAME.toLowerCase()}</span>
+		<img
+			src={isLightTheme ? '/khord-logo-light.png' : '/khord-logo-dark.png'}
+			alt={APP_NAME}
+			class="h-16 w-16 rounded-2xl opacity-60"
+		/>
 	</div>
 {:else if $isLoggedIn}
 	<section>
@@ -926,6 +930,13 @@
 {:else}
 	<div class="space-y-4">
 		<section class="relative overflow-hidden {$t.heroGradient} rounded-2xl px-8 py-14 space-y-8">
+			<!-- Logo -->
+			<img
+				src={isLightTheme ? '/khord-logo-light.png' : '/khord-logo-dark.png'}
+				alt={APP_NAME}
+				class="h-16 w-16 rounded-2xl shadow-lg"
+			/>
+
 			<!-- Badge -->
 			<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full {$t.elevatedBg} border {$t.borderStrong} text-xs {$t.textSecondary} font-medium">
 				<span class="w-1.5 h-1.5 rounded-full bg-current {$t.accentText} shrink-0"></span>
