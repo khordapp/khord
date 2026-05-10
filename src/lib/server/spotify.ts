@@ -84,7 +84,11 @@ export async function fetchSpotifyPlaylist(id: string): Promise<{
 		]);
 
 		if (!metaRes.ok || !tracksRes.ok) {
+			const metaBody = await metaRes.text().catch(() => '');
+			const tracksBody = await tracksRes.text().catch(() => '');
 			console.error(`[spotify playlist] meta=${metaRes.status} tracks=${tracksRes.status}`);
+			if (!metaRes.ok)   console.error(`[spotify playlist] meta body:`, metaBody.slice(0, 300));
+			if (!tracksRes.ok) console.error(`[spotify playlist] tracks body:`, tracksBody.slice(0, 300));
 			return null;
 		}
 
