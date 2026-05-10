@@ -1096,8 +1096,17 @@
 	{#if $authReady}
 		<div
 			class="fixed bottom-0 left-0 right-0 z-30"
-			style="background: {isLightTheme ? 'rgba(255,255,255,0.60)' : 'rgba(9,9,11,0.60)'}; backdrop-filter: blur(32px) saturate(200%) brightness({isLightTheme ? '108%' : '120%'}); border-top: 1px solid {isLightTheme ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)'};"
+			style="
+				background: {isLightTheme ? 'rgba(255,255,255,0.60)' : 'rgba(9,9,11,0.60)'};
+				backdrop-filter: blur(32px) saturate(200%) brightness({isLightTheme ? '108%' : '120%'});
+				-webkit-backdrop-filter: blur(32px) saturate(200%) brightness({isLightTheme ? '108%' : '120%'});
+				border-top: 1px solid {isLightTheme ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.12)'};
+				box-shadow: inset 0 1px 0 {isLightTheme ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.07)'}, 0 -8px 32px {isLightTheme ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.35)'};
+				padding-bottom: env(safe-area-inset-bottom, 0px);
+			"
 		>
+			<!-- Inner specular sheen -->
+			<div class="absolute inset-0 pointer-events-none" style="background: linear-gradient(to bottom, {isLightTheme ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.05)'} 0%, transparent 60%);"></div>
 			{#if isOwn && !loading}
 				<div class="flex h-16 max-w-2xl mx-auto">
 					<!-- Share -->

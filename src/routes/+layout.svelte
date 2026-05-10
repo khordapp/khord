@@ -9,6 +9,7 @@
 	import { getFollowing } from '$lib/atproto/social';
 	import { shareSongOpen, openShareSong } from '$lib/stores/shareSong';
 	import { createSetlistOpen, openCreateSetlist } from '$lib/stores/createSetlist';
+	import { importPlaylistOpen, openImportPlaylist, closeImportPlaylist } from '$lib/stores/importPlaylist';
 	import { votes } from '$lib/stores/votes';
 	import ShareSongModal from '$lib/components/ShareSongModal.svelte';
 	import CreateSetlistModal from '$lib/components/CreateSetlistModal.svelte';
@@ -83,10 +84,19 @@
 	let menuOpen = false;
 	let fabOpen = false;
 	let aboutOpen = false;
+	let importUrl = '';
 
 	function toggleMenu() { menuOpen = !menuOpen; }
 	function closeMenu() { menuOpen = false; }
 	function closeFab() { fabOpen = false; }
+
+	function handleImportSubmit() {
+		const url = importUrl.trim();
+		if (!url) return;
+		closeImportPlaylist();
+		importUrl = '';
+		goto(`/share?url=${encodeURIComponent(url)}`);
+	}
 </script>
 
 <div class="min-h-screen flex flex-col {$t.pageBg} {$t.textPrimary}">
@@ -301,6 +311,17 @@
 						</svg>
 						New mixtape
 					</button>
+					<button
+						on:click={() => { closeFab(); openImportPlaylist(); }}
+						class="flex items-center gap-3 sm:gap-2.5 {$t.elevatedBg} {$t.textPrimary} text-base sm:text-sm font-medium
+							px-5 py-3.5 sm:px-4 sm:py-2.5 rounded-full shadow-lg {$t.hoverBgStrong} transition-colors"
+					>
+						<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 sm:w-4 sm:h-4 shrink-0" xmlns="http://www.w3.org/2000/svg">
+							<path d="M2 2h10a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H9l-1 2-1-2H2a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/>
+							<path d="M4 6h6M4 8.5h4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+						</svg>
+						Import playlist
+					</button>
 				</div>
 			{/if}
 			<button
@@ -356,6 +377,48 @@
 
 {#if $createSetlistOpen}
 	<CreateSetlistModal />
+{/if}
+
+{#if $importPlaylistOpen}
+	<button class="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" aria-label="Close" on:click={() => { closeImportPlaylist(); importUrl = ''; }}></button>
+	<div
+		class="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 sm:left-1/2 sm:right-auto sm:top-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-sm
+			{$t.surfaceBg} border {$t.borderStrong} rounded-2xl shadow-2xl overflow-hidden"
+		role="dialog"
+		aria-modal="true"
+		aria-label="Import playlist"
+	>
+		<div class="px-5 py-4 border-b {$t.borderBase} flex items-center justify-between">
+			<h2 class="text-sm font-semibold {$t.textPrimary}">Import playlist</h2>
+			<button on:click={() => { closeImportPlaylist(); importUrl = ''; }} class="{$t.textMuted} {$t.hoverText} transition-colors text-lg leading-none" aria-label="Close">✕</button>
+		</div>
+		<div class="px-5 py-5 space-y-4">
+			<p class="text-xs {$t.textMuted}">Paste a playlist link from Spotify, Apple Music, Deezer, or YouTube Music.</p>
+			<input
+				bind:value={importUrl}
+				type="url"
+				placeholder="https://open.spotify.com/playlist/…"
+				style="font-size: 16px;"
+				class="w-full px-3 py-2.5 rounded-lg border {$t.borderStrong} {$t.surfaceBg} {$t.textPrimary} placeholder:{$t.textFaint} focus:outline-none {$t.focusRing}"
+				on:keydown={(e) => e.key === 'Enter' && handleImportSubmit()}
+			/>
+			<div class="flex gap-2 justify-end">
+				<button
+					on:click={() => { closeImportPlaylist(); importUrl = ''; }}
+					class="px-4 py-2 rounded-lg border {$t.borderStrong} {$t.textMuted} text-sm {$t.hoverBg} transition-colors"
+				>
+					Cancel
+				</button>
+				<button
+					on:click={handleImportSubmit}
+					disabled={!importUrl.trim()}
+					class="px-4 py-2 rounded-lg text-sm font-semibold {$t.btnPrimaryBg} {$t.btnPrimaryText} {$t.btnPrimaryHover} transition-colors disabled:opacity-40"
+				>
+					Import
+				</button>
+			</div>
+		</div>
+	</div>
 {/if}
 
 <StreamingServiceModal bind:open={serviceSelectorOpen} />
