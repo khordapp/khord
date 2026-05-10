@@ -88,7 +88,7 @@
 </script>
 
 <div class="min-h-screen flex flex-col {$t.pageBg} {$t.textPrimary}">
-	<header class="border-b {$t.borderBase} px-6 py-3 flex items-center justify-between">
+	<header class="border-b {$t.borderBase} px-6 py-3 flex items-center justify-between" style="padding-top: calc(0.75rem + env(safe-area-inset-top, 0px))">
 		<a href="/" class="text-xl font-bold tracking-tight">{APP_NAME.toLowerCase()}</a>
 
 		<div class="flex items-center gap-4">
