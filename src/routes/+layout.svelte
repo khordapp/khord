@@ -27,6 +27,8 @@
 
 	let serviceSelectorOpen = false;
 	let isMobile = false;
+	let isLightTheme = false;
+	$: if ($t) isLightTheme = t.isLight();
 
 	onMount(async () => {
 		const mq = window.matchMedia('(max-width: 639px)');
@@ -89,7 +91,13 @@
 
 <div class="min-h-screen flex flex-col {$t.pageBg} {$t.textPrimary}">
 	<header class="border-b {$t.borderBase} px-6 py-3 flex items-center justify-between" style="padding-top: calc(0.75rem + env(safe-area-inset-top, 0px))">
-		<a href="/" class="text-xl font-bold tracking-tight">{APP_NAME.toLowerCase()}</a>
+		<a href="/" aria-label={APP_NAME}>
+			<img
+				src={isLightTheme ? '/khord-logo-light.png' : '/khord-logo-dark.png'}
+				alt={APP_NAME}
+				class="h-9 w-9 rounded-xl"
+			/>
+		</a>
 
 		<div class="flex items-center gap-4">
 			{#if $isLoggedIn}
