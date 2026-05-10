@@ -24,9 +24,12 @@
 	let createError = '';
 
 	onMount(() => {
-		const unsub = authReady.subscribe((ready) => {
+		// Use let + guard so the callback is safe when authReady is already true
+		// (synchronous subscribe fire puts unsub in TDZ if declared with const)
+		let unsub: (() => void) | undefined;
+		unsub = authReady.subscribe((ready) => {
 			if (!ready) return;
-			unsub();
+			if (unsub) unsub();
 
 			if (!$isLoggedIn) {
 				goto('/login', { replaceState: true });
@@ -51,6 +54,7 @@
 			});
 			selected = selected; // trigger reactivity
 		});
+		return unsub;
 	});
 
 	$: playlist = data.type === 'playlist' ? data.playlist : null;
