@@ -91,12 +91,13 @@
 
 <div class="min-h-screen flex flex-col {$t.pageBg} {$t.textPrimary}">
 	<header class="border-b {$t.borderBase} px-6 py-3 flex items-center justify-between" style="padding-top: calc(0.75rem + env(safe-area-inset-top, 0px))">
-		<a href="/" aria-label={APP_NAME}>
+		<a href="/" class="flex items-center gap-2.5">
 			<img
 				src={isLightTheme ? '/khord-logo-light.png' : '/khord-logo-dark.png'}
 				alt={APP_NAME}
 				class="h-9 w-9 rounded-xl"
 			/>
+			<span class="text-xl font-bold tracking-tight">{APP_NAME.toLowerCase()}</span>
 		</a>
 
 		<div class="flex items-center gap-4">
