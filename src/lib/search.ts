@@ -8,8 +8,13 @@ export interface TrackResult {
 	artist: string;
 	album?: string;
 	year?: string;
-	appleMusicUrl?: string;
 	artworkUrl?: string; // 600x600 album art from iTunes CDN
+	// Platform URLs — populated when a track is resolved from a direct streaming link;
+	// absent when discovered via iTunes search (those come later from /api/resolve).
+	appleMusicUrl?: string;
+	spotifyUrl?: string;
+	youtubeMusicUrl?: string;
+	deezerUrl?: string;
 }
 
 export async function searchTracks(query: string, limit = 6): Promise<TrackResult[]> {

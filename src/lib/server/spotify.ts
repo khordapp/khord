@@ -34,6 +34,29 @@ async function getToken(): Promise<string> {
 	return cachedToken!;
 }
 
+// Returns full track metadata for a given Spotify track ID, or null on failure.
+export async function fetchSpotifyTrack(id: string): Promise<{
+	title: string; artist: string; album?: string; artworkUrl?: string;
+} | null> {
+	try {
+		const token = await getToken();
+		const res = await fetch(`https://api.spotify.com/v1/tracks/${encodeURIComponent(id)}`, {
+			headers: { Authorization: `Bearer ${token}` }
+		});
+		if (!res.ok) return null;
+		const data = await res.json();
+		const art = data.album?.images?.[0]?.url ?? undefined;
+		return {
+			title:      data.name,
+			artist:     data.artists?.[0]?.name ?? '',
+			album:      data.album?.name ?? undefined,
+			artworkUrl: art,
+		};
+	} catch {
+		return null;
+	}
+}
+
 // Returns the Spotify track URL, or null if not found / credentials not configured.
 export async function findSpotifyUrl(title: string, artist: string): Promise<string | null> {
 	try {

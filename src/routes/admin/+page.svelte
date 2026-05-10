@@ -41,7 +41,7 @@
 	}
 
 	// ── State ────────────────────────────────────────────────────────────────────
-	type Tab = 'users' | 'bans' | 'requests' | 'settings' | 'cache';
+	type Tab = 'users' | 'bans' | 'requests' | 'settings' | 'pins' | 'cache';
 	let activeTab: Tab = 'users';
 
 	let stats: Stats | null = null;
@@ -320,6 +320,7 @@
 		loadRequests();
 		loadSettings();
 		loadCacheStats();
+		loadPins();
 	}
 
 	// Reload requests when filter changes
@@ -383,6 +384,79 @@
 		if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
 		if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 		return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+	}
+
+	// ── Pinned setlists ───────────────────────────────────────────────────────────
+	interface PinnedSetlist { handle: string; rkey: string; title: string; }
+
+	let pins: PinnedSetlist[] = [];
+	let pinsLoading = false;
+	let pinsError = false;
+	let pinUrlInput = '';
+	let pinTitleInput = '';
+	let pinSubmitting = false;
+	let pinFormError = '';
+
+	function parseSetlistUrl(url: string): { handle: string; rkey: string } | null {
+		try {
+			const full = url.startsWith('http') ? url : `https://x/${url}`;
+			const parts = new URL(full).pathname.split('/').filter(Boolean);
+			if (parts.length >= 3 && parts[0] === 's') return { handle: parts[1], rkey: parts[2] };
+			if (parts.length >= 2) return { handle: parts[0], rkey: parts[1] };
+		} catch { /* ignore */ }
+		return null;
+	}
+
+	async function loadPins() {
+		if (pinsLoading) return;
+		pinsLoading = true;
+		pinsError = false;
+		try {
+			const r = await fetch('/api/pinned-setlists');
+			if (!r.ok) throw new Error();
+			pins = (await r.json()).pins;
+		} catch {
+			pinsError = true;
+		} finally {
+			pinsLoading = false;
+		}
+	}
+
+	async function addPin() {
+		pinFormError = '';
+		const parsed = parseSetlistUrl(pinUrlInput.trim());
+		if (!parsed) { pinFormError = 'Paste a mixtape URL like /s/handle/rkey or the full URL.'; return; }
+		const title = pinTitleInput.trim();
+		if (!title) { pinFormError = 'Enter a display title.'; return; }
+		const ownerDid = $session?.did;
+		if (!ownerDid) return;
+		pinSubmitting = true;
+		try {
+			const r = await fetch('/api/pinned-setlists', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ ownerDid, ...parsed, title })
+			});
+			if (!r.ok) throw new Error();
+			pins = (await r.json()).pins;
+			pinUrlInput = '';
+			pinTitleInput = '';
+		} catch {
+			pinFormError = 'Failed to add pin.';
+		} finally {
+			pinSubmitting = false;
+		}
+	}
+
+	async function removePin(handle: string, rkey: string) {
+		const ownerDid = $session?.did;
+		if (!ownerDid) return;
+		pins = pins.filter((p) => !(p.handle === handle && p.rkey === rkey));
+		await fetch('/api/pinned-setlists', {
+			method: 'DELETE',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ ownerDid, handle, rkey })
+		});
 	}
 
 	// ── Instance reset ────────────────────────────────────────────────────────────
@@ -495,6 +569,7 @@
 				<option value="bans">Bans{stats?.bannedCount ? ` — ${stats.bannedCount}` : ''}</option>
 				<option value="requests">Requests{stats?.pendingRequestsCount ? ` — ${stats.pendingRequestsCount} pending` : ''}</option>
 				<option value="settings">Settings</option>
+				<option value="pins">Pinned Mixtapes</option>
 				<option value="cache">Cache</option>
 			</select>
 			<div class="absolute inset-y-0 right-3 flex items-center pointer-events-none {$t.accentText}">
@@ -506,7 +581,7 @@
 	</div>
 	<!-- Desktop: tab bar -->
 	<div class="hidden sm:flex gap-1 border-b {$t.borderBase}">
-		{#each [['users', 'Users'], ['bans', 'Bans'], ['requests', 'Requests'], ['settings', 'Settings'], ['cache', 'Cache']] as [id, label]}
+		{#each [['users', 'Users'], ['bans', 'Bans'], ['requests', 'Requests'], ['settings', 'Settings'], ['pins', 'Pinned'], ['cache', 'Cache']] as [id, label]}
 			<button
 				on:click={() => (activeTab = id as Tab)}
 				class="px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px
@@ -990,6 +1065,74 @@
 					</button>
 				</div>
 			</div>
+		</div>
+	{/if}
+
+	<!-- Pins tab -->
+	{#if activeTab === 'pins'}
+		<div class="space-y-6 max-w-md">
+			<!-- Add pin form -->
+			<div class="{$t.surfaceBg} border {$t.borderStrong} rounded-xl p-4 space-y-3">
+				<p class="text-sm font-medium {$t.textSecondary}">Pin a mixtape</p>
+				<div class="space-y-2">
+					<input
+						bind:value={pinUrlInput}
+						placeholder="/s/handle/rkey or full URL"
+						class="w-full text-sm {$t.surfaceBg} border {$t.borderStrong} rounded-lg px-3 py-2 {$t.textPrimary} placeholder:{$t.textFaint} focus:outline-none focus:ring-1 focus:ring-current font-mono"
+					/>
+					<input
+						bind:value={pinTitleInput}
+						placeholder="Display title"
+						class="w-full text-sm {$t.surfaceBg} border {$t.borderStrong} rounded-lg px-3 py-2 {$t.textPrimary} placeholder:{$t.textFaint} focus:outline-none focus:ring-1 focus:ring-current"
+					/>
+					{#if pinFormError}
+						<p class="text-xs text-red-400">{pinFormError}</p>
+					{/if}
+					<button
+						on:click={addPin}
+						disabled={pinSubmitting}
+						class="text-sm font-medium px-4 py-2 rounded-lg {$t.btnPrimaryBg} {$t.btnPrimaryText} {$t.btnPrimaryHover} transition-colors disabled:opacity-50"
+					>
+						{pinSubmitting ? 'Adding…' : 'Add pin'}
+					</button>
+				</div>
+			</div>
+
+			<!-- Current pins -->
+			{#if pinsError}
+				<p class="text-sm {$t.textMuted}">Could not load pins — database offline.</p>
+			{:else if pinsLoading && pins.length === 0}
+				<div class="space-y-2">
+					{#each [0, 1] as _}
+						<div class="{$t.surfaceBg} border {$t.borderBase} rounded-lg h-14 animate-pulse"></div>
+					{/each}
+				</div>
+			{:else if pins.length === 0}
+				<p class="text-sm {$t.textMuted}">No pinned mixtapes yet.</p>
+			{:else}
+				<div class="space-y-1">
+					{#each pins as pin}
+						<div class="flex items-center gap-3 {$t.surfaceBg} border {$t.borderBase} rounded-lg px-3 py-2.5">
+							<div class="flex-1 min-w-0">
+								<p class="text-sm font-medium {$t.textPrimary} truncate">{pin.title}</p>
+								<p class="text-xs {$t.textFaint} truncate font-mono">/s/{pin.handle}/{pin.rkey}</p>
+							</div>
+							<div class="flex items-center gap-2 shrink-0">
+								<a
+									href="/s/{pin.handle}/{pin.rkey}"
+									target="_blank"
+									rel="noopener noreferrer"
+									class="text-xs px-2.5 py-1 rounded border {$t.borderStrong} {$t.textMuted} {$t.hoverText} {$t.hoverBg} transition-colors"
+								>View</a>
+								<button
+									on:click={() => removePin(pin.handle, pin.rkey)}
+									class="text-xs px-2.5 py-1 rounded border border-red-900 text-red-400 hover:bg-red-950 transition-colors"
+								>Unpin</button>
+							</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
 		</div>
 	{/if}
 

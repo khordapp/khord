@@ -80,7 +80,7 @@
 
 	let menuOpen = false;
 	let fabOpen = false;
-	let creditsOpen = false;
+	let aboutOpen = false;
 
 	function toggleMenu() { menuOpen = !menuOpen; }
 	function closeMenu() { menuOpen = false; }
@@ -93,10 +93,11 @@
 
 		<div class="flex items-center gap-4">
 			{#if $isLoggedIn}
+				<!-- Streaming selector — desktop only; mobile accesses this from the bottom toolbar -->
 				<button
 					on:click={() => (serviceSelectorOpen = true)}
 					title={currentPlatformLabel ? `Streaming on ${currentPlatformLabel} — change` : 'Set streaming service'}
-					class="flex items-center gap-1 transition-opacity hover:opacity-70 {currentPlatformLabel ? '' : $t.textFaint}"
+					class="hidden sm:flex items-center gap-1 transition-opacity hover:opacity-70 {currentPlatformLabel ? '' : $t.textFaint}"
 				>
 					<span class="text-2xl leading-none" aria-hidden="true">🎧</span>
 					<svg viewBox="0 0 10 10" fill="none" class="w-2 h-2 shrink-0" xmlns="http://www.w3.org/2000/svg">
@@ -168,6 +169,10 @@
 										{/if}
 									</button>
 								{/if}
+								<button on:click={() => { closeMenu(); aboutOpen = true; }} class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
+									<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.25"/><path d="M8 7v4M8 5v.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>
+									About
+								</button>
 								<button on:click={() => { closeMenu(); handleLogout(); }} class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
 									<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3M10.5 11 14 8l-3.5-3M14 8H6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
 									Sign out
@@ -227,7 +232,7 @@
 							{/if}
 						</nav>
 
-						<!-- Bottom: theme toggle + sign out -->
+						<!-- Bottom: theme toggle + about + sign out -->
 						<div class="border-t {$t.borderBase} py-2">
 							{#if t.hasPair()}
 								<button on:click={t.toggle} class="w-full flex items-center gap-4 px-5 py-4 text-base {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
@@ -240,6 +245,10 @@
 									{/if}
 								</button>
 							{/if}
+							<button on:click={() => { closeMenu(); aboutOpen = true; }} class="w-full flex items-center gap-4 px-5 py-4 text-base {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
+								<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.25"/><path d="M8 7v4M8 5v.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>
+								About
+							</button>
 							<button on:click={() => { closeMenu(); handleLogout(); }} class="w-full flex items-center gap-4 px-5 py-4 text-base {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
 								<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3M10.5 11 14 8l-3.5-3M14 8H6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
 								Sign out
@@ -251,37 +260,14 @@
 		</div>
 	</header>
 
-	<main class="flex-1 w-full max-w-2xl mx-auto px-6 pt-8 pb-20 sm:py-8">
+	<main class="flex-1 w-full max-w-2xl mx-auto px-6 pb-6 sm:py-8">
 		<slot />
 	</main>
 
-	<footer class="hidden sm:block border-t {$t.borderBase} mt-16 px-6 py-8">
-		<div class="max-w-2xl mx-auto space-y-4 text-xs {$t.textFaint}">
-			<!-- App name + powered-by -->
-			<div class="flex flex-col items-center gap-1">
-				<span class="font-semibold {$t.textMuted}">{APP_NAME.toLowerCase()}</span>
-				<span class="{$t.textFaint}">v{VERSION}</span>
-				<a
-					href="https://www.khord.app"
-					target="_blank"
-					rel="noopener noreferrer"
-					class="{$t.textFaint} {$t.hoverTextSecondary} transition-colors"
-				>Powered by Khord</a>
-			</div>
-			<!-- API attributions -->
-			<div class="flex flex-col items-center gap-1.5 sm:flex-row sm:flex-wrap sm:justify-center sm:gap-x-4 sm:gap-y-1.5 border-t {$t.borderFaded} pt-4">
-				<span>Music search via <a href="https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">iTunes Search API</a></span>
-				<span>Spotify data via <a href="https://developer.spotify.com" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">Spotify Web API</a></span>
-				<span>YouTube Music data via <a href="https://developers.google.com/youtube/v3" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">YouTube Data API</a></span>
-				<span>Deezer data via <a href="https://developers.deezer.com" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">Deezer API</a></span>
-				<span>Identity via <a href="https://atproto.com" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">AT Protocol</a></span>
-			</div>
-		</div>
-	</footer>
 
 	{#if $isLoggedIn}
-		<!-- FAB -->
-		<div class="fixed bottom-14 right-6 sm:bottom-6 z-30 flex flex-col items-end gap-3">
+		<!-- FAB — desktop only; mobile uses the bottom nav bar in +page.svelte -->
+		<div class="fixed bottom-6 right-6 z-30 hidden sm:flex flex-col items-end gap-3">
 			{#if fabOpen}
 				<button class="fixed inset-0 z-10" aria-label="Close" on:click={closeFab}></button>
 				<div class="relative z-20 flex flex-col items-end gap-3">
@@ -321,48 +307,35 @@
 	{/if}
 </div>
 
-<!-- Mobile credits bar -->
-<div class="fixed bottom-0 left-0 right-0 z-20 sm:hidden border-t {$t.borderBase} {$t.pageBg}">
-	<button
-		on:click={() => (creditsOpen = true)}
-		class="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-xs {$t.textFaint} {$t.hoverText} transition-colors"
-	>
-		<span class="font-medium {$t.textMuted}">{APP_NAME.toLowerCase()}</span>
-		<span>·</span>
-		<span>v{VERSION}</span>
-		<span>·</span>
-		<span>Credits</span>
-	</button>
-</div>
 
-<!-- Credits bottom-sheet modal -->
-{#if creditsOpen}
-	<button class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" aria-label="Close credits" on:click={() => (creditsOpen = false)}></button>
+{#if aboutOpen}
+	<button class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" aria-label="Close" on:click={() => (aboutOpen = false)}></button>
 	<div
-		transition:fly={{ y: 400, duration: 280 }}
-		class="fixed bottom-0 left-0 right-0 z-50 {$t.surfaceBg} border-t {$t.borderStrong} rounded-t-2xl shadow-2xl"
+		transition:fly={{ y: 16, duration: 180 }}
+		class="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 sm:left-1/2 sm:right-auto sm:top-24 sm:translate-y-0 sm:-translate-x-1/2 sm:w-full sm:max-w-sm
+			{$t.surfaceBg} border {$t.borderStrong} rounded-2xl shadow-2xl overflow-hidden"
+		role="dialog"
+		aria-modal="true"
+		aria-label="About {APP_NAME}"
 	>
-		<div class="flex justify-center pt-3 pb-2">
-			<div class="w-9 h-1 rounded-full opacity-30 bg-current"></div>
+		<div class="px-5 py-4 border-b {$t.borderBase} flex items-center justify-between">
+			<h2 class="text-sm font-semibold {$t.textPrimary}">About {APP_NAME}</h2>
+			<button on:click={() => (aboutOpen = false)} class="{$t.textMuted} {$t.hoverText} transition-colors text-lg leading-none" aria-label="Close">✕</button>
 		</div>
-		<div class="px-6 pb-2 space-y-4 text-xs {$t.textFaint}">
-			<div class="flex flex-col items-center gap-1">
+		<div class="px-5 py-5 space-y-5 text-xs {$t.textFaint}">
+			<div class="flex flex-col items-center gap-1 text-center">
 				<span class="text-sm font-semibold {$t.textMuted}">{APP_NAME.toLowerCase()}</span>
 				<span>v{VERSION}</span>
-				<a href="https://www.khord.app" target="_blank" rel="noopener noreferrer" class="{$t.textFaint} {$t.hoverTextSecondary} transition-colors">Powered by Khord</a>
+				<a href="https://www.khord.app" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">Powered by Khord</a>
 			</div>
-			<div class="flex flex-col items-center gap-1.5 border-t {$t.borderFaded} pt-4">
-				<span>Music search via <a href="https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">iTunes Search API</a></span>
-				<span>Spotify data via <a href="https://developer.spotify.com" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">Spotify Web API</a></span>
-				<span>YouTube Music data via <a href="https://developers.google.com/youtube/v3" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">YouTube Data API</a></span>
-				<span>Deezer data via <a href="https://developers.deezer.com" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">Deezer API</a></span>
-				<span>Identity via <a href="https://atproto.com" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">AT Protocol</a></span>
+			<div class="space-y-1.5 border-t {$t.borderFaded} pt-4">
+				<p class="{$t.textMuted} font-medium mb-2">Data sources</p>
+				<p>Music search via <a href="https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">iTunes Search API</a></p>
+				<p>Spotify data via <a href="https://developer.spotify.com" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">Spotify Web API</a></p>
+				<p>YouTube Music data via <a href="https://developers.google.com/youtube/v3" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">YouTube Data API</a></p>
+				<p>Deezer data via <a href="https://developers.deezer.com" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">Deezer API</a></p>
+				<p>Identity via <a href="https://atproto.com" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">AT Protocol</a></p>
 			</div>
-		</div>
-		<div class="pb-8 pt-4 flex justify-center">
-			<button on:click={() => (creditsOpen = false)} class="px-8 py-2 rounded-full text-sm {$t.textSecondary} {$t.elevatedBg} {$t.hoverBgStrong} transition-colors">
-				Close
-			</button>
 		</div>
 	</div>
 {/if}

@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { closeShareSong, lastSharedSong } from '$lib/stores/shareSong';
+	import { onMount } from 'svelte';
+	import { closeShareSong, lastSharedSong, prefilledTrack } from '$lib/stores/shareSong';
 	import SongSearch from './SongSearch.svelte';
 	import { type TrackResult } from '$lib/search';
 	import { getAgent } from '$lib/atproto/agent';
@@ -11,6 +12,13 @@
 	const NOTE_LIMIT = 300;
 
 	let selected: TrackResult | null = null;
+
+	onMount(() => {
+		if ($prefilledTrack) {
+			selected = $prefilledTrack;
+			prefilledTrack.set(null);
+		}
+	});
 	let note = '';
 	let sharing = false;
 	let shareError = '';
@@ -41,11 +49,11 @@
 		const did = $session.did;
 
 		try {
-			let phase1: { spotifyUrl?: string; youtubeMusicUrl?: string; deezerUrl?: string } = {};
+			let resolved: { spotifyUrl?: string; youtubeMusicUrl?: string; deezerUrl?: string } = {};
 			if (track.title && track.artist) {
 				const p = new URLSearchParams({ title: track.title, artist: track.artist });
 				const r = await fetch(`/api/resolve?${p}`);
-				if (r.ok) phase1 = await r.json();
+				if (r.ok) resolved = await r.json();
 			}
 
 			const record: KhordSongRecord = {
@@ -53,10 +61,11 @@
 				artist: track.artist,
 				...(track.album        && { album:          track.album }),
 				...(track.artworkUrl   && { thumbnailUrl:   track.artworkUrl }),
-				...(track.appleMusicUrl && { appleMusicUrl: track.appleMusicUrl }),
-				...(phase1.spotifyUrl       && { spotifyUrl:      phase1.spotifyUrl }),
-				...(phase1.youtubeMusicUrl  && { youtubeMusicUrl: phase1.youtubeMusicUrl }),
-				...(phase1.deezerUrl        && { deezerUrl:       phase1.deezerUrl }),
+				// Platform URLs: prefer pre-known source URL, fall back to resolved result.
+				...(( track.appleMusicUrl)                                  && { appleMusicUrl:    track.appleMusicUrl }),
+				...((track.spotifyUrl      || resolved.spotifyUrl)      && { spotifyUrl:       track.spotifyUrl      ?? resolved.spotifyUrl }),
+				...((track.youtubeMusicUrl || resolved.youtubeMusicUrl) && { youtubeMusicUrl:  track.youtubeMusicUrl ?? resolved.youtubeMusicUrl }),
+				...((track.deezerUrl       || resolved.deezerUrl)       && { deezerUrl:        track.deezerUrl       ?? resolved.deezerUrl }),
 				...(trimmedNote && { note: trimmedNote }),
 				instanceUrl: APP_URL,
 				createdAt: new Date().toISOString()
