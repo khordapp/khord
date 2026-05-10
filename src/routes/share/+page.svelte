@@ -224,8 +224,11 @@
 			</button>
 		</div>
 
-		<!-- Track list -->
-		<div class="flex-1 overflow-y-auto divide-y {$t.borderFaded}">
+		<!-- Track list — padding-bottom clears the fixed footer -->
+		<div
+			class="flex-1 overflow-y-auto divide-y {$t.borderFaded}"
+			style="padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px))"
+		>
 			{#each playlist.tracks as track, i}
 				{@const isDupe = (() => {
 					const key = `${track.title.toLowerCase()}|${track.artist.toLowerCase()}`;
@@ -269,25 +272,27 @@
 				</button>
 			{/each}
 		</div>
+	</div>
 
-		<!-- Footer: progress or create button -->
-		<div
-			class="px-6 pt-4 space-y-3 share-footer relative"
-			style="
-				background: {isLightTheme ? 'rgba(255,255,255,0.60)' : 'rgba(9,9,11,0.60)'};
-				backdrop-filter: blur(32px) saturate(200%) brightness({isLightTheme ? '108%' : '120%'});
-				-webkit-backdrop-filter: blur(32px) saturate(200%) brightness({isLightTheme ? '108%' : '120%'});
-				border-top: 1px solid {isLightTheme ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.12)'};
-				box-shadow: inset 0 1px 0 {isLightTheme ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.07)'}, 0 -8px 32px {isLightTheme ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.35)'};
-			"
-		>
-			<div class="absolute inset-0 pointer-events-none" style="background: linear-gradient(to bottom, {isLightTheme ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.05)'} 0%, transparent 60%);"></div>
+	<!-- Fixed bottom action bar — same glass treatment as setlist and feed toolbars -->
+	<div
+		class="fixed bottom-0 left-0 right-0 z-30 px-4 pt-3 relative"
+		style="
+			background: {isLightTheme ? 'rgba(255,255,255,0.60)' : 'rgba(9,9,11,0.60)'};
+			backdrop-filter: blur(32px) saturate(200%) brightness({isLightTheme ? '108%' : '120%'});
+			-webkit-backdrop-filter: blur(32px) saturate(200%) brightness({isLightTheme ? '108%' : '120%'});
+			border-top: 1px solid {isLightTheme ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.12)'};
+			box-shadow: inset 0 1px 0 {isLightTheme ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.07)'}, 0 -8px 32px {isLightTheme ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.35)'};
+			padding-bottom: calc(0.75rem + env(safe-area-inset-bottom, 0px));
+		"
+	>
+		<div class="absolute inset-0 pointer-events-none" style="background: linear-gradient(to bottom, {isLightTheme ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.05)'} 0%, transparent 60%);"></div>
+		<div class="relative space-y-2">
 			{#if createError}
 				<p class="text-xs text-red-400">{createError}</p>
 			{/if}
-
 			{#if creating}
-				<div class="space-y-2">
+				<div class="space-y-1.5">
 					<div class="flex justify-between text-xs {$t.textMuted}">
 						<span>Creating mixtape…</span>
 						<span>{createStep} / {createTotal}</span>
@@ -312,8 +317,3 @@
 	</div>
 {/if}
 
-<style>
-	.share-footer {
-		padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
-	}
-</style>
