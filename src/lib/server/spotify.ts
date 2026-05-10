@@ -72,10 +72,10 @@ export async function fetchSpotifyPlaylist(id: string): Promise<{
 	try {
 		const token = await getToken();
 
-		// Fetch playlist name and tracks in parallel using separate endpoints —
-		// avoids the fields filter syntax which breaks when URL-encoded.
+		// Fetch playlist metadata and tracks in parallel.
+		// No fields filter — avoids Spotify rejecting encoded parentheses.
 		const [metaRes, tracksRes] = await Promise.all([
-			fetch(`https://api.spotify.com/v1/playlists/${encodeURIComponent(id)}?fields=name`, {
+			fetch(`https://api.spotify.com/v1/playlists/${encodeURIComponent(id)}`, {
 				headers: { Authorization: `Bearer ${token}` }
 			}),
 			fetch(`https://api.spotify.com/v1/playlists/${encodeURIComponent(id)}/tracks?limit=50`, {
@@ -100,7 +100,7 @@ export async function fetchSpotifyPlaylist(id: string): Promise<{
 				artworkUrl: item.track.album?.images?.[0]?.url,
 			}));
 
-		return { title: meta.name, tracks };
+		return { title: meta.name ?? 'Spotify Playlist', tracks };
 	} catch (e) {
 		console.error('[spotify playlist] error:', e);
 		return null;
