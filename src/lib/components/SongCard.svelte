@@ -175,9 +175,9 @@
 					</div>
 				{/if}
 			</div>
-			<div>
+			<div class="min-w-0">
 				<p class="text-base font-semibold {$t.textPrimary} leading-snug">{record.title}</p>
-				<p class="text-sm {$t.textMuted} mt-0.5">
+				<p class="text-sm {$t.textMuted} mt-0.5 line-clamp-2">
 					{record.artist}{record.album ? ` · ${record.album}` : ''}
 				</p>
 			</div>

@@ -622,7 +622,7 @@
 {#if !$authReady}
 	<div class="flex items-center justify-center py-24">
 		<img
-			src={isLightTheme ? '/khord-logo-light.png' : '/khord-logo-dark.png'}
+			src="/khord-logo.jpg"
 			alt={APP_NAME}
 			class="h-16 w-16 rounded-2xl opacity-60"
 		/>
@@ -933,16 +933,10 @@
 		<section class="relative overflow-hidden {$t.heroGradient} rounded-2xl px-8 py-14 space-y-8">
 			<!-- Logo -->
 			<img
-				src={isLightTheme ? '/khord-logo-light.png' : '/khord-logo-dark.png'}
+				src="/khord-logo.jpg"
 				alt={APP_NAME}
-				class="h-16 w-16 rounded-2xl shadow-lg"
+				class="block mx-auto h-28 w-28 rounded-2xl shadow-lg"
 			/>
-
-			<!-- Badge -->
-			<span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full {$t.elevatedBg} border {$t.borderStrong} text-xs {$t.textSecondary} font-medium">
-				<span class="w-1.5 h-1.5 rounded-full bg-current {$t.accentText} shrink-0"></span>
-				Music on every platform
-			</span>
 
 			<!-- Headline + subhead -->
 			<div class="space-y-4 max-w-md">
@@ -952,12 +946,6 @@
 				</p>
 			</div>
 
-			<!-- Streaming service pills -->
-			<div class="flex flex-wrap gap-2">
-				{#each ['Spotify', 'Apple Music', 'Tidal', 'Deezer', 'SoundCloud'] as service}
-					<span class="px-3 py-1 text-xs rounded-full {$t.elevatedBg} border {$t.borderBase} {$t.textMuted}">{service}</span>
-				{/each}
-			</div>
 
 			<!-- CTA -->
 			<div class="space-y-2">

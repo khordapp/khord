@@ -1085,7 +1085,7 @@
 	{#if $authReady && !$session && !loading && !error}
 		<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-8 text-center space-y-3 mt-2">
 			<p class="text-sm font-semibold {$t.textPrimary}">Join {APP_NAME} to share music</p>
-			<p class="text-xs {$t.textMuted}">Share songs across Spotify, Apple Music, Tidal, and more. Build mixtapes with friends.</p>
+			<p class="text-xs {$t.textMuted}">Share songs across Spotify, Apple Music, and other platforms. Build mixtapes with friends.</p>
 			<a href="/login" class="inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium {$t.btnPrimaryBg} {$t.btnPrimaryText} {$t.btnPrimaryHover} transition-colors">
 				Sign in to join
 			</a>
