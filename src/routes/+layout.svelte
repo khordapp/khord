@@ -354,8 +354,8 @@
 			<button on:click={() => (aboutOpen = false)} class="{$t.textMuted} {$t.hoverText} transition-colors text-lg leading-none" aria-label="Close">✕</button>
 		</div>
 		<div class="px-5 py-5 space-y-5 text-xs {$t.textFaint}">
-			<div class="flex flex-col items-center gap-1 text-center">
-				<span class="text-sm font-semibold {$t.textMuted}">{APP_NAME.toLowerCase()}</span>
+			<div class="flex flex-col items-center gap-2 text-center">
+				<img src="/khord-logo.png" alt={APP_NAME} class="h-16 w-16 rounded-2xl" />
 				<span>v{VERSION}</span>
 				<a href="https://www.khord.app" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">Powered by Khord</a>
 			</div>

@@ -620,11 +620,11 @@
 {/if}
 
 {#if !$authReady}
-	<div class="flex items-center justify-center py-24">
+	<div class="flex items-center justify-center min-h-[75vh]">
 		<img
 			src="/khord-logo.png"
 			alt={APP_NAME}
-			class="h-16 w-16 rounded-2xl opacity-60"
+			class="h-40 w-40 rounded-3xl opacity-80"
 		/>
 	</div>
 {:else if $isLoggedIn}
