@@ -3,10 +3,10 @@
   "short_name": "Khord",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#09090b",
-  "theme_color": "#09090b",
+  "background_color": "#070504",
+  "theme_color": "#070504",
   "icons": [
-    { "src": "/khord-logo-dark.png", "sizes": "180x180", "type": "image/png" },
-    { "src": "/khord-logo-dark.png", "sizes": "1024x1024", "type": "image/png" }
+    { "src": "/khord-logo.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "/khord-logo.png", "sizes": "1024x1024", "type": "image/png" }
   ]
 }

@@ -622,7 +622,7 @@
 {#if !$authReady}
 	<div class="flex items-center justify-center py-24">
 		<img
-			src="/khord-logo.jpg"
+			src="/khord-logo.png"
 			alt={APP_NAME}
 			class="h-16 w-16 rounded-2xl opacity-60"
 		/>
@@ -933,7 +933,7 @@
 		<section class="relative overflow-hidden {$t.heroGradient} rounded-2xl px-8 py-14 space-y-8">
 			<!-- Logo -->
 			<img
-				src="/khord-logo.jpg"
+				src="/khord-logo.png"
 				alt={APP_NAME}
 				class="block mx-auto h-28 w-28 rounded-2xl shadow-lg"
 			/>

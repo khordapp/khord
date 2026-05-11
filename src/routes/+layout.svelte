@@ -103,7 +103,7 @@
 	<header class="border-b {$t.borderBase} px-6 py-3 flex items-center justify-between" style="padding-top: calc(0.75rem + env(safe-area-inset-top, 0px))">
 		<a href="/" class="flex items-center gap-2.5">
 			<img
-				src="/khord-logo.jpg"
+				src="/khord-logo.png"
 				alt={APP_NAME}
 				class="h-9 w-9 rounded-xl"
 			/>
