@@ -58,7 +58,7 @@
 	});
 
 	$: ogTitle = song ? `${song.value.title}${song.value.artist ? ` by ${song.value.artist}` : ''}` : APP_NAME;
-	$: ogDesc = song ? `${ogTitle} — view on ${APP_NAME}, listen anywhere on Spotify, Apple Music, Tidal, and more.` : '';
+	$: ogDesc = song ? `${ogTitle} — view on ${APP_NAME}, listen on Spotify, Apple Music, and other platforms.` : '';
 </script>
 
 <svelte:head>
@@ -66,7 +66,7 @@
 	{#if song}
 		<meta name="description" content={ogDesc} />
 		<meta property="og:title" content={ogTitle} />
-		<meta property="og:description" content="View on {APP_NAME}, listen anywhere — Spotify, Apple Music, Tidal, and more." />
+		<meta property="og:description" content="View on {APP_NAME} — listen on Spotify, Apple Music, and other platforms." />
 		<meta property="og:url" content="{APP_URL}/song/{sharedBy?.handle ?? ''}/{song.uri.split('/').pop()}" />
 		<meta property="og:type" content="music.song" />
 		{#if song.value.thumbnailUrl}
