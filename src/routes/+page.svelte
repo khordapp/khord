@@ -689,37 +689,10 @@
 
 			</nav>
 
-			<!-- All Songs / Following: selection actions (desktop only — mobile uses bottom nav) -->
-			{#if activeTab === 'all' || activeTab === 'following'}
-				{#if selectedUris.size > 0}
-					<div class="hidden sm:flex items-center gap-2 sm:mt-2">
-						<button
-							on:click={() => openCreateSetlist(selectedUris)}
-							class="flex items-center gap-1.5 text-xs {$t.accentText} {$t.accentTextHover} border {$t.accentBorder} {$t.accentBorderHover}
-								{$t.accentBg} px-2.5 py-1 rounded-full transition-colors"
-						>
-							<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
-								<path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-							</svg>
-							Mixtape ({selectedUris.size})
-						</button>
-						<button
-							on:click={() => (confirmOpen = true)}
-							disabled={removing}
-							class="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 border border-red-900 hover:border-red-700
-								bg-red-950 px-2.5 py-1 rounded-full disabled:opacity-50 transition-colors"
-						>
-							<svg viewBox="0 0 24 24" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
-								<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-							</svg>
-							Remove {selectedUris.size}
-						</button>
-					</div>
-				{/if}
-
-			<!-- Daily: date picker + mixtape (desktop shows all; mobile shows only date picker) -->
-			{:else if activeTab === 'daily'}
-				<div class="flex items-center gap-2 sm:mt-2">
+			<!-- Fixed-height sub-row: always same height regardless of active tab.
+			     Timestamps and tab controls live here so the carousel top never shifts. -->
+			<div class="flex items-center h-7 mt-1.5 gap-2">
+				{#if activeTab === 'daily'}
 					<button
 						on:click={() => (showDateModal = true)}
 						title="Pick a date"
@@ -733,11 +706,11 @@
 					{#if dailyItems.length > 0}
 						<button
 							on:click={() => {
-							const isAll = dailySelectedUris.size === 0;
-							const uris = isAll ? new Set(dailyItems.map(i => i.uri)) : dailySelectedUris;
-							const title = isAll ? `Daily Mixtape ${new Date(dailyDate + 'T12:00:00').toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric' })}` : '';
-							openCreateSetlist(uris, title);
-						}}
+								const isAll = dailySelectedUris.size === 0;
+								const uris = isAll ? new Set(dailyItems.map(i => i.uri)) : dailySelectedUris;
+								const title = isAll ? `Daily Mixtape ${new Date(dailyDate + 'T12:00:00').toLocaleDateString(undefined, { month: 'numeric', day: 'numeric', year: 'numeric' })}` : '';
+								openCreateSetlist(uris, title);
+							}}
 							class="hidden sm:flex items-center gap-1.5 text-xs {$t.accentText} {$t.accentTextHover} border {$t.accentBorder} {$t.accentBorderHover}
 								{$t.accentBg} px-2.5 py-1 rounded-full transition-colors"
 						>
@@ -747,8 +720,41 @@
 							{dailySelectedUris.size > 0 ? `Mixtape (${dailySelectedUris.size})` : 'Mixtape all'}
 						</button>
 					{/if}
-				</div>
-			{/if}
+				{:else if activeTab === 'all' || activeTab === 'following'}
+					{#if allLastRefreshed}
+						<p class="text-xs {$t.textFaint}">Updated {allLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</p>
+					{/if}
+					{#if selectedUris.size > 0}
+						<div class="hidden sm:flex items-center gap-2">
+							<button
+								on:click={() => openCreateSetlist(selectedUris)}
+								class="flex items-center gap-1.5 text-xs {$t.accentText} {$t.accentTextHover} border {$t.accentBorder} {$t.accentBorderHover}
+									{$t.accentBg} px-2.5 py-1 rounded-full transition-colors"
+							>
+								<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
+									<path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+								</svg>
+								Mixtape ({selectedUris.size})
+							</button>
+							<button
+								on:click={() => (confirmOpen = true)}
+								disabled={removing}
+								class="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 border border-red-900 hover:border-red-700
+									bg-red-950 px-2.5 py-1 rounded-full disabled:opacity-50 transition-colors"
+							>
+								<svg viewBox="0 0 24 24" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
+									<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+								</svg>
+								Remove {selectedUris.size}
+							</button>
+						</div>
+					{/if}
+				{:else if activeTab === 'setlists'}
+					{#if setlistsLastRefreshed}
+						<p class="text-xs {$t.textFaint}">Updated {setlistsLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</p>
+					{/if}
+				{/if}
+			</div>
 		</div>
 
 		<!-- Tab carousel — all panels live side by side; the strip translates 1:1 with the finger -->
@@ -762,9 +768,6 @@
 				inert={offset !== 0}
 			>
 			{#if tab === 'all'}
-				{#if allLastRefreshed}
-					<p class="text-xs {$t.textFaint}">Updated {allLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</p>
-				{/if}
 				{#if allLoading && allItems.length === 0 && !pendingItem}
 					<p class="{$t.textMuted} text-sm">Loading…</p>
 				{:else if allError}
@@ -806,9 +809,6 @@
 				{/if}
 
 			{:else if tab === 'following'}
-				{#if allLastRefreshed}
-					<p class="text-xs {$t.textFaint}">Updated {allLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</p>
-				{/if}
 				{#if !$followingLoaded || allLoading}
 					<p class="{$t.textMuted} text-sm">Loading…</p>
 				{:else if allError}
@@ -877,9 +877,6 @@
 				{/if}
 
 			{:else if tab === 'setlists'}
-				{#if setlistsLastRefreshed}
-					<p class="text-xs {$t.textFaint}">Updated {setlistsLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</p>
-				{/if}
 				{#if pinnedSetlists.length > 0}
 					<div class="space-y-2 mt-2">
 						<p class="text-xs font-semibold {$t.textFaint} uppercase tracking-wider px-1">Pinned</p>
