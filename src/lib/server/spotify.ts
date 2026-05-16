@@ -111,12 +111,22 @@ export async function fetchSpotifyPlaylist(id: string): Promise<{
 	}
 }
 
+function normalize(s: string): string {
+	return s.toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+}
+
+function looselyMatches(a: string, b: string): boolean {
+	const na = normalize(a);
+	const nb = normalize(b);
+	return na.includes(nb) || nb.includes(na);
+}
+
 // Returns the Spotify track URL, or null if not found / credentials not configured.
 export async function findSpotifyUrl(title: string, artist: string): Promise<string | null> {
 	try {
 		const token = await getToken();
 		const q = `track:${title} artist:${artist}`;
-		const params = new URLSearchParams({ q, type: 'track', limit: '1' });
+		const params = new URLSearchParams({ q, type: 'track', limit: '5' });
 
 		const res = await fetch(`${SEARCH_URL}?${params}`, {
 			headers: { Authorization: `Bearer ${token}` }
@@ -124,7 +134,14 @@ export async function findSpotifyUrl(title: string, artist: string): Promise<str
 
 		if (!res.ok) return null;
 		const data = await res.json();
-		return data.tracks?.items?.[0]?.external_urls?.spotify ?? null;
+		const items: Array<{ name: string; artists: { name: string }[]; external_urls: { spotify: string } }> =
+			data.tracks?.items ?? [];
+		for (const track of items) {
+			if (looselyMatches(track.name, title) && looselyMatches(track.artists?.[0]?.name ?? '', artist)) {
+				return track.external_urls.spotify;
+			}
+		}
+		return null;
 	} catch {
 		return null; // non-fatal — Spotify is best-effort
 	}
