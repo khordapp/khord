@@ -21,8 +21,17 @@
 
 	let open = false;
 	let isMobile = false;
+	let isNative = false;
+
+	function openPlatformUrl(e: MouseEvent, url: string) {
+		if (isNative) {
+			e.preventDefault();
+			window.open(url, '_system');
+		}
+	}
 
 	onMount(() => {
+		isNative = !!window.Capacitor?.isNativePlatform();
 		const mq = window.matchMedia('(max-width: 639px)');
 		isMobile = mq.matches;
 		const handler = (e: MediaQueryListEvent) => { isMobile = e.matches; };
@@ -37,9 +46,12 @@
 		<div class="flex items-stretch h-7">
 			<a
 				href={record[first.key] as string}
+				target="_blank"
+				rel="noopener noreferrer"
 				title="Listen on {first.label}"
 				style="color:{first.brand.bg}"
 				class="text-xs flex items-center gap-1.5 px-2.5 hover:opacity-70 transition-opacity whitespace-nowrap"
+				on:click={(e) => openPlatformUrl(e, record[first.key] as string)}
 			>
 				<svg viewBox="0 0 10 10" fill="currentColor" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg">
 					<path d="M2 1.5l6 3.5-6 3.5V1.5Z"/>
@@ -71,6 +83,7 @@
 						rel="noopener noreferrer"
 						title="Listen on {platform.label}"
 						class="flex items-center px-3 py-2 text-xs {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors"
+						on:click={(e) => openPlatformUrl(e, record[platform.key] as string)}
 					>
 						{platform.label}
 					</a>
@@ -103,7 +116,7 @@
 						href={record[platform.key] as string}
 						target="_blank"
 						rel="noopener noreferrer"
-						on:click={() => (open = false)}
+						on:click={(e) => { openPlatformUrl(e, record[platform.key] as string); open = false; }}
 						class="flex items-center gap-3 px-4 py-3.5 {$t.textSecondary} {$t.hoverBg} transition-colors border-b {$t.borderFaded}"
 					>
 						<span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: {platform.brand.bg}"></span>
