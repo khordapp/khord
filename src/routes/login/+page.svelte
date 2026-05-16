@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { signIn, tryRestoreSession } from '$lib/atproto/agent';
+	import { signIn, tryRestoreSession, initAuth } from '$lib/atproto/agent';
 	import { APP_NAME, AUTH_PROVIDER_NAME } from '$lib/config';
 	import { theme as t } from '$lib/theme';
 	import { session } from '$lib/stores/auth';
@@ -22,6 +22,19 @@
 	onMount(async () => {
 		try { handle = localStorage.getItem('khord_last_handle') ?? ''; } catch {}
 		try { storedDid = localStorage.getItem('khord_last_did') ?? ''; } catch {}
+
+		// If the user already has an active session, skip the login page.
+		let signedOut = false;
+		try { signedOut = localStorage.getItem('khord_signed_out') === 'true'; } catch {}
+		if (!signedOut) {
+			const s = await initAuth(true);
+			if (s) {
+				session.set(s);
+				goto('/');
+				return;
+			}
+		}
+
 		handleInput?.focus();
 		try {
 			const res = await fetch('/api/auth/status');
