@@ -938,7 +938,7 @@
 		{/each}
 		</div>
 		<!-- Space for the mobile bottom nav bar -->
-		<div class="h-24 sm:hidden" aria-hidden="true"></div>
+		<div class="h-32 sm:hidden" aria-hidden="true"></div>
 	</section>
 {:else}
 	<div class="space-y-4">
@@ -985,7 +985,7 @@
 			-webkit-backdrop-filter: blur(32px) saturate(200%) brightness({isLightTheme ? '108%' : '120%'});
 			border-top: 1px solid {isLightTheme ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.12)'};
 			box-shadow: inset 0 1px 0 {isLightTheme ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.07)'}, 0 -8px 32px {isLightTheme ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.35)'};
-			padding-bottom: env(safe-area-inset-bottom, 0px);
+			padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
 		"
 	>
 		<!-- Inner specular sheen -->
@@ -1029,7 +1029,7 @@
 
 		{#if hasSelection}
 			<!-- Selection mode — same icon+label style as tabs -->
-			<div class="flex h-16">
+			<div class="flex h-20">
 				<!-- Cancel -->
 				<button
 					on:click={clearSelection}
@@ -1076,7 +1076,7 @@
 			</div>
 		{:else}
 			<!-- Default tab bar -->
-			<div class="flex h-16">
+			<div class="flex h-20">
 				<!-- Feed -->
 				<button
 					on:click={() => switchTab('all')}
