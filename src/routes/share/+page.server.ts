@@ -11,8 +11,9 @@ export const load: PageServerLoad = async ({ url, fetch }) => {
 	const res = await fetch(`/api/resolve-link?${params}`);
 
 	if (!res.ok) {
-		const msg = res.status === 400 ? 'Unrecognised link — Spotify, Apple Music, Deezer, and YouTube Music are supported.'
+		const msg = res.status === 400 ? 'Unrecognised link — Spotify, Apple Music tracks, Deezer, and YouTube Music are supported.'
 			: res.status === 422 ? 'Could not load track info from that link. Try sharing again.'
+			: res.status === 501 ? 'Apple Music playlist import isn\'t supported yet. Individual Apple Music song links work fine — try sharing a Spotify, Deezer, or YouTube Music playlist instead.'
 			: 'Something went wrong loading track info.';
 		error(res.status, msg);
 	}

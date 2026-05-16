@@ -208,6 +208,7 @@ export const GET: RequestHandler = async ({ url }) => {
 		if (platform === 'spotify') playlist = await playlistFromSpotify(id);
 		else if (platform === 'deezer') playlist = await playlistFromDeezer(id);
 		else if (platform === 'youtube') playlist = await playlistFromYoutube(id);
+		else if (platform === 'apple') error(501, 'apple-playlist-unsupported');
 		else error(400, 'Playlist imports are supported for Spotify, Deezer, and YouTube Music.');
 
 		if (!playlist) error(422, `Could not load playlist from ${platform}`);
