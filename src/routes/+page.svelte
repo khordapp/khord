@@ -357,6 +357,17 @@
 	let swipeDx = 0;
 	let isSwiping = false;
 
+	// Trails activeTabIdx by 280ms so the w-full/absolute class switch happens
+	// after the CSS transform transition completes, preventing a layout jump.
+	let displayedTabIdx = 0;
+	let _displayTimer: ReturnType<typeof setTimeout> | null = null;
+	$: {
+		if (activeTabIdx !== displayedTabIdx) {
+			if (_displayTimer) clearTimeout(_displayTimer);
+			_displayTimer = setTimeout(() => { displayedTabIdx = activeTabIdx; }, 285);
+		}
+	}
+
 	// Live indicator position that tracks the finger during swipe
 	let liveIndicatorLeft = 0;
 	let liveIndicatorWidth = 0;
@@ -744,14 +755,15 @@
 		<div class="relative overflow-x-clip mt-2">
 		{#each TABS as tab, i}
 			{@const offset = i - activeTabIdx}
+			{@const displayed = i === displayedTabIdx}
 			<div
-				class="{offset === 0 ? 'w-full' : 'absolute top-0 left-0 w-full pointer-events-none select-none'}"
+				class="pt-2 {displayed ? 'w-full' : 'absolute top-0 left-0 w-full pointer-events-none select-none'}"
 				style="transform: translateX(calc({offset * 100}% + {offset * 20 + effectiveSwipeDx}px)); transition: {isSwiping ? 'none' : 'transform 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94)'}; will-change: transform;"
 				inert={offset !== 0}
 			>
 			{#if tab === 'all'}
 				{#if allLastRefreshed}
-					<p class="text-xs {$t.textFaint} mt-2">Updated {allLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</p>
+					<p class="text-xs {$t.textFaint}">Updated {allLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</p>
 				{/if}
 				{#if allLoading && allItems.length === 0 && !pendingItem}
 					<p class="{$t.textMuted} text-sm">Loading…</p>
@@ -795,7 +807,7 @@
 
 			{:else if tab === 'following'}
 				{#if allLastRefreshed}
-					<p class="text-xs {$t.textFaint} mt-2">Updated {allLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</p>
+					<p class="text-xs {$t.textFaint}">Updated {allLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</p>
 				{/if}
 				{#if !$followingLoaded || allLoading}
 					<p class="{$t.textMuted} text-sm">Loading…</p>
@@ -866,7 +878,7 @@
 
 			{:else if tab === 'setlists'}
 				{#if setlistsLastRefreshed}
-					<p class="text-xs {$t.textFaint} mt-2">Updated {setlistsLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</p>
+					<p class="text-xs {$t.textFaint}">Updated {setlistsLastRefreshed.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}</p>
 				{/if}
 				{#if pinnedSetlists.length > 0}
 					<div class="space-y-2 mt-2">
