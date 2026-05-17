@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { closeShareSong, lastSharedSong, prefilledTrack } from '$lib/stores/shareSong';
 	import SongSearch from './SongSearch.svelte';
 	import { type TrackResult } from '$lib/search';
@@ -47,6 +47,22 @@
 	let sharing = false;
 	let shareError = '';
 	let shared = false;
+
+	// Shift the bottom sheet above the on-screen keyboard on iOS Safari.
+	// visualViewport.height shrinks when the keyboard appears; the difference
+	// is how far up we need to move the fixed-bottom panel.
+	let keyboardOffset = 0;
+	function updateKeyboardOffset() {
+		const vv = window.visualViewport;
+		if (!vv || window.innerWidth >= 640) { keyboardOffset = 0; return; }
+		keyboardOffset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+	}
+	onMount(() => {
+		window.visualViewport?.addEventListener('resize', updateKeyboardOffset);
+	});
+	onDestroy(() => {
+		window.visualViewport?.removeEventListener('resize', updateKeyboardOffset);
+	});
 
 	$: noteCharsLeft = NOTE_LIMIT - [...note].length;
 	$: noteOverLimit = noteCharsLeft < 0;
@@ -133,6 +149,7 @@
 <!-- Modal -->
 <div
 	transition:fly={{ y: 320, duration: 260 }}
+	style={keyboardOffset > 0 ? `bottom: ${keyboardOffset}px; transition: bottom 0.2s ease;` : undefined}
 	class="fixed z-50 bottom-0 left-0 right-0 flex flex-col
 		sm:bottom-auto sm:top-20 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-full sm:max-w-md
 		{$t.surfaceBg} border-t border-l border-r sm:border {$t.borderStrong}
