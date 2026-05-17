@@ -31,8 +31,8 @@
 	let isLightTheme = false;
 	let themeHasPair = false;
 	$: if ($t) {
-		isLightTheme = isLightTheme;
-		themeHasPair = themeHasPair;
+		isLightTheme = t.isLight();
+		themeHasPair = t.hasPair();
 	}
 
 	// Keep the Android status bar in sync with the active theme.
