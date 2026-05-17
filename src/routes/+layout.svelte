@@ -357,25 +357,40 @@
 {#if aboutOpen}
 	<button class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" aria-label="Close" on:click={() => (aboutOpen = false)}></button>
 	<div
-		transition:fly={{ y: 16, duration: 180 }}
-		class="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 sm:left-1/2 sm:right-auto sm:top-24 sm:translate-y-0 sm:-translate-x-1/2 sm:w-full sm:max-w-sm
-			{$t.surfaceBg} border {$t.borderStrong} rounded-2xl shadow-2xl overflow-hidden"
+		transition:fly={{ y: 320, duration: 260 }}
+		class="fixed z-50 bottom-0 left-0 right-0 flex flex-col
+			sm:bottom-auto sm:top-1/2 sm:left-1/2 sm:right-auto sm:-translate-y-1/2 sm:-translate-x-1/2 sm:w-full sm:max-w-sm
+			{$t.surfaceBg} border-t border-l border-r sm:border {$t.borderStrong}
+			rounded-t-3xl sm:rounded-2xl shadow-2xl
+			max-h-[88dvh] sm:max-h-none sm:overflow-hidden"
 		role="dialog"
 		aria-modal="true"
 		aria-label="About {APP_NAME}"
 	>
-		<div class="px-5 py-4 border-b {$t.borderBase} flex items-center justify-between">
-			<h2 class="text-sm font-semibold {$t.textPrimary}">About {APP_NAME}</h2>
-			<button on:click={() => (aboutOpen = false)} class="{$t.textMuted} {$t.hoverText} transition-colors text-lg leading-none" aria-label="Close">✕</button>
+		<!-- Drag handle (mobile only) -->
+		<div class="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
+			<div class="w-10 h-1 rounded-full {$t.borderStrong} bg-current opacity-30"></div>
 		</div>
-		<div class="px-5 py-5 space-y-5 text-xs {$t.textFaint}">
-			<div class="flex flex-col items-center gap-2 text-center">
-				<img src="/khord-logo.png" alt={APP_NAME} class="h-16 w-16 rounded-2xl" />
-				<span>v{VERSION}</span>
-				<a href="https://www.khord.app" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">Powered by Khord</a>
+
+		<!-- Header -->
+		<div class="px-6 py-4 border-b {$t.borderBase} flex items-center justify-between shrink-0">
+			<h2 class="text-base font-semibold {$t.textPrimary}">About {APP_NAME}</h2>
+			<button on:click={() => (aboutOpen = false)} class="{$t.textMuted} {$t.hoverText} transition-colors text-xl leading-none" aria-label="Close">✕</button>
+		</div>
+
+		<!-- Scrollable body -->
+		<div class="overflow-y-auto px-6 py-6 space-y-6 text-sm {$t.textFaint}">
+			<div class="flex flex-col items-center gap-3 text-center">
+				<img src="/khord-logo.png" alt={APP_NAME} class="h-24 w-24 rounded-3xl shadow-lg" />
+				<div>
+					<p class="text-xl font-bold {$t.textPrimary}">{APP_NAME}</p>
+					<p class="mt-0.5">v{VERSION}</p>
+				</div>
+				<a href="https://www.khord.app" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">www.khord.app</a>
 			</div>
-			<div class="space-y-1.5 border-t {$t.borderFaded} pt-4">
-				<p class="{$t.textMuted} font-medium mb-2">Data sources</p>
+
+			<div class="space-y-3 border-t {$t.borderFaded} pt-5">
+				<p class="{$t.textSecondary} font-semibold">Data sources</p>
 				<p>Music search via <a href="https://developer.apple.com/library/archive/documentation/AudioVideo/Conceptual/iTuneSearchAPI/" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">iTunes Search API</a></p>
 				<p>Spotify data via <a href="https://developer.spotify.com" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">Spotify Web API</a></p>
 				<p>YouTube Music data via <a href="https://developers.google.com/youtube/v3" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">YouTube Data API</a></p>
@@ -383,6 +398,9 @@
 				<p>Identity via <a href="https://atproto.com" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">AT Protocol</a></p>
 			</div>
 		</div>
+
+		<!-- Safe-area spacer for home indicator -->
+		<div class="shrink-0 sm:hidden" style="height: env(safe-area-inset-bottom, 12px)"></div>
 	</div>
 {/if}
 
