@@ -8,6 +8,7 @@
 	import { SONG_NSID, type KhordSongRecord } from '$lib/atproto/lexicons/song';
 	import { APP_URL } from '$lib/config';
 	import { theme as t } from '$lib/theme';
+	import { fly } from 'svelte/transition';
 
 	const NOTE_LIMIT = 300;
 
@@ -131,18 +132,26 @@
 
 <!-- Modal -->
 <div
-	class="fixed z-50 left-4 right-4 top-1/2 -translate-y-1/2 sm:left-1/2 sm:right-auto sm:top-20 sm:translate-y-0 sm:-translate-x-1/2
-		sm:w-full sm:max-w-md {$t.surfaceBg} border {$t.borderStrong} rounded-2xl shadow-2xl
-		max-h-[90dvh] flex flex-col"
+	transition:fly={{ y: 320, duration: 260 }}
+	class="fixed z-50 bottom-0 left-0 right-0 flex flex-col
+		sm:bottom-auto sm:top-20 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-full sm:max-w-md
+		{$t.surfaceBg} border-t border-l border-r sm:border {$t.borderStrong}
+		rounded-t-3xl sm:rounded-2xl shadow-2xl
+		max-h-[88dvh] sm:max-h-[90dvh]"
 	role="dialog"
 	aria-modal="true"
 	aria-label="Share a song"
 >
+	<!-- Drag handle (mobile only) -->
+	<div class="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
+		<div class="w-10 h-1 rounded-full {$t.borderStrong} bg-current opacity-30"></div>
+	</div>
+
 	<div class="px-5 py-4 border-b {$t.borderBase} flex items-center justify-between shrink-0">
-		<h2 class="text-sm font-semibold {$t.textPrimary}">Share a song</h2>
+		<h2 class="text-base font-semibold {$t.textPrimary}">Share a song</h2>
 		<button
 			on:click={closeShareSong}
-			class="{$t.textMuted} {$t.hoverText} transition-colors text-lg leading-none"
+			class="{$t.textMuted} {$t.hoverText} transition-colors text-xl leading-none"
 			aria-label="Close"
 		>
 			✕
@@ -216,4 +225,7 @@
 			</button>
 		{/if}
 	</div>
+
+	<!-- Safe-area spacer for home indicator -->
+	<div class="shrink-0 sm:hidden" style="height: env(safe-area-inset-bottom, 12px)"></div>
 </div>
