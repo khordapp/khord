@@ -31,6 +31,17 @@
 	let isLightTheme = false;
 	$: if ($t) isLightTheme = t.isLight();
 
+	// Keep the Android status bar in sync with the active theme.
+	$: if (typeof window !== 'undefined') syncStatusBar(isLightTheme);
+
+	function syncStatusBar(light: boolean) {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		const StatusBar = (window as any).Capacitor?.Plugins?.StatusBar;
+		if (!StatusBar) return;
+		StatusBar.setStyle({ style: light ? 'DARK' : 'LIGHT' });
+		StatusBar.setBackgroundColor({ color: light ? '#f4f4f5' : '#09090b' });
+	}
+
 	onMount(async () => {
 		const mq = window.matchMedia('(max-width: 639px)');
 		isMobile = mq.matches;
