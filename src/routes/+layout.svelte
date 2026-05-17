@@ -29,7 +29,11 @@
 	let serviceSelectorOpen = false;
 	let isMobile = false;
 	let isLightTheme = false;
-	$: if ($t) isLightTheme = t.isLight();
+	let themeHasPair = false;
+	$: if ($t) {
+		isLightTheme = isLightTheme;
+		themeHasPair = themeHasPair;
+	}
 
 	// Keep the Android status bar in sync with the active theme.
 	$: if (typeof window !== 'undefined') syncStatusBar(isLightTheme);
@@ -188,9 +192,9 @@
 								</a>
 							{/if}
 							<div class="border-t {$t.borderBase} mt-1 pt-1">
-								{#if t.hasPair()}
+								{#if themeHasPair}
 									<button on:click={t.toggle} class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
-										{#if t.isLight()}
+										{#if isLightTheme}
 											<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.25"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>
 											Dark mode
 										{:else}
@@ -265,9 +269,9 @@
 
 						<!-- Bottom: theme toggle + about + sign out -->
 						<div class="border-t {$t.borderBase} py-2">
-							{#if t.hasPair()}
+							{#if themeHasPair}
 								<button on:click={t.toggle} class="w-full flex items-center gap-4 px-5 py-4 text-base {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
-									{#if t.isLight()}
+									{#if isLightTheme}
 										<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.25"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>
 										Dark mode
 									{:else}
