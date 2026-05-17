@@ -237,6 +237,7 @@ When a song is added to a setlist (via CreateSetlistModal, feed selection, or da
 - Setlist canonical URL is `/s/[handle]/[rkey]`; old `/setlists/` path 301-redirects to keep existing links working
 - Setlist collaboration uses a proposal pattern (`app.khord.setlist.proposal`) because AT Protocol records are owner-only writes — write-delegation is not viable. Proposals live on the proposer's PDS; discovery is via AppView SQLite (primary) or querying followers' PDSes (503 fallback, also includes owner's own DID for dev/testing). Owner accepts (creates song + appends to setlist) or dismisses (localStorage persistence keyed by rkey). No server-side dismiss state needed.
 - `APP_URL` reads from `env.PUBLIC_APP_URL` (dynamic) not a hardcoded constant — required for the share URL to match whichever domain the instance is running on
+- Apple Music playlist import uses the `apple_music_enabled` DB setting (admin panel toggle, default false) and reads the developer token from the `apple_music_dev_token` DB setting first, then falls back to `PUBLIC_APPLE_MUSIC_DEV_TOKEN` env var — allows admins to update the token without a server restart
 - Capacitor wrapper planned for iOS/Android
 - Setlist export to streaming services planned: Spotify first (user OAuth + ISRC lookup), then Apple Music via MusicKit JS
 
@@ -268,12 +269,15 @@ Pattern: identical to `src/lib/server/spotify.ts`.
 | `PUBLIC_THEME` | UI color theme (default: `dark`); requires rebuild to change — see Theming section |
 | `PUBLIC_SPOTIFY_CLIENT_ID` | Spotify app client ID — from developer.spotify.com |
 | `SPOTIFY_CLIENT_SECRET` | Spotify app client secret — server-only, never sent to browser |
+| `YOUTUBE_API_KEY` | YouTube Data API v3 key — enables YouTube Music links; toggle per instance in admin settings |
+| `PUBLIC_APPLE_MUSIC_DEV_TOKEN` | MusicKit JWT developer token — enables Apple Music playlist import; can also be set/updated via the admin panel without a restart |
 | `OWNER_DIDS` | Comma-separated AT Protocol DIDs with owner/admin privileges; unlocks ban management UI |
 | `BANNED_DIDS` | Comma-separated AT Protocol DIDs blocked from signing in; requires restart (dynamic alternative: `banned_users` table) |
 | `ALLOWED_DIDS` | Comma-separated AT Protocol DIDs allowed to sign in; unset = open |
 | `MAX_USERS` | Max registered users (0 = unlimited); enforced via SQLite `registered_users` count |
 | `DISABLE_ALBUM_ART` | Set to `true` to hide album art thumbnails on song cards |
-| `INDEXER_DB_PATH` | Path to SQLite DB (default: `/data/khord.db`) — must match the path used by khord-indexer |
+| `INDEXER_DB_NAME` | Database filename only (e.g. `khord.db`) — Unraid-preferred; path constructed as `/data/{name}`. Takes precedence over `INDEXER_DB_PATH`. |
+| `INDEXER_DB_PATH` | Full path to SQLite DB (default: `/data/khord.db`) — Docker Compose style; ignored when `INDEXER_DB_NAME` is set |
 
 ## Deployment architecture
 

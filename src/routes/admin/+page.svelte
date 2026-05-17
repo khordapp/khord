@@ -129,6 +129,8 @@
 	let feedScoped = false;
 	let spotifyEnabled = false;
 	let youtubeMusicEnabled = false;
+	let appleMusicEnabled = false;
+	let appleMusicDevToken = '';
 
 	async function loadSettings() {
 		const did = $session?.did;
@@ -146,6 +148,8 @@
 			feedScoped = raw.feed_scoped === 'true';
 			spotifyEnabled = raw.spotify_enabled !== 'false';
 			youtubeMusicEnabled = raw.youtube_music_enabled === 'true';
+			appleMusicEnabled = raw.apple_music_enabled === 'true';
+			appleMusicDevToken = raw.apple_music_dev_token ?? '';
 			settings = { album_art_disabled: albumArtDisabled, registration_closed: registrationClosed, max_users: maxUsers };
 		} catch {
 			settingsError = true;
@@ -171,7 +175,9 @@
 						max_users: String(maxUsers),
 						feed_scoped: String(feedScoped),
 						spotify_enabled: String(spotifyEnabled),
-						youtube_music_enabled: String(youtubeMusicEnabled)
+						youtube_music_enabled: String(youtubeMusicEnabled),
+						apple_music_enabled: String(appleMusicEnabled),
+						apple_music_dev_token: appleMusicDevToken
 					}
 				})
 			});
@@ -964,6 +970,40 @@
 						<span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full {$t.pageBg} shadow transition-transform
 							{youtubeMusicEnabled ? 'translate-x-4' : 'translate-x-0'}"></span>
 					</button>
+				</div>
+
+				<!-- Apple Music -->
+				<div class="{$t.surfaceBg} border {$t.borderStrong} rounded-xl px-4 py-4 space-y-4">
+					<div class="flex items-start justify-between gap-4">
+						<div>
+							<p class="text-sm font-medium {$t.textPrimary}">Apple Music playlist import</p>
+							<p class="text-xs {$t.textMuted} mt-0.5">Lets users import playlists from Apple Music. Requires a MusicKit developer token (enter below). Each instance needs its own Apple Developer account ($99/yr). Tokens expire after up to 6 months — regenerate before expiry.</p>
+						</div>
+						<button
+							role="switch"
+							aria-checked={appleMusicEnabled}
+							aria-label="Toggle Apple Music playlist import"
+							on:click={() => (appleMusicEnabled = !appleMusicEnabled)}
+							class="relative shrink-0 w-10 h-6 rounded-full transition-colors
+								{appleMusicEnabled ? $t.btnPrimaryBg : $t.elevatedBg} border {$t.borderStrong}"
+						>
+							<span class="absolute top-0.5 left-0.5 w-5 h-5 rounded-full {$t.pageBg} shadow transition-transform
+								{appleMusicEnabled ? 'translate-x-4' : 'translate-x-0'}"></span>
+						</button>
+					</div>
+					<div class="space-y-1">
+						<label for="apple-music-token" class="text-xs font-medium {$t.textMuted}">Developer token</label>
+						<input
+							id="apple-music-token"
+							type="password"
+							bind:value={appleMusicDevToken}
+							placeholder="Paste MusicKit JWT…"
+							autocomplete="off"
+							class="w-full {$t.recessedBg} border {$t.borderStrong} rounded-lg px-3 py-2 text-sm
+								{$t.textPrimary} placeholder:{$t.textFaint} focus:outline-none focus:ring-1 focus:ring-current"
+						/>
+						<p class="text-xs {$t.textFaint}">Generate at developer.apple.com → Certificates, Identifiers &amp; Profiles → Keys (MusicKit). Leave blank to use the <code class="font-mono">PUBLIC_APPLE_MUSIC_DEV_TOKEN</code> env var if set.</p>
+					</div>
 				</div>
 
 				<!-- Max users -->

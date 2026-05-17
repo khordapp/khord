@@ -96,7 +96,7 @@ Or configure [Litestream](https://litestream.io/) to stream WAL changes to a loc
 | `BANNED_DIDS` | Comma-separated AT Protocol DIDs blocked from signing in; requires restart |
 | `MAX_USERS` | Max registered users (0 = unlimited) |
 | `DISABLE_ALBUM_ART` | Set to `true` to hide album art thumbnails globally |
-| `INDEXER_DB_PATH` | Path to SQLite DB (default: `/data/khord.db`) |
+| `INDEXER_DB_PATH` | Full path to the SQLite database (default: `/data/khord.db`). For Unraid, use `INDEXER_DB_NAME` instead — see the Unraid section. |
 | `FIREHOSE_RELAY` | AT Protocol firehose relay URL (default: `wss://bsky.network`) |
 
 See `.env.example` for full documentation and defaults.

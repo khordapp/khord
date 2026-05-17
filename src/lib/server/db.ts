@@ -28,7 +28,8 @@ function open(path: string, readonly: boolean): import('better-sqlite3').Databas
 function init() {
 	if (building || _tried) return;
 	_tried = true;
-	const path = process.env.INDEXER_DB_PATH ?? './data/khord.db';
+	const dbName = process.env.INDEXER_DB_NAME;
+	const path = dbName ? `/data/${dbName}` : (process.env.INDEXER_DB_PATH ?? './data/khord.db');
 	_ro = open(path, true);
 	_rw = open(path, false);
 	if (_ro) console.log('[db] connected to', path);

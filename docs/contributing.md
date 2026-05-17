@@ -77,26 +77,29 @@ src/
         setlist.ts          # app.khord.setlist types + KhordSetlistItemSnapshot
         proposal.ts         # app.khord.setlist.proposal types
       social.ts             # fetchSongs, fetchSetlists, createSetlist, updateSetlist, createProposal, etc.
-    odesli/
-      client.ts             # resolveUrl(), extractPlatformUrls()
     server/
       db.ts                 # SQLite connections (server-only)
-      spotify.ts            # Spotify client credentials token + search
+      spotify.ts            # Spotify client credentials token + track/playlist search
+      deezer.ts             # Deezer track search (no credentials needed)
+      youtube.ts            # YouTube Music track/playlist search via Data API v3
+      apple.ts              # Apple Music playlist fetch via catalog API + MusicKit token
       access.ts             # OWNER_DIDS, BANNED_DIDS, ALLOWED_DIDS + MAX_USERS enforcement
+      settings.ts           # getSetting/setSetting/getAllSettings — DB-backed instance config
     itunes/
-      client.ts             # iTunes Search API
+      client.ts             # iTunes Search API — free song discovery, no auth
+    streaming/
+      apple.ts              # Client-side MusicKit JS wrapper (search, auth)
     theme/
-      types.ts              # Theme interface (33 tokens)
-      index.ts              # Reads PUBLIC_THEME, exports resolved theme
+      types.ts              # Theme interface (34 tokens)
+      index.ts              # Reads PUBLIC_THEME via $env/dynamic/public, exports resolved theme
       dark.ts / light.ts    # Default dark and light themes
       *.ts                  # 16 additional theme variants
     components/
-      ShareSongModal.svelte    # Song search → resolve → AT Protocol record create
-      CreateSetlistModal.svelte # Setlist creation with song search
-      SongCard.svelte          # Feed card: platform links, upnote, post, resync
-      SongSearch.svelte        # iTunes-backed search input
-      StreamingPill.svelte     # Branded platform pill + chevron dropdown
-      ServicePicker.svelte     # Preferred platform picker
+      ShareSongModal.svelte        # Song search → resolve → AT Protocol record create; bottom sheet
+      SongCard.svelte              # Feed card: platform links, upnote, post, resync
+      SongSearch.svelte            # iTunes-backed search input
+      StreamingPill.svelte         # Branded platform pill + chevron dropdown
+      StreamingServiceModal.svelte # Preferred platform picker modal
     stores/
       auth.ts               # session, isLoggedIn, authReady
       votes.ts              # upvotes, like/unlike
@@ -104,28 +107,31 @@ src/
       createSetlist.ts      # create setlist modal state
       following.ts          # followed users
       prefs.ts              # localStorage preferred platform
-      instance.ts           # instanceConfig (albumArtDisabled, isOwner)
+      instance.ts           # instanceConfig (albumArtDisabled, isOwner, appleMusicEnabled, feedScoped)
+      importPlaylist.ts     # import playlist modal state
   routes/
-    +layout.svelte          # shell, avatar dropdown nav, speed-dial FAB, footer with attributions
-    +page.svelte            # All Songs / Following / Daily / Setlists tabs; logged-out hero
-    s/[handle]/[rkey]/        # Setlist detail: drag reorder, add songs, share, edit
+    +layout.svelte          # shell, avatar dropdown/drawer nav, speed-dial FAB, import playlist modal
+    +page.svelte            # Feed / Daily / Setlists tabs
+    s/[handle]/[rkey]/      # Setlist detail: drag reorder, add songs, proposals, share
     setlists/[handle]/[rkey]/ # 301 redirect → /s/[handle]/[rkey]/
+    song/[handle]/[rkey]/   # Public song permalink (SSR OG tags)
     login/+page.svelte      # AT Protocol OAuth login
     oauth/callback/         # OAuth redirect callback
-    spotify/callback/       # Spotify OAuth callback
+    share/                  # Playlist import + single-link share flow
     settings/               # Preferred streaming service
     invite/                 # Invite page
-    admin/                  # Admin panel (owner-only): users, bans, instance settings
+    admin/                  # Admin panel (owner-only): users, bans, requests, settings, cache
     api/
-      resolve/              # Odesli proxy + Spotify augmentation
-      feed/                 # AppView feed query (SQLite)
-      votes/                # AppView votes query (SQLite)
+      resolve/              # GET ?title=&artist= — Spotify + YouTube + Deezer lookup in parallel
+      resolve-link/         # GET ?url= — detect and fetch track/playlist from a streaming URL
+      feed/                 # AppView feed query (SQLite; 503 if unavailable)
+      votes/                # AppView votes for a DID
       votes/counts/         # Batch vote counts for a list of URIs
-      proposals/            # Setlist proposals from AppView (PDS fallback on 503)
-      thumbnail/            # Image proxy (avoids CORS on third-party CDNs)
+      proposals/            # Setlist proposals (AppView; PDS fallback on 503)
+      thumbnail/            # Server-side image proxy (avoids CORS on third-party CDNs)
       auth/check/           # Access control check + user registration
       auth/status/          # Instance config; accepts ?did= to resolve isOwner
-      admin/                # Admin API routes (stats, users, bans, settings) — owner-only
+      admin/                # Admin API routes (stats, users, bans, requests, settings) — owner-only
 lexicons/
   app.khord.song.json
   app.khord.vote.json
