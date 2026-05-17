@@ -40,7 +40,16 @@
 
 	function syncStatusBar(light: boolean) {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		const StatusBar = (window as any).Capacitor?.Plugins?.StatusBar;
+		const w = window as any;
+		// KhordStatusBar is a JavascriptInterface injected by MainActivity — works
+		// at any URL including external instances where the Capacitor plugin bridge
+		// may not be available.
+		if (w.KhordStatusBar?.setLightMode) {
+			w.KhordStatusBar.setLightMode(light);
+			return;
+		}
+		// Fallback: Capacitor StatusBar plugin (works when at app origin).
+		const StatusBar = w.Capacitor?.Plugins?.StatusBar;
 		if (!StatusBar) return;
 		StatusBar.setStyle({ style: light ? 'DARK' : 'LIGHT' });
 		StatusBar.setBackgroundColor({ color: light ? '#f4f4f5' : '#09090b' });
