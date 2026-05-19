@@ -445,7 +445,42 @@
 		}
 	}
 
+	// Pin (instance admin only)
+	let isPinned = false;
+	let pinning = false;
 
+	async function loadPinStatus() {
+		try {
+			const r = await fetch('/api/pinned-setlists');
+			if (r.ok) {
+				const { pins } = await r.json();
+				isPinned = pins.some((p: { handle: string; rkey: string }) => p.handle === handle && p.rkey === rkey);
+			}
+		} catch { /* non-fatal */ }
+	}
+
+	async function togglePin() {
+		if (!$session || pinning || !setlist) return;
+		pinning = true;
+		try {
+			if (isPinned) {
+				await fetch('/api/pinned-setlists', {
+					method: 'DELETE',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ ownerDid: $session.did, handle, rkey })
+				});
+				isPinned = false;
+			} else {
+				await fetch('/api/pinned-setlists', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ ownerDid: $session.did, handle, rkey, title: setlist.value.title })
+				});
+				isPinned = true;
+			}
+		} catch { /* non-fatal */ }
+		pinning = false;
+	}
 
 	$: ogTitle = setlist?.value.title ?? 'Mixtape';
 	$: ogDesc = `${setlist?.value.items.length ?? 0} song${(setlist?.value.items.length ?? 0) === 1 ? '' : 's'} · a mixtape by @${sharedBy?.handle ?? handle} on ${APP_NAME}. Listen anywhere on Spotify, Apple Music, and more.`;
@@ -549,6 +584,7 @@
 	}
 
 	$: if ($authReady) load();
+	$: if ($authReady && $instanceConfig.isOwner) loadPinStatus();
 
 	function handleDndConsider(e: CustomEvent<{ items: DndItem[] }>) {
 		dndItems = e.detail.items;
@@ -1161,6 +1197,27 @@
 						</svg>
 						<span class="text-[11px] leading-none">Delete</span>
 					</button>
+					<!-- Pin (instance admin only) -->
+					{#if $instanceConfig.isOwner}
+						<button
+							on:click={togglePin}
+							disabled={pinning}
+							aria-label={isPinned ? 'Unpin mixtape' : 'Pin mixtape'}
+							class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {isPinned ? $t.accentText : $t.textMuted}"
+						>
+							{#if isPinned}
+								<svg viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+									<path fill-rule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 0 0 .723 0l.028-.015.071-.041a16.975 16.975 0 0 0 1.144-.742 19.58 19.58 0 0 0 2.683-2.282c1.944-2.003 3.5-4.697 3.5-8.828a6.5 6.5 0 0 0-13 0c0 4.13 1.556 6.825 3.5 8.828a19.58 19.58 0 0 0 2.682 2.282 16.975 16.975 0 0 0 1.145.742zM12 13.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" clip-rule="evenodd"/>
+								</svg>
+							{:else}
+								<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+									<path d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" stroke="currentColor" stroke-width="1.5"/>
+									<path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0z" stroke="currentColor" stroke-width="1.5"/>
+								</svg>
+							{/if}
+							<span class="text-[11px] leading-none">{isPinned ? 'Unpin' : 'Pin'}</span>
+						</button>
+					{/if}
 				</div>
 			{:else if $session && !loading}
 				<div class="flex h-16 max-w-2xl mx-auto">
@@ -1193,6 +1250,27 @@
 						</svg>
 						<span class="text-[11px] leading-none">Propose</span>
 					</button>
+					<!-- Pin (instance admin only) -->
+					{#if $instanceConfig.isOwner}
+						<button
+							on:click={togglePin}
+							disabled={pinning}
+							aria-label={isPinned ? 'Unpin mixtape' : 'Pin mixtape'}
+							class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {isPinned ? $t.accentText : $t.textMuted}"
+						>
+							{#if isPinned}
+								<svg viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+									<path fill-rule="evenodd" d="M11.54 22.351l.07.04.028.016a.76.76 0 0 0 .723 0l.028-.015.071-.041a16.975 16.975 0 0 0 1.144-.742 19.58 19.58 0 0 0 2.683-2.282c1.944-2.003 3.5-4.697 3.5-8.828a6.5 6.5 0 0 0-13 0c0 4.13 1.556 6.825 3.5 8.828a19.58 19.58 0 0 0 2.682 2.282 16.975 16.975 0 0 0 1.145.742zM12 13.5a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" clip-rule="evenodd"/>
+								</svg>
+							{:else}
+								<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+									<path d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0z" stroke="currentColor" stroke-width="1.5"/>
+									<path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0z" stroke="currentColor" stroke-width="1.5"/>
+								</svg>
+							{/if}
+							<span class="text-[11px] leading-none">{isPinned ? 'Unpin' : 'Pin'}</span>
+						</button>
+					{/if}
 				</div>
 			{:else if !$session}
 				<div class="flex h-16 max-w-2xl mx-auto">
