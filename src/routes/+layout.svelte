@@ -35,6 +35,25 @@
 		themeHasPair = t.hasPair();
 	}
 
+	// Map every pageBg Tailwind class to its hex value so we can set it on
+	// <body>. This prevents iOS Safari overscroll rubber-banding from exposing
+	// the white default body background behind the app's background color.
+	const PAGE_BG_HEX: Record<string, string> = {
+		'bg-stone-950': '#0c0a09', 'bg-stone-100': '#f5f5f4',
+		'bg-slate-950': '#020617', 'bg-slate-100': '#f1f5f9',
+		'bg-gray-950':  '#030712',
+		'bg-neutral-950': '#0a0a0a', 'bg-neutral-100': '#f5f5f5',
+		'bg-zinc-100':  '#f4f4f5',
+		'bg-blue-950':  '#172554',
+		'bg-teal-950':  '#042f2e',
+		'bg-emerald-950': '#022c22',
+		'bg-rose-950':  '#4c0519',
+		'bg-violet-950': '#2e1065',
+	};
+	$: if (typeof window !== 'undefined') {
+		document.body.style.backgroundColor = PAGE_BG_HEX[$t.pageBg] ?? '';
+	}
+
 	// Keep the Android status bar in sync with the active theme.
 	$: if (typeof window !== 'undefined') syncStatusBar(isLightTheme);
 
@@ -127,7 +146,7 @@
 	}
 </script>
 
-<div class="min-h-dvh flex flex-col {$t.pageBg} {$t.textPrimary}">
+<div class="min-h-screen flex flex-col {$t.pageBg} {$t.textPrimary}">
 	<header class="border-b {$t.borderBase} px-6 py-3 flex items-center justify-between" style="padding-top: calc(0.75rem + env(safe-area-inset-top, 0px))">
 		<a href="/" class="flex items-center gap-2.5">
 			<img

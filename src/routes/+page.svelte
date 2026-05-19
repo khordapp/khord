@@ -314,6 +314,10 @@
 
 	// ── Setlists ──────────────────────────────────────────────────────────────
 	let setlists: KhordSetlist[] = [];
+	$: unpinnedSetlists = setlists.filter((s) => {
+		const rkey = s.uri.split('/').pop()!;
+		return !pinnedSetlists.some((p) => p.rkey === rkey);
+	});
 	let setlistsLoading = false;
 	let setlistsLoaded = false;
 	let setlistsLastRefreshed: Date | null = null;
@@ -899,17 +903,17 @@
 				{/if}
 				{#if setlistsLoading}
 					<p class="{$t.textMuted} text-sm mt-2">Loading mixtapes…</p>
-				{:else if setlists.length === 0 && pinnedSetlists.length === 0}
+				{:else if unpinnedSetlists.length === 0 && pinnedSetlists.length === 0}
 					<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-10 text-center space-y-2">
 						<p class="{$t.textSecondary} text-sm font-medium">No mixtapes yet</p>
 						<p class="{$t.textMuted} text-xs">Select songs in the Feed tab to create your first mixtape.</p>
 					</div>
-				{:else if setlists.length > 0}
+				{:else if unpinnedSetlists.length > 0}
 					<div class="space-y-2 {pinnedSetlists.length > 0 ? 'mt-4' : 'mt-2'}">
 						{#if pinnedSetlists.length > 0}
 							<p class="text-xs font-semibold {$t.textFaint} uppercase tracking-wider px-1">Your Mixtapes</p>
 						{/if}
-						{#each setlists as setlist (setlist.uri)}
+						{#each unpinnedSetlists as setlist (setlist.uri)}
 							{@const rkey = setlist.uri.split('/').pop()!}
 							<a
 								href="/s/{$session?.handle}/{rkey}"
