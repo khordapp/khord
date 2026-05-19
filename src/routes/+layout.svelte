@@ -75,6 +75,7 @@
 				albumArtDisabled: data.albumArtDisabled ?? false,
 				feedScoped: data.feedScoped ?? false,
 				isOwner: data.isOwner ?? false,
+				appleMusicEnabled: data.appleMusicEnabled ?? false,
 				loaded: true
 			});
 		}).catch(() => {});
@@ -114,9 +115,12 @@
 	function closeMenu() { menuOpen = false; }
 	function closeFab() { fabOpen = false; }
 
+	$: isAppleMusicPlaylist = /music\.apple\.com\/[a-z]{2}\/playlist\//.test(importUrl);
+	$: showAppleMusicWarning = isAppleMusicPlaylist && !$instanceConfig.appleMusicEnabled;
+
 	function handleImportSubmit() {
 		const url = importUrl.trim();
-		if (!url) return;
+		if (!url || showAppleMusicWarning) return;
 		closeImportPlaylist();
 		importUrl = '';
 		goto(`/share?url=${encodeURIComponent(url)}`);
@@ -444,6 +448,9 @@
 				class="w-full px-3 py-2.5 rounded-lg border {$t.borderStrong} {$t.surfaceBg} {$t.textPrimary} placeholder:{$t.textFaint} focus:outline-none {$t.focusRing}"
 				on:keydown={(e) => e.key === 'Enter' && handleImportSubmit()}
 			/>
+			{#if showAppleMusicWarning}
+				<p class="text-xs text-amber-400">Apple Music playlist import is not enabled on this instance. Contact your instance admin.</p>
+			{/if}
 			<div class="flex gap-2 justify-end">
 				<button
 					on:click={() => { closeImportPlaylist(); importUrl = ''; }}
@@ -453,7 +460,7 @@
 				</button>
 				<button
 					on:click={handleImportSubmit}
-					disabled={!importUrl.trim()}
+					disabled={!importUrl.trim() || showAppleMusicWarning}
 					class="px-4 py-2 rounded-lg text-sm font-semibold {$t.btnPrimaryBg} {$t.btnPrimaryText} {$t.btnPrimaryHover} transition-colors disabled:opacity-40"
 				>
 					Import

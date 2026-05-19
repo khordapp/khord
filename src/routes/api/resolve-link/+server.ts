@@ -1,6 +1,8 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { fetchSpotifyTrack, fetchSpotifyPlaylist } from '$lib/server/spotify';
+import { fetchAppleMusicPlaylist } from '$lib/server/apple';
+import { getSetting } from '$lib/server/settings';
 import { env } from '$env/dynamic/private';
 import type { TrackResult } from '$lib/search';
 
@@ -19,7 +21,7 @@ export interface PlaylistData {
 
 type Detected =
 	| { type: 'track'; platform: string; id: string }
-	| { type: 'playlist'; platform: string; id: string }
+	| { type: 'playlist'; platform: string; id: string; storefront?: string }
 	| null;
 
 function detect(raw: string): Detected {
@@ -42,10 +44,12 @@ function detect(raw: string): Detected {
 			const id = parts[parts.length - 1];
 			if (/^\d+$/.test(id)) return { type: 'track', platform: 'apple', id };
 		}
-		// Apple Music playlists: /playlist/{name}/{id} — id starts with "pl."
+		// Apple Music playlists: /{storefront}/playlist/{name}/{id} — id starts with "pl."
 		if (parts.includes('playlist')) {
+			const playlistIdx = parts.indexOf('playlist');
 			const id = parts[parts.length - 1];
-			if (id?.startsWith('pl.')) return { type: 'playlist', platform: 'apple', id };
+			const storefront = playlistIdx > 0 ? parts[playlistIdx - 1] : 'us';
+			if (id?.startsWith('pl.')) return { type: 'playlist', platform: 'apple', id, storefront };
 		}
 	}
 
@@ -192,6 +196,12 @@ async function playlistFromYoutube(id: string): Promise<PlaylistData | null> {
 	} catch { return null; }
 }
 
+async function playlistFromApple(id: string, storefront = 'us'): Promise<PlaylistData | null> {
+	const data = await fetchAppleMusicPlaylist(id, storefront);
+	if (!data) return null;
+	return { title: data.title, tracks: data.tracks };
+}
+
 // ── Handler ───────────────────────────────────────────────────────────────────
 
 export const GET: RequestHandler = async ({ url }) => {
@@ -205,11 +215,16 @@ export const GET: RequestHandler = async ({ url }) => {
 
 	if (type === 'playlist') {
 		let playlist: PlaylistData | null = null;
-		if (platform === 'spotify') playlist = await playlistFromSpotify(id);
-		else if (platform === 'deezer') playlist = await playlistFromDeezer(id);
+		const storefront = 'storefront' in detected ? detected.storefront : undefined;
+		if (platform === 'spotify')      playlist = await playlistFromSpotify(id);
+		else if (platform === 'deezer')  playlist = await playlistFromDeezer(id);
 		else if (platform === 'youtube') playlist = await playlistFromYoutube(id);
-		else if (platform === 'apple') error(501, 'apple-playlist-unsupported');
-		else error(400, 'Playlist imports are supported for Spotify, Deezer, and YouTube Music.');
+		else if (platform === 'apple') {
+			const enabled = getSetting('apple_music_enabled', 'false') === 'true';
+			if (!enabled) error(400, 'Apple Music playlist import is not enabled on this instance.');
+			playlist = await playlistFromApple(id, storefront);
+		}
+		else error(400, 'Playlist imports are supported for Spotify, Apple Music, Deezer, and YouTube Music.');
 
 		if (!playlist) error(422, `Could not load playlist from ${platform}`);
 		return json({ type: 'playlist', platform, playlist });

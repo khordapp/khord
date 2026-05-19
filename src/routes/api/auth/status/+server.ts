@@ -34,5 +34,7 @@ export const GET: RequestHandler = ({ url }) => {
 	const did = url.searchParams.get('did');
 	const owner = did ? isOwner(did) : false;
 
-	return json({ restricted, full, maxUsers, albumArtDisabled, inviteOnly, feedScoped, isOwner: owner });
+	const appleMusicEnabled = getSetting('apple_music_enabled', 'false') === 'true';
+
+	return json({ restricted, full, maxUsers, albumArtDisabled, inviteOnly, feedScoped, isOwner: owner, appleMusicEnabled });
 };
