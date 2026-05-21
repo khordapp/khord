@@ -15,6 +15,7 @@
 	import CreateSetlistModal from '$lib/components/CreateSetlistModal.svelte';
 	import StreamingServiceModal from '$lib/components/StreamingServiceModal.svelte';
 	import { goto } from '$app/navigation';
+	import { navigating } from '$app/stores';
 	import { instanceConfig } from '$lib/stores/instance';
 	import { theme as t } from '$lib/theme';
 	import { prefs } from '$lib/stores/prefs';
@@ -147,6 +148,11 @@
 </script>
 
 <div class="min-h-screen flex flex-col {$t.pageBg} {$t.textPrimary}">
+	{#if $navigating}
+		<div class="fixed top-0 left-0 right-0 z-[100] h-0.5 overflow-hidden">
+			<div class="w-full h-full {$t.btnPrimaryBg} animate-nav-progress"></div>
+		</div>
+	{/if}
 	<header class="border-b {$t.borderBase} px-6 py-3 flex items-center justify-between" style="padding-top: calc(0.75rem + env(safe-area-inset-top, 0px))">
 		<a href="/" class="flex items-center gap-2.5">
 			<img
