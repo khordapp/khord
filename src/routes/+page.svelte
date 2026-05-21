@@ -79,11 +79,11 @@
 	}
 
 	function refreshCurrentTab() {
-		if (activeTab === 'setlists') { setlistsLoaded = false; loadSetlists(); }
+		if (activeTab === 'setlists') { setlistsLoaded = false; loadSetlists(true); }
 		else loadAllSongs();
 	}
 
-	$: isRefreshing = activeTab === 'setlists' ? setlistsLoading : allLoading;
+	$: isRefreshing = activeTab === 'setlists' ? setlistsRefreshing : allLoading;
 
 	function handleMobileSetlist() {
 		if (activeTab === 'daily') {
@@ -319,12 +319,14 @@
 		return !pinnedSetlists.some((p) => p.rkey === rkey);
 	});
 	let setlistsLoading = false;
+	let setlistsRefreshing = false; // true only for explicit user-triggered refresh
 	let setlistsLoaded = false;
 	let setlistsLastRefreshed: Date | null = null;
 
-	async function loadSetlists() {
+	async function loadSetlists(showRefreshIndicator = false) {
 		if (!$session || setlistsLoading) return;
 		setlistsLoading = true;
+		if (showRefreshIndicator) setlistsRefreshing = true;
 		try {
 			const all = await fetchSetlists($session.did);
 			setlists = $instanceConfig.feedScoped
@@ -334,6 +336,7 @@
 			setlistsLastRefreshed = new Date();
 		} finally {
 			setlistsLoading = false;
+			setlistsRefreshing = false;
 		}
 	}
 
@@ -440,7 +443,7 @@
 		pullRefreshing = true;
 		try {
 			if (activeTab === 'all' || activeTab === 'following' || activeTab === 'daily') await loadAllSongs();
-			else { setlistsLoaded = false; await loadSetlists(); }
+			else { setlistsLoaded = false; await loadSetlists(true); }
 		} finally {
 			pullRefreshing = false;
 		}
