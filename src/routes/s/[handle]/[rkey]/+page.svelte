@@ -543,11 +543,12 @@
 
 		if (!setlist) return;
 
-		// Enrich with live PDS records when authenticated.
-		// Skip for non-owners when every item already has a snapshot — live records
-		// would look identical and 24+ round trips aren't worth it for a read-only view.
+		// Enrich with live PDS records only when snapshots are missing — live records
+		// look identical to snapshots for songs added after snapshot support shipped.
+		// Skipping saves 24+ round trips on every view; owners can resync individual
+		// songs explicitly if they need fresh platform URLs.
 		const allHaveSnapshots = setlist.value.items.every((item) => !!item.snapshot);
-		if ($session && (isOwn || !allHaveSnapshots)) {
+		if ($session && !allHaveSnapshots) {
 			try {
 				const liveRecords = await Promise.allSettled(
 					setlist.value.items.map((item) => {
