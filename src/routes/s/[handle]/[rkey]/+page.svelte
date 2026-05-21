@@ -543,8 +543,11 @@
 
 		if (!setlist) return;
 
-		// Enrich with live PDS records when authenticated
-		if ($session) {
+		// Enrich with live PDS records when authenticated.
+		// Skip for non-owners when every item already has a snapshot — live records
+		// would look identical and 24+ round trips aren't worth it for a read-only view.
+		const allHaveSnapshots = setlist.value.items.every((item) => !!item.snapshot);
+		if ($session && (isOwn || !allHaveSnapshots)) {
 			try {
 				const liveRecords = await Promise.allSettled(
 					setlist.value.items.map((item) => {
