@@ -18,6 +18,11 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
 			did = (await resolveRes.json()).did;
 		}
 
+		// 2+3 run in parallel with profile (profile only needs `did`, not the PDS)
+		const profilePromise = fetch(
+			`https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(did)}`
+		);
+
 		// 2. Find PDS from DID document
 		let pds = 'https://bsky.social';
 		if (did.startsWith('did:plc:')) {
@@ -38,11 +43,9 @@ export const load: PageServerLoad = async ({ params, fetch }) => {
 		if (!recordRes.ok) return { setlist: null, sharedBy: null };
 		const { uri, cid, value } = await recordRes.json();
 
-		// 4. Fetch public profile for display name + avatar
+		// 4. Await profile (started in parallel with steps 2+3)
 		let sharedBy: FollowedUser = { did, handle };
-		const profileRes = await fetch(
-			`https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(did)}`
-		);
+		const profileRes = await profilePromise;
 		if (profileRes.ok) {
 			const p = await profileRes.json();
 			sharedBy = { did, handle: p.handle ?? handle, displayName: p.displayName, avatar: p.avatar };
