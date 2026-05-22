@@ -171,7 +171,7 @@
 			selectedUris = new Set();
 			dailySelectedUris = new Set();
 			setlistPendingUris = new Set();
-			goto(`/s/${$session.handle}/${rkey}`);
+			goto(`/s/${$session.did}/${rkey}`);
 		} finally {
 			creatingSetlist = false;
 		}
@@ -301,7 +301,7 @@
 	$: if (dailyDate) dailySelectedUris = new Set(); // reset selection when date changes
 
 	// ── Pinned setlists ───────────────────────────────────────────────────────
-	interface PinnedSetlist { handle: string; rkey: string; title: string; }
+	interface PinnedSetlist { handle: string; did?: string; rkey: string; title: string; }
 	let pinnedSetlists: PinnedSetlist[] = [];
 
 	async function loadPinnedSetlists() {
@@ -889,7 +889,7 @@
 						<p class="text-xs font-semibold {$t.textFaint} uppercase tracking-wider px-1">Pinned</p>
 						{#each pinnedSetlists as pin}
 							<a
-								href="/s/{pin.handle}/{pin.rkey}"
+								href="/s/{pin.did ?? pin.handle}/{pin.rkey}"
 								class="flex items-center justify-between gap-4 rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-4
 									{$t.hoverBorderBase} {$t.hoverBg} transition-colors"
 							>
@@ -919,7 +919,7 @@
 						{#each unpinnedSetlists as setlist (setlist.uri)}
 							{@const rkey = setlist.uri.split('/').pop()!}
 							<a
-								href="/s/{$session?.handle}/{rkey}"
+								href="/s/{$session?.did}/{rkey}"
 								class="flex items-center justify-between gap-4 rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-4
 									{$t.hoverBorderBase} {$t.hoverBg} transition-colors"
 							>

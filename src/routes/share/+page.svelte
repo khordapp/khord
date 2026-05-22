@@ -173,7 +173,7 @@
 			const name = mixtapeName.trim() || playlist!.title;
 			const { uri } = await createSetlist(did, name, items);
 			const rkey = uri.split('/').pop()!;
-			goto(`/s/${encodeURIComponent($session.handle ?? did)}/${rkey}`);
+			goto(`/s/${encodeURIComponent($session.did ?? did)}/${rkey}`);
 		} catch {
 			createError = 'Failed to create mixtape. Please try again.';
 			creating = false;

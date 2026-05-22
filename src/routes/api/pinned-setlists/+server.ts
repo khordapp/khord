@@ -9,6 +9,7 @@ import { getSetting, setSetting } from '$lib/server/settings';
 
 export interface PinnedSetlist {
 	handle: string;
+	did?: string;
 	rkey: string;
 	title: string;
 }
@@ -31,6 +32,7 @@ export const POST: RequestHandler = async ({ request }) => {
 	const body = await request.json().catch(() => null);
 	const ownerDid: string = body?.ownerDid ?? '';
 	const handle: string = (body?.handle ?? '').trim();
+	const did: string = (body?.did ?? '').trim();
 	const rkey: string = (body?.rkey ?? '').trim();
 	const title: string = (body?.title ?? '').trim();
 
@@ -39,7 +41,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
 	const pins = getPins();
 	if (!pins.some((p) => p.handle === handle && p.rkey === rkey)) {
-		pins.push({ handle, rkey, title });
+		pins.push({ handle, ...(did && { did }), rkey, title });
 		setSetting('pinned_setlists', JSON.stringify(pins));
 	}
 

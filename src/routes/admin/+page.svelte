@@ -393,7 +393,7 @@
 	}
 
 	// ── Pinned setlists ───────────────────────────────────────────────────────────
-	interface PinnedSetlist { handle: string; rkey: string; title: string; }
+	interface PinnedSetlist { handle: string; did?: string; rkey: string; title: string; }
 
 	let pins: PinnedSetlist[] = [];
 	let pinsLoading = false;
@@ -1159,7 +1159,7 @@
 							</div>
 							<div class="flex items-center gap-2 shrink-0">
 								<a
-									href="/s/{pin.handle}/{pin.rkey}"
+									href="/s/{pin.did ?? pin.handle}/{pin.rkey}"
 									target="_blank"
 									rel="noopener noreferrer"
 									class="text-xs px-2.5 py-1 rounded border {$t.borderStrong} {$t.textMuted} {$t.hoverText} {$t.hoverBg} transition-colors"
