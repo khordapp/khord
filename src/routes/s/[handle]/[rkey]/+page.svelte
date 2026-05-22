@@ -474,7 +474,7 @@
 				await fetch('/api/pinned-setlists', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ ownerDid: $session.did, handle, rkey, title: setlist.value.title })
+					body: JSON.stringify({ ownerDid: $session.did, handle, did: sharedBy?.did, rkey, title: setlist.value.title })
 				});
 				isPinned = true;
 			}
@@ -486,7 +486,9 @@
 	$: ogDesc = `${setlist?.value.items.length ?? 0} song${(setlist?.value.items.length ?? 0) === 1 ? '' : 's'} · a mixtape by @${sharedBy?.handle ?? handle} on ${APP_NAME}. Listen anywhere on Spotify, Apple Music, and more.`;
 	const ogImage = `${APP_URL}/apple-touch-icon.png`;
 
-	$: isOwn = $session?.handle === handle;
+	$: isOwn = !!$session && ($session.handle === handle || $session.did === handle);
+	// Display handle: from profile (SSR or async), or session handle if own, or URL param as last resort
+	$: displayHandle = sharedBy?.handle || (isOwn ? ($session?.handle ?? '') : '') || (handle.startsWith('did:') ? '' : handle);
 
 	async function load() {
 		error = '';
@@ -543,6 +545,20 @@
 
 		if (!setlist) return;
 
+		// For DID-based URLs (in-app navigation), the server skips the profile fetch.
+		// Fetch it client-side so we can show the handle and avatar.
+		if (sharedBy && !sharedBy.handle && !isOwn) {
+			try {
+				const pRes = await fetch(
+					`https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor=${encodeURIComponent(sharedBy.did)}`
+				);
+				if (pRes.ok) {
+					const p = await pRes.json();
+					sharedBy = { ...sharedBy, handle: p.handle ?? '', displayName: p.displayName, avatar: p.avatar };
+				}
+			} catch { /* non-fatal */ }
+		}
+
 		// Enrich with live PDS records only when snapshots are missing — live records
 		// look identical to snapshots for songs added after snapshot support shipped.
 		// Skipping saves 24+ round trips on every view; owners can resync individual
@@ -584,7 +600,7 @@
 			} catch { /* non-fatal */ }
 		}
 
-		if ($session?.handle === handle) loadProposals();
+		if (isOwn) loadProposals();
 	}
 
 	$: if ($authReady) load();
@@ -743,7 +759,7 @@
 		{#if setlist}
 			<p class="text-xs {$t.textMuted}">
 				{setlist.value.items.length} {setlist.value.items.length === 1 ? 'song' : 'songs'}
-				· by @{handle}
+				{#if displayHandle}· by @{displayHandle}{/if}
 				· {timeAgo(setlist.value.createdAt)}
 				{#if saving}<span class="{$t.textFaint} ml-1">Saving…</span>{/if}
 			</p>

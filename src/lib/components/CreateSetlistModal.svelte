@@ -137,7 +137,7 @@
 			const { uri } = await createSetlist($session.did, title.trim(), items);
 			const rkey = uri.split('/').pop()!;
 			closeCreateSetlist();
-			goto(`/s/${$session.handle}/${rkey}`);
+			goto(`/s/${$session.did}/${rkey}`);
 		} finally {
 			creating = false;
 		}
