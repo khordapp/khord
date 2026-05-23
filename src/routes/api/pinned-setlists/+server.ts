@@ -52,11 +52,15 @@ export const DELETE: RequestHandler = async ({ request }) => {
 	const body = await request.json().catch(() => null);
 	const ownerDid: string = body?.ownerDid ?? '';
 	const handle: string = body?.handle ?? '';
+	const did: string = (body?.did ?? '').trim();
 	const rkey: string = body?.rkey ?? '';
 
 	if (!isOwner(ownerDid)) error(403, 'Forbidden');
 
-	const updated = getPins().filter((p) => !(p.handle === handle && p.rkey === rkey));
+	const updated = getPins().filter((p) => !(
+		p.rkey === rkey &&
+		((did && (p.did === did || p.handle === did)) || p.handle === handle)
+	));
 	setSetting('pinned_setlists', JSON.stringify(updated));
 
 	return json({ pins: updated });
