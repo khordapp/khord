@@ -349,6 +349,26 @@
 	// Vote counts
 	let voteCounts = new Map<string, number>();
 
+	// Setlist upnote
+	let setlistLikeCount = 0;
+	let setlistLiking = false;
+	$: setlistLiked = setlist ? $votes.has(setlist.uri) : false;
+
+	async function toggleMixtapeLike() {
+		if (!$session || setlistLiking || !setlist) return;
+		setlistLiking = true;
+		const wasLiked = setlistLiked;
+		setlistLikeCount = wasLiked ? Math.max(0, setlistLikeCount - 1) : setlistLikeCount + 1;
+		try {
+			if (wasLiked) await votes.unlike($session.did, setlist.uri);
+			else await votes.like($session.did, setlist.uri, setlist.cid);
+		} catch {
+			setlistLikeCount = wasLiked ? setlistLikeCount + 1 : Math.max(0, setlistLikeCount - 1);
+		} finally {
+			setlistLiking = false;
+		}
+	}
+
 	// Per-card like
 	let liking = new Set<string>();
 	$: likedUris = $votes;
@@ -454,7 +474,9 @@
 			const r = await fetch('/api/pinned-setlists');
 			if (r.ok) {
 				const { pins } = await r.json();
-				isPinned = pins.some((p: { handle: string; rkey: string }) => p.handle === handle && p.rkey === rkey);
+				isPinned = pins.some((p: { handle: string; did?: string; rkey: string }) =>
+						p.rkey === rkey && ((sharedBy?.did && p.did === sharedBy.did) || p.handle === handle || p.did === handle)
+					);
 			}
 		} catch { /* non-fatal */ }
 	}
@@ -467,14 +489,14 @@
 				await fetch('/api/pinned-setlists', {
 					method: 'DELETE',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ ownerDid: $session.did, handle, rkey })
+					body: JSON.stringify({ ownerDid: $session.did, handle: displayHandle || handle, did: sharedBy?.did, rkey })
 				});
 				isPinned = false;
 			} else {
 				await fetch('/api/pinned-setlists', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ ownerDid: $session.did, handle, did: sharedBy?.did, rkey, title: setlist.value.title })
+					body: JSON.stringify({ ownerDid: $session.did, handle: displayHandle || handle, did: sharedBy?.did, rkey, title: setlist.value.title })
 				});
 				isPinned = true;
 			}
@@ -590,15 +612,15 @@
 
 		// Vote counts (no auth needed)
 		const uris = setlist.value.items.map((i) => i.songUri);
-		if (uris.length > 0) {
-			try {
-				const res = await fetch(`/api/votes/counts?uris=${uris.map(encodeURIComponent).join(',')}`);
-				if (res.ok) {
-					const voteData = await res.json();
-					voteCounts = new Map(Object.entries(voteData.counts as Record<string, number>));
-				}
-			} catch { /* non-fatal */ }
-		}
+		const countUris = uris.length > 0 ? [setlist.uri, ...uris] : [setlist.uri];
+		try {
+			const res = await fetch(`/api/votes/counts?uris=${countUris.map(encodeURIComponent).join(',')}`);
+			if (res.ok) {
+				const voteData = await res.json();
+				setlistLikeCount = voteData.counts[setlist.uri] ?? 0;
+				voteCounts = new Map(Object.entries(voteData.counts as Record<string, number>));
+			}
+		} catch { /* non-fatal */ }
 
 		if (isOwn) loadProposals();
 	}
@@ -761,6 +783,7 @@
 				{setlist.value.items.length} {setlist.value.items.length === 1 ? 'song' : 'songs'}
 				{#if displayHandle}· by @{displayHandle}{/if}
 				· {timeAgo(setlist.value.createdAt)}
+				{#if setlistLikeCount > 0}· <span class="{setlistLiked ? $t.accentText : ''}">♥ {setlistLikeCount}</span>{/if}
 				{#if saving}<span class="{$t.textFaint} ml-1">Saving…</span>{/if}
 			</p>
 		{/if}
@@ -1217,6 +1240,22 @@
 						</svg>
 						<span class="text-[11px] leading-none">Delete</span>
 					</button>
+					<!-- Upnote -->
+					<button
+						on:click={toggleMixtapeLike}
+						disabled={setlistLiking}
+						aria-label={setlistLiked ? 'Remove upnote' : 'Upnote this mixtape'}
+						class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50 {setlistLiked ? $t.accentText : $t.textMuted}"
+					>
+						{#if setlistLiking}
+							<span class="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
+						{:else}
+							<svg viewBox="0 0 24 24" fill={setlistLiked ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+								<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+						{/if}
+						<span class="text-[11px] leading-none">{setlistLiked ? 'Upnoted' : 'Upnote'}{setlistLikeCount > 0 ? ` ${setlistLikeCount}` : ''}</span>
+					</button>
 					<!-- Pin (instance admin only) -->
 					{#if $instanceConfig.isOwner}
 						<button
@@ -1258,6 +1297,22 @@
 							</svg>
 							<span class="text-[11px] leading-none">Share</span>
 						{/if}
+					</button>
+					<!-- Upnote -->
+					<button
+						on:click={toggleMixtapeLike}
+						disabled={setlistLiking}
+						aria-label={setlistLiked ? 'Remove upnote' : 'Upnote this mixtape'}
+						class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50 {setlistLiked ? $t.accentText : $t.textMuted}"
+					>
+						{#if setlistLiking}
+							<span class="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
+						{:else}
+							<svg viewBox="0 0 24 24" fill={setlistLiked ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+								<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							</svg>
+						{/if}
+						<span class="text-[11px] leading-none">{setlistLiked ? 'Upnoted' : 'Upnote'}{setlistLikeCount > 0 ? ` ${setlistLikeCount}` : ''}</span>
 					</button>
 					<!-- Propose -->
 					<button
