@@ -64,5 +64,5 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 	const token = createSession(userId);
 	cookies.set(SESSION_COOKIE, token, cookieOptions());
 
-	return json({ id: userId, username, email, displayName: null, role, isOwner });
+	return json({ id: userId, username, email, displayName: null, role, hasAvatar: false, isOwner });
 };

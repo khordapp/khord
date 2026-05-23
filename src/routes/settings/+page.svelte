@@ -3,7 +3,7 @@
 	import { APP_NAME } from '$lib/config';
 	import { theme as t } from '$lib/theme';
 	import StreamingServiceModal from '$lib/components/StreamingServiceModal.svelte';
-	import { session } from '$lib/stores/auth';
+	import { session, avatarVersion } from '$lib/stores/auth';
 
 	$: hasPair = t.hasPair();
 	$: isLight = t.isLight();
@@ -17,6 +17,94 @@
 
 	let modalOpen = false;
 
+	// --- Avatar ---
+	let avatarFileInput: HTMLInputElement;
+	let avatarPreviewUrl = '';
+	let avatarUploading = false;
+	let avatarRemoving = false;
+	let avatarMsg = '';
+	let avatarMsgIsError = false;
+
+	async function resizeImage(file: File): Promise<Blob> {
+		return new Promise((resolve) => {
+			if (file.type === 'image/gif') { resolve(file); return; }
+			const img = new Image();
+			const url = URL.createObjectURL(file);
+			img.onload = () => {
+				URL.revokeObjectURL(url);
+				const MAX = 256;
+				let { width, height } = img;
+				if (width > MAX || height > MAX) {
+					const r = Math.min(MAX / width, MAX / height);
+					width = Math.round(width * r);
+					height = Math.round(height * r);
+				}
+				const canvas = document.createElement('canvas');
+				canvas.width = width;
+				canvas.height = height;
+				canvas.getContext('2d')!.drawImage(img, 0, 0, width, height);
+				canvas.toBlob((blob) => resolve(blob!), 'image/jpeg', 0.85);
+			};
+			img.src = url;
+		});
+	}
+
+	async function handleAvatarSelect(e: Event) {
+		const file = (e.target as HTMLInputElement).files?.[0];
+		if (!file) return;
+		if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
+			avatarMsg = 'Unsupported format — use JPG, PNG, WebP, or GIF.';
+			avatarMsgIsError = true;
+			return;
+		}
+		avatarMsg = '';
+		avatarUploading = true;
+		try {
+			const blob = await resizeImage(file);
+			if (avatarPreviewUrl) URL.revokeObjectURL(avatarPreviewUrl);
+			avatarPreviewUrl = URL.createObjectURL(blob);
+
+			const fd = new FormData();
+			fd.append('avatar', blob, file.type === 'image/gif' ? 'avatar.gif' : 'avatar.jpg');
+			const res = await fetch('/api/profile/avatar', { method: 'POST', body: fd });
+			if (!res.ok) {
+				const body = await res.json().catch(() => ({}));
+				throw new Error(body.message ?? 'Upload failed');
+			}
+			session.update((s) => s ? { ...s, hasAvatar: true } : s);
+			avatarVersion.update((v) => v + 1);
+			avatarMsg = 'Avatar saved.';
+			avatarMsgIsError = false;
+		} catch (err) {
+			avatarMsg = err instanceof Error ? err.message : 'Upload failed.';
+			avatarMsgIsError = true;
+			avatarPreviewUrl = '';
+		} finally {
+			avatarUploading = false;
+			if (avatarFileInput) avatarFileInput.value = '';
+		}
+	}
+
+	async function removeAvatar() {
+		avatarRemoving = true;
+		avatarMsg = '';
+		try {
+			const res = await fetch('/api/profile/avatar', { method: 'DELETE' });
+			if (!res.ok) throw new Error();
+			session.update((s) => s ? { ...s, hasAvatar: false } : s);
+			avatarVersion.update((v) => v + 1);
+			if (avatarPreviewUrl) { URL.revokeObjectURL(avatarPreviewUrl); avatarPreviewUrl = ''; }
+			avatarMsg = 'Avatar removed.';
+			avatarMsgIsError = false;
+		} catch {
+			avatarMsg = 'Failed to remove avatar.';
+			avatarMsgIsError = true;
+		} finally {
+			avatarRemoving = false;
+		}
+	}
+
+	// --- Delete data ---
 	let deleteModalOpen = false;
 	let deleteInput = '';
 	let deleting = false;
@@ -47,6 +135,59 @@
 
 <div class="max-w-sm space-y-8">
 	<h1 class="text-2xl font-bold">Settings</h1>
+
+	{#if $session}
+		<div class="space-y-3">
+			<div class="space-y-1">
+				<h2 class="text-sm font-semibold {$t.textPrimary}">Profile picture</h2>
+				<p class="text-xs {$t.textMuted}">JPG, PNG, WebP or GIF · max 512 KB · resized to 256 px before saving.</p>
+			</div>
+			<div class="flex items-center gap-4">
+				<div class="w-16 h-16 rounded-full overflow-hidden shrink-0 ring-2 {$t.borderStrong} relative {$t.elevatedBg} flex items-center justify-center">
+					<span class="text-xl font-semibold {$t.textSecondary}">
+						{($session.username ?? '?')[0].toUpperCase()}
+					</span>
+					{#if avatarPreviewUrl}
+						<img src={avatarPreviewUrl} alt="Preview" class="absolute inset-0 w-full h-full object-cover" />
+					{:else if $session.hasAvatar}
+						{#key $avatarVersion}
+							<img
+								src="/api/avatar/{$session.id}?v={$avatarVersion}"
+								alt="Current avatar"
+								class="absolute inset-0 w-full h-full object-cover"
+								on:error={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }}
+							/>
+						{/key}
+					{/if}
+				</div>
+				<div class="flex flex-col gap-2">
+					<label class="cursor-pointer px-4 py-2 rounded-lg border {$t.borderStrong} {$t.textSecondary} text-sm {$t.hoverBg} transition-colors {avatarUploading ? 'opacity-50 pointer-events-none' : ''}">
+						{avatarUploading ? 'Uploading…' : 'Choose photo'}
+						<input
+							bind:this={avatarFileInput}
+							type="file"
+							accept="image/jpeg,image/png,image/webp,image/gif"
+							class="sr-only"
+							on:change={handleAvatarSelect}
+							disabled={avatarUploading}
+						/>
+					</label>
+					{#if $session.hasAvatar || avatarPreviewUrl}
+						<button
+							on:click={removeAvatar}
+							disabled={avatarRemoving || avatarUploading}
+							class="px-4 py-2 rounded-lg border border-red-800 text-red-400 text-sm hover:bg-red-900/20 transition-colors disabled:opacity-40"
+						>
+							{avatarRemoving ? 'Removing…' : 'Remove photo'}
+						</button>
+					{/if}
+				</div>
+			</div>
+			{#if avatarMsg}
+				<p class="text-xs {avatarMsgIsError ? 'text-red-400' : 'text-green-400'}">{avatarMsg}</p>
+			{/if}
+		</div>
+	{/if}
 
 	{#if hasPair}
 		<div class="space-y-3">

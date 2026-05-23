@@ -3,7 +3,7 @@
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { APP_NAME, VERSION } from '$lib/config';
-	import { session, isLoggedIn, authReady, logout } from '$lib/stores/auth';
+	import { session, isLoggedIn, authReady, logout, avatarVersion } from '$lib/stores/auth';
 	import { shareSongOpen, openShareSong } from '$lib/stores/shareSong';
 	import { createSetlistOpen, openCreateSetlist } from '$lib/stores/createSetlist';
 	import { importPlaylistOpen, openImportPlaylist, closeImportPlaylist } from '$lib/stores/importPlaylist';
@@ -101,6 +101,8 @@
 		goto('/');
 	}
 
+	$: avatarSrc = $session ? `/api/avatar/${$session.id}?v=${$avatarVersion}` : '';
+
 	let menuOpen = false;
 	let fabOpen = false;
 	let aboutOpen = false;
@@ -159,10 +161,16 @@
 						aria-label="Account menu"
 						class="flex items-center gap-2 hover:opacity-80 transition-opacity"
 					>
-						<div class="w-7 h-7 rounded-full overflow-hidden shrink-0 ring-2 {$t.borderStrong}">
-							<div class="w-full h-full {$t.elevatedBg} flex items-center justify-center text-xs font-semibold {$t.textSecondary}">
+						<div class="w-7 h-7 rounded-full overflow-hidden shrink-0 ring-2 {$t.borderStrong} relative">
+							<div class="absolute inset-0 {$t.elevatedBg} flex items-center justify-center text-xs font-semibold {$t.textSecondary}">
 								{($session?.username ?? '?')[0].toUpperCase()}
 							</div>
+							{#if $session?.hasAvatar && avatarSrc}
+								{#key $avatarVersion}
+									<img src={avatarSrc} alt="" class="absolute inset-0 w-full h-full object-cover"
+										on:error={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+								{/key}
+							{/if}
 						</div>
 						<span class="text-sm {$t.textSecondary} max-w-[120px] truncate hidden sm:block">@{$session?.username}</span>
 						<svg viewBox="0 0 10 10" fill="none" class="w-3 h-3 {$t.textMuted} shrink-0" xmlns="http://www.w3.org/2000/svg">
@@ -234,10 +242,16 @@
 					>
 						<div class="flex items-center justify-between px-5 py-5 border-b {$t.borderBase}">
 							<div class="flex items-center gap-3 min-w-0">
-								<div class="w-10 h-10 rounded-full overflow-hidden shrink-0 ring-2 {$t.borderStrong}">
-									<div class="w-full h-full {$t.elevatedBg} flex items-center justify-center text-sm font-semibold {$t.textSecondary}">
+								<div class="w-10 h-10 rounded-full overflow-hidden shrink-0 ring-2 {$t.borderStrong} relative">
+									<div class="absolute inset-0 {$t.elevatedBg} flex items-center justify-center text-sm font-semibold {$t.textSecondary}">
 										{($session?.username ?? '?')[0].toUpperCase()}
 									</div>
+									{#if $session?.hasAvatar && avatarSrc}
+										{#key $avatarVersion}
+											<img src={avatarSrc} alt="" class="absolute inset-0 w-full h-full object-cover"
+												on:error={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+										{/key}
+									{/if}
 								</div>
 								<span class="text-sm font-medium {$t.textSecondary} truncate">@{$session?.username}</span>
 							</div>

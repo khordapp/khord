@@ -134,6 +134,13 @@ function openDb(): import('better-sqlite3').Database {
 	const path = dbName ? `/data/${dbName}` : (process.env.INDEXER_DB_PATH ?? './data/khord.db');
 	const db = new Database(path);
 	db.exec(SCHEMA);
+	// Migrations for columns added after initial schema
+	for (const stmt of [
+		'ALTER TABLE users ADD COLUMN avatar BLOB',
+		'ALTER TABLE users ADD COLUMN avatar_mime TEXT',
+	]) {
+		try { db.exec(stmt); } catch { /* column already exists */ }
+	}
 	console.log('[db] opened', path);
 	return db;
 }

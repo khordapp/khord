@@ -53,7 +53,7 @@
 			}
 
 			const user = await res.json();
-			session.set({ id: user.id, username: user.username, email: user.email, displayName: user.displayName, role: user.role });
+			session.set({ id: user.id, username: user.username, email: user.email, displayName: user.displayName, role: user.role, hasAvatar: user.hasAvatar ?? false });
 			instanceConfig.update((c) => ({ ...c, isOwner: user.isOwner }));
 			goto('/');
 		} catch (e) {

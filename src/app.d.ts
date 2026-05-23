@@ -7,6 +7,7 @@ declare global {
 				email: string;
 				displayName: string | null;
 				role: string;
+				hasAvatar: boolean;
 			} | null;
 		}
 	}

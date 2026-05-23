@@ -12,6 +12,7 @@ export interface SessionUser {
 	email: string;
 	displayName: string | null;
 	role: string;
+	hasAvatar: boolean;
 }
 
 export function createSession(userId: number): string {
@@ -25,14 +26,15 @@ export function createSession(userId: number): string {
 
 export function getSession(token: string): SessionUser | null {
 	const row = getDb().prepare(`
-		SELECT u.id, u.username, u.email, u.display_name, u.role
+		SELECT u.id, u.username, u.email, u.display_name, u.role,
+		       (u.avatar IS NOT NULL) AS has_avatar
 		FROM sessions s
 		JOIN users u ON u.id = s.user_id
 		WHERE s.token = ? AND s.expires_at > strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
-	`).get(token) as { id: number; username: string; email: string; display_name: string | null; role: string } | undefined;
+	`).get(token) as { id: number; username: string; email: string; display_name: string | null; role: string; has_avatar: number } | undefined;
 
 	if (!row) return null;
-	return { id: row.id, username: row.username, email: row.email, displayName: row.display_name, role: row.role };
+	return { id: row.id, username: row.username, email: row.email, displayName: row.display_name, role: row.role, hasAvatar: row.has_avatar === 1 };
 }
 
 export function deleteSession(token: string): void {
