@@ -6,6 +6,8 @@
 	import type { KhordSongRecord } from '$lib/atproto/lexicons/song';
 	import { SONG_NSID } from '$lib/atproto/lexicons/song';
 	import type { KhordSetlist } from '$lib/atproto/lexicons/setlist';
+	import { SETLIST_NSID } from '$lib/atproto/lexicons/setlist';
+	import { votes } from '$lib/stores/votes';
 	import { lastSharedSong, pendingSharedSong, openShareSong, type PendingSong } from '$lib/stores/shareSong';
 	import { openCreateSetlist as openNewSetlist } from '$lib/stores/createSetlist';
 	import { openImportPlaylist } from '$lib/stores/importPlaylist';
@@ -301,14 +303,53 @@
 	$: if (dailyDate) dailySelectedUris = new Set(); // reset selection when date changes
 
 	// ── Pinned setlists ───────────────────────────────────────────────────────
-	interface PinnedSetlist { handle: string; did?: string; rkey: string; title: string; }
+	interface PinnedSetlist { handle: string; did?: string; rkey: string; title: string; cid?: string; itemCount?: number; createdAt?: string; }
 	let pinnedSetlists: PinnedSetlist[] = [];
+	let setlistVoteCounts = new Map<string, number>();
+	let setlistLiking = new Set<string>();
+
+	function pinUri(pin: PinnedSetlist): string | null {
+		return pin.did ? `at://${pin.did}/${SETLIST_NSID}/${pin.rkey}` : null;
+	}
+
+	async function loadSetlistVoteCounts() {
+		const uris: string[] = [
+			...pinnedSetlists.flatMap(p => { const u = pinUri(p); return u ? [u] : []; }),
+			...setlists.map(s => s.uri)
+		];
+		if (!uris.length) return;
+		try {
+			const res = await fetch(`/api/votes/counts?uris=${uris.map(encodeURIComponent).join(',')}`);
+			if (res.ok) {
+				const d = await res.json();
+				setlistVoteCounts = new Map(Object.entries(d.counts as Record<string, number>));
+			}
+		} catch { /* non-fatal */ }
+	}
+
+	async function toggleSetlistLike(uri: string, cid: string) {
+		if (!$session || setlistLiking.has(uri)) return;
+		setlistLiking.add(uri); setlistLiking = setlistLiking;
+		const wasLiked = $votes.has(uri);
+		setlistVoteCounts.set(uri, Math.max(0, (setlistVoteCounts.get(uri) ?? 0) + (wasLiked ? -1 : 1)));
+		setlistVoteCounts = setlistVoteCounts;
+		try {
+			if (wasLiked) await votes.unlike($session.did, uri);
+			else await votes.like($session.did, uri, cid);
+		} catch {
+			setlistVoteCounts.set(uri, Math.max(0, (setlistVoteCounts.get(uri) ?? 0) + (wasLiked ? 1 : -1)));
+			setlistVoteCounts = setlistVoteCounts;
+		} finally {
+			setlistLiking.delete(uri); setlistLiking = setlistLiking;
+		}
+	}
 
 	async function loadPinnedSetlists() {
 		try {
 			const r = await fetch('/api/pinned-setlists');
 			if (!r.ok) return;
 			pinnedSetlists = (await r.json()).pins;
+			loadSetlistVoteCounts();
 		} catch { /* non-fatal */ }
 	}
 
@@ -334,6 +375,7 @@
 				: all;
 			setlistsLoaded = true;
 			setlistsLastRefreshed = new Date();
+			loadSetlistVoteCounts();
 		} finally {
 			setlistsLoading = false;
 			setlistsRefreshing = false;
@@ -888,19 +930,57 @@
 					<div class="space-y-2 mt-2">
 						<p class="text-xs font-semibold {$t.textFaint} uppercase tracking-wider px-1">Pinned</p>
 						{#each pinnedSetlists as pin}
-							<a
-								href="/s/{pin.did ?? pin.handle}/{pin.rkey}"
-								class="flex items-center justify-between gap-4 rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-4
-									{$t.hoverBorderBase} {$t.hoverBg} transition-colors"
-							>
-								<div class="min-w-0">
-									<p class="text-sm font-semibold {$t.textPrimary} truncate">{pin.title}</p>
-									<p class="text-xs {$t.textMuted} mt-0.5">@{pin.handle}</p>
-								</div>
-								<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 {$t.textFaint} shrink-0" xmlns="http://www.w3.org/2000/svg">
-									<path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-							</a>
+							{@const uri = pinUri(pin)}
+							{@const count = uri ? (setlistVoteCounts.get(uri) ?? 0) : 0}
+							{@const liked = uri ? $votes.has(uri) : false}
+							{@const isLiking = uri ? setlistLiking.has(uri) : false}
+							<div class="flex rounded-xl border {$t.borderBase} {$t.surfaceBg} {$t.hoverBorderBase} {$t.hoverBg} transition-colors overflow-hidden">
+								<a
+									href="/s/{pin.did ?? pin.handle}/{pin.rkey}"
+									class="flex-1 min-w-0 flex items-center gap-4 pl-5 pr-3 py-4"
+								>
+									<div class="min-w-0 flex-1">
+										<p class="text-sm font-semibold {$t.textPrimary} truncate">{pin.title}</p>
+										<p class="text-xs {$t.textMuted} mt-0.5">
+											{#if pin.itemCount !== undefined}{pin.itemCount} {pin.itemCount === 1 ? 'song' : 'songs'} · {/if}@{pin.handle}{#if pin.createdAt} · {new Date(pin.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}{/if}
+										</p>
+									</div>
+									<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 {$t.textFaint} shrink-0" xmlns="http://www.w3.org/2000/svg">
+										<path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+									</svg>
+								</a>
+								{#if $session && uri && pin.cid}
+									<button
+										on:click={() => toggleSetlistLike(uri, pin.cid!)}
+										disabled={isLiking}
+										aria-label={liked ? 'Unlike' : 'Upnote'}
+										title={liked ? 'Remove your upnote' : 'Upnote this mixtape'}
+										class="shrink-0 pr-4 self-stretch flex flex-col items-center justify-center gap-0.5 transition-colors disabled:opacity-50 {liked ? $t.accentText : `${$t.textFaint} ${$t.hoverTextSecondary}`}"
+									>
+										{#if isLiking}
+											<span class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
+										{:else}
+											<span class="flex items-center gap-0.5">
+												<svg viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
+													<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+												</svg>
+												<span class="text-sm leading-none -mt-0.5">♪</span>
+											</span>
+											{#if count > 0}<span class="text-xs tabular-nums">{count}</span>{/if}
+										{/if}
+									</button>
+								{:else if count > 0}
+									<span class="shrink-0 pr-4 self-stretch flex flex-col items-center justify-center gap-0.5 text-xs {$t.textFaint}">
+										<span class="flex items-center gap-0.5">
+											<svg viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
+												<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+											</svg>
+											<span class="text-sm leading-none -mt-0.5">♪</span>
+										</span>
+										<span class="tabular-nums">{count}</span>
+									</span>
+								{/if}
+							</div>
 						{/each}
 					</div>
 				{/if}
@@ -918,22 +998,46 @@
 						{/if}
 						{#each unpinnedSetlists as setlist (setlist.uri)}
 							{@const rkey = setlist.uri.split('/').pop()!}
-							<a
-								href="/s/{$session?.did}/{rkey}"
-								class="flex items-center justify-between gap-4 rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-4
-									{$t.hoverBorderBase} {$t.hoverBg} transition-colors"
-							>
-								<div class="min-w-0">
-									<p class="text-sm font-semibold {$t.textPrimary} truncate">{setlist.value.title}</p>
-									<p class="text-xs {$t.textMuted} mt-0.5">
-										{setlist.value.items.length} {setlist.value.items.length === 1 ? 'song' : 'songs'}
-										· {new Date(setlist.value.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-									</p>
-								</div>
-								<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 {$t.textFaint} shrink-0" xmlns="http://www.w3.org/2000/svg">
-									<path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
-							</a>
+							{@const count = setlistVoteCounts.get(setlist.uri) ?? 0}
+							{@const liked = $votes.has(setlist.uri)}
+							{@const isLiking = setlistLiking.has(setlist.uri)}
+							<div class="flex rounded-xl border {$t.borderBase} {$t.surfaceBg} {$t.hoverBorderBase} {$t.hoverBg} transition-colors overflow-hidden">
+								<a
+									href="/s/{$session?.did}/{rkey}"
+									class="flex-1 min-w-0 flex items-center gap-4 pl-5 pr-3 py-4"
+								>
+									<div class="min-w-0 flex-1">
+										<p class="text-sm font-semibold {$t.textPrimary} truncate">{setlist.value.title}</p>
+										<p class="text-xs {$t.textMuted} mt-0.5">
+											{setlist.value.items.length} {setlist.value.items.length === 1 ? 'song' : 'songs'}
+											{#if $session?.handle} · @{$session.handle}{/if}
+											· {new Date(setlist.value.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+										</p>
+									</div>
+									<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 {$t.textFaint} shrink-0" xmlns="http://www.w3.org/2000/svg">
+										<path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+									</svg>
+								</a>
+								<button
+									on:click={() => toggleSetlistLike(setlist.uri, setlist.cid)}
+									disabled={isLiking}
+									aria-label={liked ? 'Unlike' : 'Upnote'}
+									title={liked ? 'Remove your upnote' : 'Upnote this mixtape'}
+									class="shrink-0 pr-4 self-stretch flex flex-col items-center justify-center gap-0.5 transition-colors disabled:opacity-50 {liked ? $t.accentText : `${$t.textFaint} ${$t.hoverTextSecondary}`}"
+								>
+									{#if isLiking}
+										<span class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
+									{:else}
+										<span class="flex items-center gap-0.5">
+											<svg viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
+												<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+											</svg>
+											<span class="text-sm leading-none -mt-0.5">♪</span>
+										</span>
+										{#if count > 0}<span class="text-xs tabular-nums">{count}</span>{/if}
+									{/if}
+								</button>
+							</div>
 						{/each}
 					</div>
 				{/if}

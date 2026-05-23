@@ -393,7 +393,7 @@
 	}
 
 	// ── Pinned setlists ───────────────────────────────────────────────────────────
-	interface PinnedSetlist { handle: string; did?: string; rkey: string; title: string; }
+	interface PinnedSetlist { handle: string; did?: string; rkey: string; title: string; cid?: string; itemCount?: number; createdAt?: string; }
 
 	let pins: PinnedSetlist[] = [];
 	let pinsLoading = false;

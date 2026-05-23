@@ -496,7 +496,7 @@
 				await fetch('/api/pinned-setlists', {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ ownerDid: $session.did, handle: displayHandle || handle, did: sharedBy?.did, rkey, title: setlist.value.title })
+					body: JSON.stringify({ ownerDid: $session.did, handle: displayHandle || handle, did: sharedBy?.did, rkey, title: setlist.value.title, cid: setlist.cid, itemCount: setlist.value.items.length, createdAt: setlist.value.createdAt })
 				});
 				isPinned = true;
 			}
