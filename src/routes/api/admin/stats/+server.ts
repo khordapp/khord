@@ -1,21 +1,19 @@
-// GET /api/admin/stats?did=
-// Returns instance stats for the admin page. Owner-only.
+// GET /api/admin/stats — instance stats. Owner-only.
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
-import { isOwner } from '$lib/server/access';
+import { isOwnerUser } from '$lib/server/access';
 
-export const GET: RequestHandler = ({ url }) => {
-	const did = url.searchParams.get('did') ?? '';
-	if (!isOwner(did)) error(403, 'Forbidden');
+export const GET: RequestHandler = ({ locals }) => {
+	const user = locals.user;
+	if (!user || !isOwnerUser(user.username, user.email)) error(403, 'Forbidden');
 
 	const db = getDb();
-	if (!db) error(503, 'Database unavailable');
 
-	const { registeredCount } = db
-		.prepare('SELECT COUNT(*) as registeredCount FROM registered_users')
-		.get() as { registeredCount: number };
+	const { userCount } = db
+		.prepare('SELECT COUNT(*) as userCount FROM users')
+		.get() as { userCount: number };
 
 	const { songsCount } = db
 		.prepare('SELECT COUNT(*) as songsCount FROM songs')
@@ -25,33 +23,19 @@ export const GET: RequestHandler = ({ url }) => {
 		.prepare('SELECT COUNT(*) as bannedCount FROM banned_users')
 		.get() as { bannedCount: number };
 
-	const cursor = db
-		.prepare('SELECT seq FROM cursor WHERE id = 1')
-		.get() as { seq: number } | undefined;
+	const { pendingRequestsCount } = db
+		.prepare("SELECT COUNT(*) as pendingRequestsCount FROM access_requests WHERE status = 'pending'")
+		.get() as { pendingRequestsCount: number };
 
-	const maxUsers = parseInt(process.env.MAX_USERS ?? '0', 10) || 0;
-
-	let pendingRequestsCount = 0;
-	try {
-		db.exec(`CREATE TABLE IF NOT EXISTS access_requests (
-			id INTEGER PRIMARY KEY AUTOINCREMENT, handle TEXT NOT NULL,
-			did TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT 'pending',
-			requested_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')), reviewed_at TEXT
-		)`);
-		const { n } = db
-			.prepare("SELECT COUNT(*) as n FROM access_requests WHERE status = 'pending'")
-			.get() as { n: number };
-		pendingRequestsCount = n;
-	} catch {
-		// table may not exist yet; non-fatal
-	}
+	const { setlistCount } = db
+		.prepare('SELECT COUNT(*) as setlistCount FROM setlists')
+		.get() as { setlistCount: number };
 
 	return json({
-		registeredCount,
+		userCount,
 		songsCount,
 		bannedCount,
-		cursorSeq: cursor?.seq ?? 0,
-		maxUsers,
-		pendingRequestsCount
+		setlistCount,
+		pendingRequestsCount,
 	});
 };

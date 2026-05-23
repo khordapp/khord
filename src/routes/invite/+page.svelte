@@ -1,14 +1,14 @@
 <script lang="ts">
 	import { session, isLoggedIn } from '$lib/stores/auth';
-	import { APP_NAME, APP_URL, AUTH_PROVIDER_NAME } from '$lib/config';
+	import { APP_NAME, APP_URL } from '$lib/config';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { theme as t } from '$lib/theme';
 
 	if (browser && !$isLoggedIn) goto('/login');
 
-	$: handle = $session?.handle ?? '';
-	$: message = `I'm on ${APP_NAME} — a music sharing app built on ${AUTH_PROVIDER_NAME}. Follow me at @${handle} and we can share songs across Spotify, Apple Music, and more. Sign up at bsky.app, then join at ${APP_URL}`;
+	$: username = $session?.username ?? '';
+	$: message = `I'm on ${APP_NAME} — a music sharing app where you can discover songs across Spotify, Apple Music, and more. Join me at ${APP_URL}`;
 
 	let copied = false;
 
@@ -26,31 +26,25 @@
 </script>
 
 <svelte:head>
-	<title>Invite friends �� {APP_NAME}</title>
+	<title>Invite friends — {APP_NAME}</title>
 </svelte:head>
 
 <div class="space-y-8 max-w-md">
 	<div class="space-y-1">
 		<h1 class="text-2xl font-bold">Invite friends</h1>
 		<p class="{$t.textSecondary} text-sm">
-			Share your handle so people you know can follow you on {APP_NAME}.
+			Share {APP_NAME} with friends so you can discover music together.
 		</p>
 	</div>
 
-	<div class="space-y-3">
-		<p class="text-xs font-medium {$t.textMuted} uppercase tracking-wider">Your handle</p>
-		<div class="flex items-center gap-3 {$t.surfaceBg} border {$t.borderStrong} rounded-lg px-4 py-3">
-			<span class="{$t.textPrimary} font-mono text-sm flex-1">@{handle}</span>
-			<a
-				href="https://bsky.app/profile/{handle}"
-				target="_blank"
-				rel="noopener noreferrer"
-				class="text-xs {$t.textMuted} {$t.hoverTextSecondary} transition-colors"
-			>
-				View profile ↗
-			</a>
+	{#if username}
+		<div class="space-y-3">
+			<p class="text-xs font-medium {$t.textMuted} uppercase tracking-wider">Your username</p>
+			<div class="flex items-center gap-3 {$t.surfaceBg} border {$t.borderStrong} rounded-lg px-4 py-3">
+				<span class="{$t.textPrimary} font-mono text-sm flex-1">@{username}</span>
+			</div>
 		</div>
-	</div>
+	{/if}
 
 	<div class="space-y-3">
 		<p class="text-xs font-medium {$t.textMuted} uppercase tracking-wider">Invite message</p>

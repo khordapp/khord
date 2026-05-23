@@ -1,73 +1,98 @@
-// GET  /api/pinned-setlists   — public; returns pinned setlist array
-// POST /api/pinned-setlists   — owner-only; adds a pin { ownerDid, handle, rkey, title }
-// DELETE /api/pinned-setlists — owner-only; removes a pin { ownerDid, handle, rkey }
+// GET  /api/pinned-setlists   — returns pinned setlist array with live metadata
+// POST /api/pinned-setlists   — owner-only; adds a pin { setlistId }
+// DELETE /api/pinned-setlists — owner-only; removes a pin { setlistId }
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { isOwner } from '$lib/server/access';
 import { getSetting, setSetting } from '$lib/server/settings';
+import { isOwnerUser } from '$lib/server/access';
+import { getDb } from '$lib/server/db';
+import { env } from '$env/dynamic/private';
 
 export interface PinnedSetlist {
-	handle: string;
-	did?: string;
-	rkey: string;
-	title: string;
-	cid?: string;
-	itemCount?: number;
-	createdAt?: string;
+	id: number;
 }
 
-function getPins(): PinnedSetlist[] {
+function getPinIds(): number[] {
 	try {
 		const raw = getSetting('pinned_setlists', '');
 		if (!raw) return [];
-		return JSON.parse(raw) as PinnedSetlist[];
+		const parsed = JSON.parse(raw);
+		// Support legacy format (array of objects with id field) or plain number array
+		if (Array.isArray(parsed)) {
+			return parsed.map((p: any) => typeof p === 'number' ? p : p.id).filter(Boolean);
+		}
+		return [];
 	} catch {
 		return [];
 	}
 }
 
 export const GET: RequestHandler = () => {
-	return json({ pins: getPins() });
-};
+	const ids = getPinIds();
+	if (ids.length === 0) return json({ pins: [] });
 
-export const POST: RequestHandler = async ({ request }) => {
-	const body = await request.json().catch(() => null);
-	const ownerDid: string = body?.ownerDid ?? '';
-	const handle: string = (body?.handle ?? '').trim();
-	const did: string = (body?.did ?? '').trim();
-	const rkey: string = (body?.rkey ?? '').trim();
-	const title: string = (body?.title ?? '').trim();
-	const cid: string = (body?.cid ?? '').trim();
-	const itemCount: number | undefined = typeof body?.itemCount === 'number' ? body.itemCount : undefined;
-	const createdAt: string = (body?.createdAt ?? '').trim();
+	const db = getDb();
+	const ph = ids.map(() => '?').join(',');
+	const rows = db.prepare(`
+		SELECT sl.id, sl.title, sl.created_at, sl.user_id,
+		       u.username, u.display_name,
+		       COUNT(si.id) as item_count
+		FROM setlists sl
+		JOIN users u ON u.id = sl.user_id
+		LEFT JOIN setlist_items si ON si.setlist_id = sl.id
+		WHERE sl.id IN (${ph})
+		GROUP BY sl.id
+	`).all(...ids) as any[];
 
-	if (!isOwner(ownerDid)) error(403, 'Forbidden');
-	if (!handle || !rkey || !title) error(400, 'Missing required fields');
-
-	const pins = getPins();
-	if (!pins.some((p) => p.handle === handle && p.rkey === rkey)) {
-		pins.push({ handle, ...(did && { did }), rkey, title, ...(cid && { cid }), ...(itemCount !== undefined && { itemCount }), ...(createdAt && { createdAt }) });
-		setSetting('pinned_setlists', JSON.stringify(pins));
-	}
+	const byId = new Map(rows.map((r) => [r.id, r]));
+	const pins = ids.flatMap((id) => {
+		const r = byId.get(id);
+		if (!r) return [];
+		return [{
+			id:          r.id,
+			title:       r.title,
+			createdAt:   r.created_at,
+			itemCount:   r.item_count,
+			owner: {
+				userId:      r.user_id,
+				username:    r.username,
+				displayName: r.display_name ?? undefined,
+			}
+		}];
+	});
 
 	return json({ pins });
 };
 
-export const DELETE: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
+	if (!locals.user) error(401, 'Not authenticated');
+	const isOwner = locals.user.role === 'admin' || isOwnerUser(locals.user.username, locals.user.email);
+	if (!isOwner) error(403, 'Forbidden');
+
 	const body = await request.json().catch(() => null);
-	const ownerDid: string = body?.ownerDid ?? '';
-	const handle: string = body?.handle ?? '';
-	const did: string = (body?.did ?? '').trim();
-	const rkey: string = body?.rkey ?? '';
+	const setlistId: number = body?.setlistId;
+	if (!setlistId) error(400, 'setlistId required');
 
-	if (!isOwner(ownerDid)) error(403, 'Forbidden');
+	const ids = getPinIds();
+	if (!ids.includes(setlistId)) {
+		ids.push(setlistId);
+		setSetting('pinned_setlists', JSON.stringify(ids));
+	}
 
-	const updated = getPins().filter((p) => !(
-		p.rkey === rkey &&
-		((did && (p.did === did || p.handle === did)) || p.handle === handle)
-	));
+	return new Response(null, { status: 204 });
+};
+
+export const DELETE: RequestHandler = async ({ request, locals }) => {
+	if (!locals.user) error(401, 'Not authenticated');
+	const isOwner = locals.user.role === 'admin' || isOwnerUser(locals.user.username, locals.user.email);
+	if (!isOwner) error(403, 'Forbidden');
+
+	const body = await request.json().catch(() => null);
+	const setlistId: number = body?.setlistId;
+	if (!setlistId) error(400, 'setlistId required');
+
+	const updated = getPinIds().filter((id) => id !== setlistId);
 	setSetting('pinned_setlists', JSON.stringify(updated));
-
-	return json({ pins: updated });
+	return new Response(null, { status: 204 });
 };

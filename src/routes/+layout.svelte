@@ -3,10 +3,7 @@
 	import { onMount } from 'svelte';
 	import { fly } from 'svelte/transition';
 	import { APP_NAME, VERSION } from '$lib/config';
-	import { initAuth, signOut } from '$lib/atproto/agent';
-	import { session, isLoggedIn, authReady } from '$lib/stores/auth';
-	import { following, followingLoaded } from '$lib/stores/following';
-	import { getFollowing } from '$lib/atproto/social';
+	import { session, isLoggedIn, authReady, logout } from '$lib/stores/auth';
 	import { shareSongOpen, openShareSong } from '$lib/stores/shareSong';
 	import { createSetlistOpen, openCreateSetlist } from '$lib/stores/createSetlist';
 	import { importPlaylistOpen, openImportPlaylist, closeImportPlaylist } from '$lib/stores/importPlaylist';
@@ -19,6 +16,9 @@
 	import { instanceConfig } from '$lib/stores/instance';
 	import { theme as t } from '$lib/theme';
 	import { prefs } from '$lib/stores/prefs';
+	import type { LayoutData } from './$types';
+
+	export let data: LayoutData;
 
 	const PLATFORM_LABELS: Record<string, string> = {
 		spotifyUrl: 'Spotify', appleMusicUrl: 'Apple Music', youtubeMusicUrl: 'YouTube Music',
@@ -36,9 +36,6 @@
 		themeHasPair = t.hasPair();
 	}
 
-	// Map every pageBg Tailwind class to its hex value so we can set it on
-	// <body>. This prevents iOS Safari overscroll rubber-banding from exposing
-	// the white default body background behind the app's background color.
 	const PAGE_BG_HEX: Record<string, string> = {
 		'bg-stone-950': '#0c0a09', 'bg-stone-100': '#f5f5f4',
 		'bg-slate-950': '#020617', 'bg-slate-100': '#f1f5f9',
@@ -55,20 +52,15 @@
 		document.body.style.backgroundColor = PAGE_BG_HEX[$t.pageBg] ?? '';
 	}
 
-	// Keep the Android status bar in sync with the active theme.
 	$: if (typeof window !== 'undefined') syncStatusBar(isLightTheme);
 
 	function syncStatusBar(light: boolean) {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		const w = window as any;
-		// KhordStatusBar is a JavascriptInterface injected by MainActivity — works
-		// at any URL including external instances where the Capacitor plugin bridge
-		// may not be available.
 		if (w.KhordStatusBar?.setLightMode) {
 			w.KhordStatusBar.setLightMode(light);
 			return;
 		}
-		// Fallback: Capacitor StatusBar plugin (works when at app origin).
 		const StatusBar = w.Capacitor?.Plugins?.StatusBar;
 		if (!StatusBar) return;
 		StatusBar.setStyle({ style: light ? 'DARK' : 'LIGHT' });
@@ -80,48 +72,31 @@
 		isMobile = mq.matches;
 		mq.addEventListener('change', (e) => { isMobile = e.matches; });
 
-		if (window.location.pathname === '/oauth/callback') { authReady.set(true); return; }
+		// Session from SSR — set store immediately so no flicker
+		if (data.user) {
+			session.set(data.user);
+		}
 
-		// Skip auto-restore if the user explicitly signed out — they'll re-auth via login page.
-		let signedOut = false;
-		try { signedOut = localStorage.getItem('khord_signed_out') === 'true'; } catch {}
-
-		const s = signedOut ? null : await initAuth(true);
-
-		// Fetch instance config — pass DID when available so isOwner is resolved
-		const statusUrl = s ? `/api/auth/status?did=${encodeURIComponent(s.did)}` : '/api/auth/status';
-		fetch(statusUrl).then(r => r.json()).then(data => {
+		// Fetch instance config
+		fetch('/api/auth/status').then(r => r.json()).then(d => {
 			instanceConfig.set({
-				albumArtDisabled: data.albumArtDisabled ?? false,
-				feedScoped: data.feedScoped ?? false,
-				isOwner: data.isOwner ?? false,
-				appleMusicEnabled: data.appleMusicEnabled ?? false,
+				albumArtDisabled: d.albumArtDisabled ?? false,
+				feedScoped: d.feedScoped ?? false,
+				isOwner: d.isOwner ?? false,
+				appleMusicEnabled: d.appleMusicEnabled ?? false,
 				loaded: true
 			});
 		}).catch(() => {});
 
-		if (s) {
-			session.set(s);
-			try {
-				localStorage.setItem('khord_last_handle', '@' + s.handle);
-				localStorage.setItem('khord_last_did', s.did);
-				localStorage.removeItem('khord_signed_out');
-			} catch {}
-			votes.load(s.did).catch(() => {});
-			followingLoaded.set(false);
-			getFollowing(s.did).then((follows) => {
-				following.set(follows);
-				followingLoaded.set(true);
-			});
+		if (data.user) {
+			votes.load().catch(() => {});
 		}
+
 		authReady.set(true);
 	});
 
 	async function handleLogout() {
-		await signOut();
-		session.set(null);
-		following.set([]);
-		followingLoaded.set(false);
+		await logout();
 		votes.reset();
 		goto('/');
 	}
@@ -165,7 +140,6 @@
 
 		<div class="flex items-center gap-4">
 			{#if $isLoggedIn}
-				<!-- Streaming selector — desktop only; mobile accesses this from the bottom toolbar -->
 				<button
 					on:click={() => (serviceSelectorOpen = true)}
 					title={currentPlatformLabel ? `Streaming on ${currentPlatformLabel} — change` : 'Set streaming service'}
@@ -186,15 +160,11 @@
 						class="flex items-center gap-2 hover:opacity-80 transition-opacity"
 					>
 						<div class="w-7 h-7 rounded-full overflow-hidden shrink-0 ring-2 {$t.borderStrong}">
-							{#if $session?.avatar}
-								<img src={$session.avatar} alt={$session.handle} class="w-full h-full object-cover" />
-							{:else}
-								<div class="w-full h-full {$t.elevatedBg} flex items-center justify-center text-xs font-semibold {$t.textSecondary}">
-									{($session?.handle ?? '?')[0].toUpperCase()}
-								</div>
-							{/if}
+							<div class="w-full h-full {$t.elevatedBg} flex items-center justify-center text-xs font-semibold {$t.textSecondary}">
+								{($session?.username ?? '?')[0].toUpperCase()}
+							</div>
 						</div>
-						<span class="text-sm {$t.textSecondary} max-w-[120px] truncate hidden sm:block">@{$session?.handle}</span>
+						<span class="text-sm {$t.textSecondary} max-w-[120px] truncate hidden sm:block">@{$session?.username}</span>
 						<svg viewBox="0 0 10 10" fill="none" class="w-3 h-3 {$t.textMuted} shrink-0" xmlns="http://www.w3.org/2000/svg">
 							<path d="M2 4l3 3 3-3" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
 						</svg>
@@ -208,7 +178,7 @@
 					<button class="fixed inset-0 z-40" aria-label="Close menu" on:click={closeMenu}></button>
 					<div class="absolute right-0 mt-2 w-52 z-50 {$t.surfaceBg} border {$t.borderStrong} rounded-xl shadow-xl overflow-hidden">
 						<div class="px-4 py-3 border-b {$t.borderBase}">
-							<p class="text-xs font-medium {$t.textSecondary} truncate">@{$session?.handle}</p>
+							<p class="text-xs font-medium {$t.textSecondary} truncate">@{$session?.username}</p>
 						</div>
 						<div class="py-1">
 							<a href="/" on:click={closeMenu} class="flex items-center gap-2.5 px-4 py-2.5 text-sm {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
@@ -216,7 +186,7 @@
 								Feed
 							</a>
 							<a href="/settings" on:click={closeMenu} class="flex items-center gap-2.5 px-4 py-2.5 text-sm {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
-								<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" stroke="currentColor" stroke-width="1.25"/><path d="M13.3 6.6a1 1 0 0 0 .2-1.1l-.8-1.4a1 1 0 0 0-1-.5l-1 .2a5 5 0 0 0-.8-.5l-.2-1A1 1 0 0 0 8.8 2H7.2a1 1 0 0 0-1 .8l-.2 1a5 5 0 0 0-.8.5l-1-.2a1 1 0 0 0-1 .5L2.4 6a1 1 0 0 0 .2 1.1l.7.7v.4l-.7.7a1 1 0 0 0-.2 1.1l.8 1.4a1 1 0 0 0 1 .5l1-.2c.3.2.5.3.8.5l.2 1a1 1 0 0 0 1 .8h1.6a1 1 0 0 0 1-.8l.2-1c.3-.2.5-.3.8-.5l1 .2a1 1 0 0 0 1-.5l.8-1.4a1 1 0 0 0-.2-1.1l-.7-.7v-.4l.7-.7Z" stroke="currentColor" stroke-width="1.25"/></svg>
+								<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" stroke="currentColor" stroke-width="1.25"/><path d="M13.3 6.6a1 1 0 0 0 .2-1.1l-.8-1.4a1 1 0 0 0-1-.5l-1 .2a5 5 0 0 0-.8-.5l-.2-1A1 1 0 0 0 8.8 2H7.2a1 1 0 0 0-1 .8l-.2 1a5 5 0 0 0-.8.5l-1-.2a1 1 0 0 0-1 .5L2.4 6a1 1 0 0 0 .2 1.1l.7.7v.4l-.7.7a1 1 0 0 0-.2 1.1l.8 1.4a1 1 0 0 0 1 .5l1-.2c.3.2.5.3.8.5l.2 1a1 1 0 0 0 1 .8h1.6a1 1 0 0 0 1-.8l.2-1c.3-.2.5-.3.8-.5l1 .2a1 1 0 0 0 1-.5l.8-1.4a1 1 0 0 0-.2-1.1l-.7-.7v-.4l.7-.7Z" stroke="currentColor" stroke-width="1.25"/></svg>
 								Settings
 							</a>
 							<a href="/invite" on:click={closeMenu} class="flex items-center gap-2.5 px-4 py-2.5 text-sm {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
@@ -262,19 +232,14 @@
 						class="fixed right-0 top-0 bottom-0 z-50 w-72 {$t.surfaceBg} border-l {$t.borderStrong} shadow-2xl flex flex-col overflow-y-auto"
 						style="padding-top: env(safe-area-inset-top, 0px)"
 					>
-						<!-- Drawer header: avatar + close -->
 						<div class="flex items-center justify-between px-5 py-5 border-b {$t.borderBase}">
 							<div class="flex items-center gap-3 min-w-0">
 								<div class="w-10 h-10 rounded-full overflow-hidden shrink-0 ring-2 {$t.borderStrong}">
-									{#if $session?.avatar}
-										<img src={$session.avatar} alt={$session.handle} class="w-full h-full object-cover" />
-									{:else}
-										<div class="w-full h-full {$t.elevatedBg} flex items-center justify-center text-sm font-semibold {$t.textSecondary}">
-											{($session?.handle ?? '?')[0].toUpperCase()}
-										</div>
-									{/if}
+									<div class="w-full h-full {$t.elevatedBg} flex items-center justify-center text-sm font-semibold {$t.textSecondary}">
+										{($session?.username ?? '?')[0].toUpperCase()}
+									</div>
 								</div>
-								<span class="text-sm font-medium {$t.textSecondary} truncate">@{$session?.handle}</span>
+								<span class="text-sm font-medium {$t.textSecondary} truncate">@{$session?.username}</span>
 							</div>
 							<button on:click={closeMenu} aria-label="Close menu" class="p-1.5 rounded-lg {$t.textMuted} {$t.hoverText} transition-colors shrink-0">
 								<svg viewBox="0 0 14 14" fill="none" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
@@ -283,7 +248,6 @@
 							</button>
 						</div>
 
-						<!-- Nav links -->
 						<nav class="flex-1 py-2">
 							<a href="/" on:click={closeMenu} class="flex items-center gap-4 px-5 py-4 text-base {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
 								<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M2 6.5 8 2l6 4.5V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6.5Z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/><path d="M6 15v-5h4v5" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></svg>
@@ -305,7 +269,6 @@
 							{/if}
 						</nav>
 
-						<!-- Bottom: theme toggle + about + sign out -->
 						<div class="border-t {$t.borderBase} py-2">
 							{#if themeHasPair}
 								<button on:click={t.toggle} class="w-full flex items-center gap-4 px-5 py-4 text-base {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
@@ -337,9 +300,7 @@
 		<slot />
 	</main>
 
-
 	{#if $isLoggedIn}
-		<!-- FAB — desktop only; mobile uses the bottom nav bar in +page.svelte -->
 		<div class="fixed bottom-6 right-6 z-30 hidden sm:flex flex-col items-end gap-3">
 			{#if fabOpen}
 				<button class="fixed inset-0 z-10" aria-label="Close" on:click={closeFab}></button>
@@ -391,7 +352,6 @@
 	{/if}
 </div>
 
-
 {#if aboutOpen}
 	<button class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" aria-label="Close" on:click={() => (aboutOpen = false)}></button>
 	<div
@@ -405,18 +365,15 @@
 		aria-modal="true"
 		aria-label="About {APP_NAME}"
 	>
-		<!-- Drag handle (mobile only) -->
 		<div class="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
 			<div class="w-10 h-1 rounded-full {$t.borderStrong} bg-current opacity-30"></div>
 		</div>
 
-		<!-- Header -->
 		<div class="px-6 py-4 border-b {$t.borderBase} flex items-center justify-between shrink-0">
 			<h2 class="text-base font-semibold {$t.textPrimary}">About {APP_NAME}</h2>
 			<button on:click={() => (aboutOpen = false)} class="{$t.textMuted} {$t.hoverText} transition-colors text-xl leading-none" aria-label="Close">✕</button>
 		</div>
 
-		<!-- Scrollable body -->
 		<div class="overflow-y-auto px-6 py-6 space-y-6 text-sm {$t.textFaint}">
 			<div class="flex flex-col items-center gap-3 text-center">
 				<img src="/khord-logo.png" alt={APP_NAME} class="h-24 w-24 rounded-3xl shadow-lg" />
@@ -433,11 +390,9 @@
 				<p>Spotify data via <a href="https://developer.spotify.com" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">Spotify Web API</a></p>
 				<p>YouTube Music data via <a href="https://developers.google.com/youtube/v3" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">YouTube Data API</a></p>
 				<p>Deezer data via <a href="https://developers.deezer.com" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">Deezer API</a></p>
-				<p>Identity via <a href="https://atproto.com" target="_blank" rel="noopener noreferrer" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">AT Protocol</a></p>
 			</div>
 		</div>
 
-		<!-- Safe-area spacer for home indicator -->
 		<div class="shrink-0 sm:hidden" style="height: env(safe-area-inset-bottom, 12px)"></div>
 	</div>
 {/if}

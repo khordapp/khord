@@ -3,10 +3,6 @@
 	import { goto } from '$app/navigation';
 	import { isLoggedIn, authReady, session } from '$lib/stores/auth';
 	import { openShareSongWithTrack } from '$lib/stores/shareSong';
-	import { getAgent } from '$lib/atproto/agent';
-	import { createSetlist } from '$lib/atproto/social';
-	import { SONG_NSID, type KhordSongRecord } from '$lib/atproto/lexicons/song';
-	import type { KhordSetlistItem, KhordSetlistItemSnapshot } from '$lib/atproto/lexicons/setlist';
 	import { APP_URL } from '$lib/config';
 	import { theme as t } from '$lib/theme';
 
@@ -15,7 +11,6 @@
 
 	export let data: import('./$types').PageData;
 
-	// Playlist state
 	let mixtapeName = '';
 	let selected: Set<number> = new Set();
 	let creating = false;
@@ -24,8 +19,6 @@
 	let createError = '';
 
 	onMount(() => {
-		// Use let + guard so the callback is safe when authReady is already true
-		// (synchronous subscribe fire puts unsub in TDZ if declared with const)
 		let unsub: (() => void) | undefined;
 		unsub = authReady.subscribe((ready) => {
 			if (!ready) return;
@@ -42,7 +35,6 @@
 				return;
 			}
 
-			// Playlist — initialise with all tracks selected, deduped by title+artist
 			mixtapeName = data.playlist.title;
 			const seen = new Set<string>();
 			data.playlist.tracks.forEach((track, i) => {
@@ -52,7 +44,7 @@
 					selected.add(i);
 				}
 			});
-			selected = selected; // trigger reactivity
+			selected = selected;
 		});
 		return unsub;
 	});
@@ -91,7 +83,6 @@
 		createError = '';
 
 		const tracks = playlist!.tracks.filter((_, i) => selected.has(i));
-		// Deduplicate by title+artist (catches any the user didn't notice)
 		const seen = new Set<string>();
 		const dedupedTracks = tracks.filter(track => {
 			const key = `${track.title.toLowerCase()}|${track.artist.toLowerCase()}`;
@@ -103,13 +94,10 @@
 		createTotal = dedupedTracks.length;
 		createStep = 0;
 
-		const did = $session.did;
-		const agent = getAgent();
-		const items: KhordSetlistItem[] = [];
+		const songIds: { id: number; track: typeof dedupedTracks[0]; snapshot: Record<string, string | undefined> }[] = [];
 
 		for (const track of dedupedTracks) {
 			try {
-				// Resolve all platform URLs, preserving the source URL for its platform.
 				const p = new URLSearchParams({ title: track.title, artist: track.artist });
 				const resolveRes = await fetch(`/api/resolve?${p}`);
 				const resolved = resolveRes.ok ? await resolveRes.json() : {};
@@ -119,51 +107,47 @@
 				const deezerUrl       = sourceUrlFor(track, 'deezer')   ?? resolved.deezerUrl;
 				const youtubeMusicUrl = sourceUrlFor(track, 'youtube')  ?? resolved.youtubeMusicUrl;
 
-				const record: KhordSongRecord = {
+				const songBody: Record<string, unknown> = {
 					title:  track.title,
 					artist: track.artist,
-					...(track.album      && { album:          track.album }),
-					...(track.artworkUrl && { thumbnailUrl:   track.artworkUrl }),
+					listed: 0,
+					...(track.album      && { album: track.album }),
+					...(track.artworkUrl && { thumbnailUrl: track.artworkUrl }),
 					...(spotifyUrl       && { spotifyUrl }),
 					...(appleMusicUrl    && { appleMusicUrl }),
 					...(youtubeMusicUrl  && { youtubeMusicUrl }),
 					...(deezerUrl        && { deezerUrl }),
-					listed:      false, // playlist-imported songs never appear in the feed
-					instanceUrl: APP_URL,
-					createdAt:   new Date().toISOString(),
 				};
 
-				const res = await agent.com.atproto.repo.createRecord({
-					repo: did,
-					collection: SONG_NSID,
-					record: { $type: SONG_NSID, ...record },
+				const res = await fetch('/api/songs', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(songBody),
 				});
+				if (!res.ok) throw new Error('Failed to create song');
+				const { id } = await res.json();
 
-				const snapshot: KhordSetlistItemSnapshot = {
-					title:  record.title,
-					artist: record.artist,
-					...(record.album          && { album:          record.album }),
-					...(record.thumbnailUrl   && { thumbnailUrl:   record.thumbnailUrl }),
-					...(record.spotifyUrl     && { spotifyUrl:     record.spotifyUrl }),
-					...(record.appleMusicUrl  && { appleMusicUrl:  record.appleMusicUrl }),
-					...(record.youtubeMusicUrl && { youtubeMusicUrl: record.youtubeMusicUrl }),
-					...(record.deezerUrl      && { deezerUrl:      record.deezerUrl }),
-				};
-
-				items.push({
-					songUri:  res.data.uri,
-					songCid:  res.data.cid,
-					addedBy:  did,
-					addedAt:  new Date().toISOString(),
-					snapshot,
+				songIds.push({
+					id,
+					track,
+					snapshot: {
+						title:  track.title,
+						artist: track.artist,
+						...(track.album      && { album: track.album }),
+						...(track.artworkUrl && { thumbnailUrl: track.artworkUrl }),
+						...(spotifyUrl       && { spotifyUrl }),
+						...(appleMusicUrl    && { appleMusicUrl }),
+						...(youtubeMusicUrl  && { youtubeMusicUrl }),
+						...(deezerUrl        && { deezerUrl }),
+					},
 				});
 			} catch {
-				// Skip failed tracks rather than aborting the whole import
+				// Skip failed tracks
 			}
 			createStep++;
 		}
 
-		if (items.length === 0) {
+		if (songIds.length === 0) {
 			createError = 'Could not create any tracks. Please try again.';
 			creating = false;
 			return;
@@ -171,9 +155,23 @@
 
 		try {
 			const name = mixtapeName.trim() || playlist!.title;
-			const { uri } = await createSetlist(did, name, items);
-			const rkey = uri.split('/').pop()!;
-			goto(`/s/${encodeURIComponent($session.did ?? did)}/${rkey}`);
+			const slRes = await fetch('/api/setlists', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ title: name }),
+			});
+			if (!slRes.ok) throw new Error('Failed to create setlist');
+			const { id: setlistId } = await slRes.json();
+
+			for (const { id: songId, snapshot } of songIds) {
+				await fetch(`/api/setlists/${setlistId}/items`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ songId, snapshot }),
+				});
+			}
+
+			goto(`/s/${setlistId}`);
 		} catch {
 			createError = 'Failed to create mixtape. Please try again.';
 			creating = false;
@@ -224,7 +222,7 @@
 			</button>
 		</div>
 
-		<!-- Track list — padding-bottom clears the fixed footer -->
+		<!-- Track list -->
 		<div
 			class="flex-1 overflow-y-auto divide-y {$t.borderFaded}"
 			style="padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px))"
@@ -239,7 +237,6 @@
 					on:click={() => toggleTrack(i)}
 					disabled={creating}
 				>
-					<!-- Checkbox -->
 					<div class="shrink-0 w-5 h-5 rounded-full border {selected.has(i) ? `${$t.accentBg} ${$t.accentBorder} flex items-center justify-center` : $t.borderStrong}">
 						{#if selected.has(i)}
 							<svg viewBox="0 0 10 10" fill="none" class="w-3 h-3" xmlns="http://www.w3.org/2000/svg">
@@ -248,7 +245,6 @@
 						{/if}
 					</div>
 
-					<!-- Artwork -->
 					{#if track.artworkUrl}
 						<img src={track.artworkUrl} alt="" class="w-10 h-10 rounded-md shrink-0 object-cover" />
 					{:else}
@@ -261,7 +257,6 @@
 						</div>
 					{/if}
 
-					<!-- Title / artist -->
 					<div class="min-w-0 flex-1">
 						<p class="text-sm font-medium {$t.textPrimary} truncate">
 							{track.title}
@@ -274,7 +269,7 @@
 		</div>
 	</div>
 
-	<!-- Fixed bottom action bar — same glass treatment as setlist and feed toolbars -->
+	<!-- Fixed bottom action bar -->
 	<div
 		class="fixed bottom-0 left-0 right-0 z-30 px-4 pt-3"
 		style="
@@ -316,4 +311,3 @@
 		</div>
 	</div>
 {/if}
-

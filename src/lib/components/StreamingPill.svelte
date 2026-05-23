@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import type { KhordSongRecord } from '$lib/atproto/lexicons/song';
+	import type { SongRecord } from '$lib/stores/shareSong';
 	import { prefs } from '$lib/stores/prefs';
 	import type { PlatformKey } from '$lib/stores/prefs';
 	import { theme as t } from '$lib/theme';
 
-	export let record: KhordSongRecord;
+	export let record: SongRecord;
 
 	const PLATFORMS: { key: PlatformKey; label: string; brand: { bg: string; text: string; border: string } }[] = [
 		{ key: 'appleMusicUrl',   label: 'Apple',   brand: { bg: '#FC3C44', text: '#ffffff', border: '#FC3C44' } },
@@ -31,7 +31,7 @@
 	}
 
 	onMount(() => {
-		isNative = !!window.Capacitor?.isNativePlatform();
+		isNative = !!(window as any).Capacitor?.isNativePlatform();
 		const mq = window.matchMedia('(max-width: 639px)');
 		isMobile = mq.matches;
 		const handler = (e: MediaQueryListEvent) => { isMobile = e.matches; };

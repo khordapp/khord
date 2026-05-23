@@ -1,75 +1,84 @@
-// GET  /api/admin/bans?did=         — list all bans
-// POST /api/admin/bans              — add ban { ownerDid, targetDid, reason? }
-// DELETE /api/admin/bans            — remove ban { ownerDid, targetDid }
-// All operations are owner-only.
+// GET    /api/admin/bans             — list all bans. Owner-only.
+// POST   /api/admin/bans             — add ban { targetUserId, reason? }. Owner-only.
+// DELETE /api/admin/bans             — remove ban { targetUserId }. Owner-only.
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { getDb, getDbRw } from '$lib/server/db';
-import { isOwner } from '$lib/server/access';
+import { getDb } from '$lib/server/db';
+import { isOwnerUser } from '$lib/server/access';
 
-export const GET: RequestHandler = ({ url }) => {
-	const did = url.searchParams.get('did') ?? '';
-	if (!isOwner(did)) error(403, 'Forbidden');
+export const GET: RequestHandler = ({ locals }) => {
+	const user = locals.user;
+	if (!user || !isOwnerUser(user.username, user.email)) error(403, 'Forbidden');
 
 	const db = getDb();
-	if (!db) error(503, 'Database unavailable');
 
-	const rows = db
-		.prepare(
-			`SELECT b.did, b.reason, b.banned_at, a.handle, a.display_name, a.avatar
-			 FROM banned_users b
-			 LEFT JOIN actors a ON a.did = b.did
-			 ORDER BY b.banned_at DESC`
-		)
-		.all() as any[];
+	const rows = db.prepare(`
+		SELECT b.user_id, b.reason, b.banned_at,
+		       u.username, u.display_name, u.email
+		FROM banned_users b
+		JOIN users u ON u.id = b.user_id
+		ORDER BY b.banned_at DESC
+	`).all() as any[];
 
-	const bans = rows.map((r) => ({
-		did: r.did,
-		reason: r.reason ?? null,
-		bannedAt: r.banned_at,
-		handle: r.handle ?? null,
-		displayName: r.display_name ?? null,
-		avatar: r.avatar ?? null
-	}));
-
-	return json({ bans });
+	return json({
+		bans: rows.map((r) => ({
+			userId:      r.user_id,
+			username:    r.username,
+			displayName: r.display_name ?? null,
+			email:       r.email,
+			reason:      r.reason ?? null,
+			bannedAt:    r.banned_at,
+		}))
+	});
 };
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
+	const user = locals.user;
+	if (!user || !isOwnerUser(user.username, user.email)) error(403, 'Forbidden');
+
 	const body = await request.json().catch(() => null);
-	const ownerDid: string = body?.ownerDid ?? '';
-	const targetDid: string = body?.targetDid ?? '';
+	const targetUserId: number = body?.targetUserId;
 	const reason: string | null = body?.reason || null;
+	const purgeContent: boolean = body?.purgeContent === true;
 
-	if (!isOwner(ownerDid)) error(403, 'Forbidden');
-	if (!targetDid) error(400, 'Missing targetDid');
+	if (!targetUserId) error(400, 'Missing targetUserId');
 
-	const db = getDbRw();
-	if (!db) error(503, 'Database unavailable');
+	const db = getDb();
 
-	db.prepare(
-		`INSERT INTO banned_users(did, reason) VALUES(?, ?)
-		 ON CONFLICT(did) DO UPDATE SET
-		   reason = excluded.reason,
-		   banned_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`
-	).run(targetDid, reason);
+	const target = db.prepare('SELECT id FROM users WHERE id = ?').get(targetUserId) as { id: number } | undefined;
+	if (!target) error(404, 'User not found');
 
-	return json({ ok: true });
+	db.transaction(() => {
+		db.prepare(`
+			INSERT INTO banned_users(user_id, reason) VALUES(?, ?)
+			ON CONFLICT(user_id) DO UPDATE SET
+			  reason = excluded.reason,
+			  banned_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+		`).run(targetUserId, reason);
+
+		if (purgeContent) {
+			db.prepare('DELETE FROM proposals WHERE proposer_user_id = ?').run(targetUserId);
+			db.prepare('DELETE FROM votes WHERE user_id = ?').run(targetUserId);
+			db.prepare('DELETE FROM setlists WHERE user_id = ?').run(targetUserId);
+			db.prepare('DELETE FROM songs WHERE user_id = ?').run(targetUserId);
+		}
+	})();
+
+	return json({ ok: true, purged: purgeContent });
 };
 
-export const DELETE: RequestHandler = async ({ request }) => {
+export const DELETE: RequestHandler = async ({ request, locals }) => {
+	const user = locals.user;
+	if (!user || !isOwnerUser(user.username, user.email)) error(403, 'Forbidden');
+
 	const body = await request.json().catch(() => null);
-	const ownerDid: string = body?.ownerDid ?? '';
-	const targetDid: string = body?.targetDid ?? '';
+	const targetUserId: number = body?.targetUserId;
 
-	if (!isOwner(ownerDid)) error(403, 'Forbidden');
-	if (!targetDid) error(400, 'Missing targetDid');
+	if (!targetUserId) error(400, 'Missing targetUserId');
 
-	const db = getDbRw();
-	if (!db) error(503, 'Database unavailable');
-
-	db.prepare('DELETE FROM banned_users WHERE did = ?').run(targetDid);
+	const db = getDb();
+	db.prepare('DELETE FROM banned_users WHERE user_id = ?').run(targetUserId);
 
 	return json({ ok: true });
 };

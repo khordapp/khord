@@ -1,164 +1,157 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { signIn, tryRestoreSession, initAuth } from '$lib/atproto/agent';
-	import { APP_NAME, AUTH_PROVIDER_NAME } from '$lib/config';
+	import { APP_NAME } from '$lib/config';
 	import { theme as t } from '$lib/theme';
-	import { session } from '$lib/stores/auth';
-	import { following, followingLoaded } from '$lib/stores/following';
-	import { getFollowing } from '$lib/atproto/social';
-	import { votes } from '$lib/stores/votes';
+	import { session, authReady } from '$lib/stores/auth';
+	import { instanceConfig } from '$lib/stores/instance';
 	import { goto } from '$app/navigation';
 
-	let handle = '';
-	let error = '';
+	let mode: 'login' | 'register' = 'login';
+	let email = '';
+	let username = '';
+	let password = '';
+	let errorMsg = '';
 	let loading = false;
-
 	let instanceFull = false;
-	let instanceRestricted = false;
-	let handleInput: HTMLInputElement | undefined;
-
-	let storedDid = '';
 
 	onMount(async () => {
-		try { handle = localStorage.getItem('khord_last_handle') ?? ''; } catch {}
-		try { storedDid = localStorage.getItem('khord_last_did') ?? ''; } catch {}
-
-		// If the user already has an active session, skip the login page.
-		let signedOut = false;
-		try { signedOut = localStorage.getItem('khord_signed_out') === 'true'; } catch {}
-		if (!signedOut) {
-			const s = await initAuth(true);
-			if (s) {
-				session.set(s);
-				goto('/');
-				return;
-			}
-		}
-
-		handleInput?.focus();
+		if ($session) { goto('/'); return; }
 		try {
 			const res = await fetch('/api/auth/status');
-			if (res.ok) {
-				const data = await res.json();
-				instanceFull = data.full;
-				instanceRestricted = data.restricted;
-			}
-		} catch {
-			// Non-fatal — proceed as open instance
-		}
+			if (res.ok) { const d = await res.json(); instanceFull = d.full; }
+		} catch { /* non-fatal */ }
 	});
 
-	$: isEmail = handle.includes('@') && !handle.startsWith('@');
-	$: blocked = instanceFull;
-
-	async function handleSubmit() {
-		if (isEmail || blocked) return;
+	async function submit() {
+		errorMsg = '';
 		loading = true;
-		error = '';
 		try {
-			// If the user previously signed in, try to silently restore their session using
-			// the stored refresh token — avoids the Bluesky redirect and consent screen.
-			if (storedDid) {
-				const s = await tryRestoreSession(storedDid);
-				if (s) {
-					session.set(s);
-					try {
-						localStorage.setItem('khord_last_handle', '@' + s.handle);
-						localStorage.removeItem('khord_signed_out');
-					} catch {}
-					votes.load(s.did).catch(() => {});
-					followingLoaded.set(false);
-					getFollowing(s.did).then((follows) => {
-						following.set(follows);
-						followingLoaded.set(true);
-					});
-					goto('/');
-					return;
+			const url = mode === 'login' ? '/api/auth/login' : '/api/auth/register';
+			const body = mode === 'login'
+				? { email: email.trim().toLowerCase(), password }
+				: { email: email.trim().toLowerCase(), username: username.trim(), password };
+
+			const res = await fetch(url, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(body)
+			});
+
+			if (!res.ok) {
+				const msg = await res.text();
+				try {
+					const parsed = JSON.parse(msg);
+					if (parsed.pendingRequest) {
+						errorMsg = 'Your access request has been submitted and is pending admin review.';
+						return;
+					}
+					errorMsg = parsed.message ?? msg;
+				} catch {
+					errorMsg = msg || 'Something went wrong.';
 				}
+				return;
 			}
-			await signIn(handle.trim().replace(/^@/, ''));
-			// Browser navigates to {AUTH_PROVIDER_NAME} for auth — /oauth/callback completes the flow.
+
+			const user = await res.json();
+			session.set({ id: user.id, username: user.username, email: user.email, displayName: user.displayName, role: user.role });
+			instanceConfig.update((c) => ({ ...c, isOwner: user.isOwner }));
+			goto('/');
 		} catch (e) {
-			error = e instanceof Error ? e.message : 'Could not start sign-in. Check your handle and try again.';
+			errorMsg = e instanceof Error ? e.message : 'Something went wrong.';
+		} finally {
 			loading = false;
 		}
 	}
 </script>
 
 <svelte:head>
-	<title>Sign in — {APP_NAME}</title>
+	<title>{mode === 'login' ? 'Sign in' : 'Create account'} — {APP_NAME}</title>
 </svelte:head>
 
 <div class="max-w-sm space-y-6">
 	<div class="space-y-1">
-		<h1 class="text-2xl font-bold">Sign in</h1>
+		<h1 class="text-2xl font-bold {$t.textPrimary}">{mode === 'login' ? 'Sign in' : 'Create account'}</h1>
 		<p class="{$t.textSecondary} text-sm">
-			{APP_NAME} uses {AUTH_PROVIDER_NAME} to sign in securely — no passwords shared with us.
+			{mode === 'login' ? `Welcome back to ${APP_NAME}.` : `Join ${APP_NAME} to start sharing music.`}
 		</p>
 	</div>
 
-	{#if instanceFull}
+	{#if instanceFull && mode === 'register'}
 		<div class="rounded-lg border {$t.borderStrong} {$t.surfaceBg} px-4 py-4 space-y-1">
 			<p class="text-sm font-medium {$t.textPrimary}">This instance is full</p>
-			<p class="text-xs {$t.textMuted}">
-				No new sign-ins are being accepted at this time. Contact the administrator if you believe
-				you should have access.
-			</p>
+			<p class="text-xs {$t.textMuted}">No new accounts are being accepted. Contact the administrator if you believe you should have access.</p>
 		</div>
 	{:else}
-		{#if instanceRestricted}
-			<div class="rounded-lg border {$t.borderBase} {$t.surfaceBg} px-4 py-3">
-				<p class="text-xs {$t.textMuted}">
-					This is a private instance — sign-in is restricted to specific accounts.
-				</p>
-			</div>
-		{/if}
-
-		<form on:submit|preventDefault={handleSubmit} class="space-y-4">
+		<form on:submit|preventDefault={submit} class="space-y-4">
 			<div class="space-y-1">
-				<label for="handle" class="text-sm {$t.textSecondary}">{AUTH_PROVIDER_NAME} handle</label>
+				<label for="email" class="text-sm {$t.textSecondary}">Email</label>
 				<input
-					id="handle"
-					bind:this={handleInput}
-					bind:value={handle}
-					type="text"
-					autocomplete="username"
-					placeholder="you.bsky.social"
+					id="email"
+					bind:value={email}
+					type="email"
+					autocomplete="email"
+					required
+					placeholder="you@example.com"
 					class="w-full {$t.surfaceBg} border {$t.borderStrong} rounded-md px-3 py-2 text-base sm:text-sm {$t.textPrimary}
 						focus:outline-none focus:ring-1 {$t.focusRing} placeholder:{$t.textFaint}"
 				/>
-				{#if isEmail}
-					<p class="text-amber-400 text-xs">
-						Enter your {AUTH_PROVIDER_NAME} handle, not your email — e.g. <span class="font-mono">you.bsky.social</span>.
-						Find it in your <a href="https://bsky.app/settings" target="_blank" rel="noopener noreferrer" class="underline">{AUTH_PROVIDER_NAME} settings</a>.
-					</p>
-				{/if}
 			</div>
 
-			{#if error}
-				<p class="text-red-400 text-sm">{error}</p>
+			{#if mode === 'register'}
+				<div class="space-y-1">
+					<label for="username" class="text-sm {$t.textSecondary}">Username</label>
+					<input
+						id="username"
+						bind:value={username}
+						type="text"
+						autocomplete="username"
+						required
+						placeholder="your_username"
+						pattern={'[a-zA-Z0-9_.\\-]{2,32}'}
+						class="w-full {$t.surfaceBg} border {$t.borderStrong} rounded-md px-3 py-2 text-base sm:text-sm {$t.textPrimary}
+							focus:outline-none focus:ring-1 {$t.focusRing} placeholder:{$t.textFaint}"
+					/>
+					<p class="text-xs {$t.textFaint}">2–32 characters: letters, numbers, underscores, dots, hyphens.</p>
+				</div>
+			{/if}
+
+			<div class="space-y-1">
+				<label for="password" class="text-sm {$t.textSecondary}">Password</label>
+				<input
+					id="password"
+					bind:value={password}
+					type="password"
+					autocomplete={mode === 'login' ? 'current-password' : 'new-password'}
+					required
+					minlength={mode === 'register' ? 8 : 1}
+					class="w-full {$t.surfaceBg} border {$t.borderStrong} rounded-md px-3 py-2 text-base sm:text-sm {$t.textPrimary}
+						focus:outline-none focus:ring-1 {$t.focusRing} placeholder:{$t.textFaint}"
+				/>
+				{#if mode === 'register'}<p class="text-xs {$t.textFaint}">At least 8 characters.</p>{/if}
+			</div>
+
+			{#if errorMsg}
+				<p class="text-red-400 text-sm">{errorMsg}</p>
 			{/if}
 
 			<button
 				type="submit"
-				disabled={!handle.trim() || loading || isEmail}
+				disabled={loading}
 				class="w-full {$t.btnPrimaryBg} {$t.btnPrimaryText} text-sm font-medium px-4 py-2 rounded-md
 					{$t.btnPrimaryHover} transition-colors disabled:opacity-50"
 			>
-				{loading ? `Opening ${AUTH_PROVIDER_NAME} sign-in…` : `Continue with ${AUTH_PROVIDER_NAME}`}
+				{loading ? (mode === 'login' ? 'Signing in…' : 'Creating account…') : (mode === 'login' ? 'Sign in' : 'Create account')}
 			</button>
 		</form>
-	{/if}
 
-	<div class="border-t {$t.borderBase} pt-5 text-sm {$t.textMuted}">
-		Don't have a {AUTH_PROVIDER_NAME} account?
-		<a
-			href="https://bsky.app"
-			target="_blank"
-			rel="noopener noreferrer"
-			class="{$t.textSecondary} {$t.hoverText} transition-colors"
-		>
-			Create one at bsky.app ↗
-		</a>
-	</div>
+		<div class="border-t {$t.borderBase} pt-4 text-sm {$t.textMuted} text-center">
+			{mode === 'login' ? "Don't have an account?" : 'Already have an account?'}
+			<button
+				on:click={() => { mode = mode === 'login' ? 'register' : 'login'; errorMsg = ''; }}
+				class="{$t.textSecondary} {$t.hoverText} transition-colors ml-1"
+			>
+				{mode === 'login' ? 'Create one' : 'Sign in'}
+			</button>
+		</div>
+	{/if}
 </div>

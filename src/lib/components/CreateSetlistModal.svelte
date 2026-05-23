@@ -1,12 +1,9 @@
 <script lang="ts">
 	import { closeCreateSetlist } from '$lib/stores/createSetlist';
 	import { type TrackResult } from '$lib/search';
-	import { getAgent } from '$lib/atproto/agent';
 	import { session } from '$lib/stores/auth';
-	import { SONG_NSID, type KhordSongRecord } from '$lib/atproto/lexicons/song';
-	import { createSetlist } from '$lib/atproto/social';
+	import type { SongRecord } from '$lib/stores/shareSong';
 	import { thumbUrl } from '$lib/config';
-	import type { KhordSetlistItemSnapshot } from '$lib/atproto/lexicons/setlist';
 	import { goto } from '$app/navigation';
 	import { searchTracks } from '$lib/search';
 	import { theme as t } from '$lib/theme';
@@ -21,14 +18,11 @@
 	let searchResults: TrackResult[] = [];
 	let searchError = '';
 	let debounceTimer: ReturnType<typeof setTimeout>;
-	let searchInputEl: HTMLInputElement | undefined;
 
 	interface SetlistSong {
 		trackResult: TrackResult;
-		record: KhordSongRecord;
-		songUri: string;
-		songCid: string;
-		snapshot: KhordSetlistItemSnapshot;
+		record: SongRecord;
+		songId: number;
 	}
 	let songs: SetlistSong[] = [];
 
@@ -68,50 +62,34 @@
 		query = '';
 		searchResults = [];
 		try {
-			let phase1: { spotifyUrl?: string; youtubeMusicUrl?: string; deezerUrl?: string } = {};
+			let resolved: { spotifyUrl?: string; youtubeMusicUrl?: string; deezerUrl?: string } = {};
 			if (track.title && track.artist) {
 				const p = new URLSearchParams({ title: track.title, artist: track.artist });
 				const r = await fetch(`/api/resolve?${p}`);
-				if (r.ok) phase1 = await r.json();
+				if (r.ok) resolved = await r.json();
 			}
 
-			const record: KhordSongRecord = {
+			const record: SongRecord = {
 				title: track.title,
 				artist: track.artist,
-				...(track.album        && { album:          track.album }),
-				...(track.artworkUrl   && { thumbnailUrl:   track.artworkUrl }),
+				...(track.album && { album: track.album }),
+				...(track.artworkUrl && { thumbnailUrl: track.artworkUrl }),
 				...(track.appleMusicUrl && { appleMusicUrl: track.appleMusicUrl }),
-				...(phase1.spotifyUrl       && { spotifyUrl:      phase1.spotifyUrl }),
-				...(phase1.youtubeMusicUrl  && { youtubeMusicUrl: phase1.youtubeMusicUrl }),
-				...(phase1.deezerUrl        && { deezerUrl:       phase1.deezerUrl }),
+				...(resolved.spotifyUrl && { spotifyUrl: resolved.spotifyUrl }),
+				...(resolved.youtubeMusicUrl && { youtubeMusicUrl: resolved.youtubeMusicUrl }),
+				...(resolved.deezerUrl && { deezerUrl: resolved.deezerUrl }),
 				createdAt: new Date().toISOString()
 			};
 
-			const createRes = await getAgent().com.atproto.repo.createRecord({
-				repo: $session.did,
-				collection: SONG_NSID,
-				record: { $type: SONG_NSID, ...record, listed: false }
+			const createRes = await fetch('/api/songs', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ ...record, listed: 0 })
 			});
+			if (!createRes.ok) throw new Error('Failed to create song');
+			const { id: songId } = await createRes.json();
 
-			songs = [...songs, {
-				trackResult: track,
-				record,
-				songUri: createRes.data.uri,
-				songCid: createRes.data.cid,
-				snapshot: {
-					title: record.title,
-					artist: record.artist,
-					...(record.album && { album: record.album }),
-					...(record.thumbnailUrl && { thumbnailUrl: record.thumbnailUrl }),
-					...(record.appleMusicUrl && { appleMusicUrl: record.appleMusicUrl }),
-					...(record.spotifyUrl && { spotifyUrl: record.spotifyUrl }),
-					...(record.youtubeMusicUrl && { youtubeMusicUrl: record.youtubeMusicUrl }),
-					...(record.deezerUrl && { deezerUrl: record.deezerUrl }),
-					...(record.tidalUrl && { tidalUrl: record.tidalUrl }),
-					...(record.amazonMusicUrl && { amazonMusicUrl: record.amazonMusicUrl }),
-					...(record.soundcloudUrl && { soundcloudUrl: record.soundcloudUrl })
-				}
-			}];
+			songs = [...songs, { trackResult: track, record, songId }];
 		} catch (e) {
 			resolveError = e instanceof Error ? e.message : 'Failed to add song.';
 		} finally {
@@ -119,25 +97,46 @@
 		}
 	}
 
-	function removeFromList(songUri: string) {
-		songs = songs.filter((s) => s.songUri !== songUri);
+	function removeFromList(songId: number) {
+		songs = songs.filter((s) => s.songId !== songId);
 	}
 
 	async function handleCreate() {
 		if (!$session || !canCreate) return;
 		creating = true;
 		try {
-			const items = songs.map((s) => ({
-				songUri: s.songUri,
-				songCid: s.songCid,
-				addedBy: $session!.did,
-				addedAt: new Date().toISOString(),
-				snapshot: s.snapshot
-			}));
-			const { uri } = await createSetlist($session.did, title.trim(), items);
-			const rkey = uri.split('/').pop()!;
+			// Create the setlist
+			const createRes = await fetch('/api/setlists', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ title: title.trim() })
+			});
+			if (!createRes.ok) throw new Error('Failed to create setlist');
+			const { id: setlistId } = await createRes.json();
+
+			// Add each song
+			for (const song of songs) {
+				await fetch(`/api/setlists/${setlistId}/items`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						songId: song.songId,
+						snapshot: {
+							title: song.record.title,
+							artist: song.record.artist,
+							...(song.record.album && { album: song.record.album }),
+							...(song.record.thumbnailUrl && { thumbnailUrl: song.record.thumbnailUrl }),
+							...(song.record.appleMusicUrl && { appleMusicUrl: song.record.appleMusicUrl }),
+							...(song.record.spotifyUrl && { spotifyUrl: song.record.spotifyUrl }),
+							...(song.record.youtubeMusicUrl && { youtubeMusicUrl: song.record.youtubeMusicUrl }),
+							...(song.record.deezerUrl && { deezerUrl: song.record.deezerUrl }),
+						}
+					})
+				});
+			}
+
 			closeCreateSetlist();
-			goto(`/s/${$session.did}/${rkey}`);
+			goto(`/s/${setlistId}`);
 		} finally {
 			creating = false;
 		}
@@ -154,7 +153,6 @@
 	<button class="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-label="Close" on:click={closeCreateSetlist}></button>
 
 	<div class="relative w-full max-w-md {$t.surfaceBg} border {$t.borderStrong} rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-		<!-- Header -->
 		<div class="px-5 pt-5 pb-4 border-b {$t.borderBase} flex items-center justify-between shrink-0">
 			<h2 class="text-sm font-semibold {$t.textPrimary}">New mixtape</h2>
 			<button on:click={closeCreateSetlist} aria-label="Close" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">
@@ -165,7 +163,6 @@
 		</div>
 
 		<div class="flex-1 overflow-y-auto">
-			<!-- Title -->
 			<div class="px-5 pt-4 pb-3 space-y-1.5">
 				<input
 					bind:value={title}
@@ -181,12 +178,10 @@
 				{/if}
 			</div>
 
-			<!-- Song search -->
 			<div class="px-5 pb-3 space-y-2">
 				<p class="text-xs {$t.textMuted} font-medium">Add songs</p>
 				<div class="relative">
 					<input
-						bind:this={searchInputEl}
 						type="search"
 						bind:value={query}
 						placeholder="Search for a song…"
@@ -247,7 +242,6 @@
 				{/if}
 			</div>
 
-			<!-- Song list -->
 			{#if songs.length > 0}
 				<div class="px-5 pb-4 space-y-2">
 					<p class="text-xs {$t.textMuted} font-medium">{songs.length} {songs.length === 1 ? 'song' : 'songs'}</p>
@@ -264,7 +258,7 @@
 									<p class="text-xs {$t.textMuted} truncate">{song.record.artist}</p>
 								</div>
 								<button
-									on:click={() => removeFromList(song.songUri)}
+									on:click={() => removeFromList(song.songId)}
 									aria-label="Remove"
 									class="{$t.textFaint} hover:text-red-400 transition-colors shrink-0"
 								>
@@ -279,7 +273,6 @@
 			{/if}
 		</div>
 
-		<!-- Footer -->
 		<div class="px-5 py-4 border-t {$t.borderBase} flex items-center justify-between gap-3 shrink-0">
 			<p class="text-xs {$t.textFaint}">
 				{#if songs.length === 0}Add at least one song{:else if !title.trim()}Give your mixtape a name{/if}

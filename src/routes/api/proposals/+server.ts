@@ -1,61 +1,65 @@
-// GET /api/proposals?setlistUri=at://...
-// Returns pending proposals for a given setlist URI from the SQLite AppView.
-// Returns 503 when DB is unavailable so the client can fall back to PDS fetching.
+// GET /api/proposals?setlistId=N — pending proposals for a setlist (owner only)
+// POST /api/proposals — submit a song proposal (authenticated, non-owner)
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
 
-export const GET: RequestHandler = ({ url }) => {
-	const db = getDb();
-	if (!db) error(503, 'AppView not available');
+export const GET: RequestHandler = ({ url, locals }) => {
+	if (!locals.user) error(401, 'Not authenticated');
 
-	const setlistUri = url.searchParams.get('setlistUri');
-	if (!setlistUri) error(400, 'Missing setlistUri parameter');
+	const setlistIdParam = url.searchParams.get('setlistId');
+	if (!setlistIdParam) error(400, 'setlistId required');
+	const setlistId = parseInt(setlistIdParam, 10);
+	if (!setlistId) error(400, 'Invalid setlistId');
+
+	const db = getDb();
+	const setlist = db.prepare('SELECT user_id FROM setlists WHERE id = ?').get(setlistId) as { user_id: number } | undefined;
+	if (!setlist) error(404, 'Setlist not found');
+	if (setlist.user_id !== locals.user.id) error(403, 'Not your setlist');
 
 	const rows = db.prepare(`
-		SELECT
-			p.uri, p.cid, p.proposer_did,
-			p.setlist_uri, p.setlist_cid,
-			p.title, p.artist, p.album, p.thumbnail_url,
-			p.spotify_url, p.apple_music_url, p.youtube_music_url,
-			p.tidal_url, p.deezer_url, p.amazon_music_url,
-			p.soundcloud_url, p.songlink_url,
-			p.note, p.created_at,
-			a.handle, a.display_name, a.avatar
+		SELECT p.id, p.snapshot, p.note, p.status, p.created_at,
+		       p.proposer_user_id, u.username, u.display_name
 		FROM proposals p
-		LEFT JOIN actors a ON a.did = p.proposer_did
-		WHERE p.setlist_uri = ?
+		JOIN users u ON u.id = p.proposer_user_id
+		WHERE p.setlist_id = ? AND p.status = 'pending'
 		ORDER BY p.created_at ASC
-	`).all(setlistUri) as any[];
+	`).all(setlistId) as any[];
 
-	const proposals = rows.map((r) => ({
-		uri:            r.uri,
-		cid:            r.cid,
-		proposerDid:    r.proposer_did,
-		proposerHandle: r.handle      ?? r.proposer_did,
-		proposerAvatar: r.avatar      ?? undefined,
-		value: {
-			setlistUri:  r.setlist_uri,
-			setlistCid:  r.setlist_cid,
-			snapshot: {
-				title:           r.title,
-				artist:          r.artist,
-				album:           r.album           ?? undefined,
-				thumbnailUrl:    r.thumbnail_url   ?? undefined,
-				spotifyUrl:      r.spotify_url     ?? undefined,
-				appleMusicUrl:   r.apple_music_url ?? undefined,
-				youtubeMusicUrl: r.youtube_music_url ?? undefined,
-				tidalUrl:        r.tidal_url       ?? undefined,
-				deezerUrl:       r.deezer_url      ?? undefined,
-				amazonMusicUrl:  r.amazon_music_url ?? undefined,
-				soundcloudUrl:   r.soundcloud_url  ?? undefined,
-				songlinkUrl:     r.songlink_url    ?? undefined,
-			},
-			note:       r.note       ?? undefined,
-			createdAt:  r.created_at,
+	return json({ proposals: rows.map((r) => ({
+		id:        r.id,
+		snapshot:  JSON.parse(r.snapshot),
+		note:      r.note ?? undefined,
+		status:    r.status,
+		createdAt: r.created_at,
+		proposer: {
+			userId:      r.proposer_user_id,
+			username:    r.username,
+			displayName: r.display_name ?? undefined,
 		}
-	}));
+	})) });
+};
 
-	return json({ proposals });
+export const POST: RequestHandler = async ({ request, locals }) => {
+	if (!locals.user) error(401, 'Not authenticated');
+
+	const body = await request.json().catch(() => null);
+	if (!body) error(400, 'Invalid JSON');
+
+	const { setlistId, snapshot, note } = body;
+	if (!setlistId) error(400, 'setlistId required');
+	if (!snapshot || typeof snapshot !== 'object') error(400, 'snapshot required');
+
+	const db = getDb();
+	const setlist = db.prepare('SELECT user_id FROM setlists WHERE id = ?').get(setlistId) as { user_id: number } | undefined;
+	if (!setlist) error(404, 'Setlist not found');
+	if (setlist.user_id === locals.user.id) error(400, 'Owners add songs directly; no proposal needed');
+
+	const result = db.prepare(`
+		INSERT INTO proposals (setlist_id, proposer_user_id, snapshot, note)
+		VALUES (?, ?, ?, ?)
+	`).run(setlistId, locals.user.id, JSON.stringify(snapshot), note?.trim() ?? null);
+
+	return json({ id: result.lastInsertRowid }, { status: 201 });
 };

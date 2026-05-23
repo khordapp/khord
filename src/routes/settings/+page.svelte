@@ -4,8 +4,6 @@
 	import { theme as t } from '$lib/theme';
 	import StreamingServiceModal from '$lib/components/StreamingServiceModal.svelte';
 	import { session } from '$lib/stores/auth';
-	import { deleteUserData } from '$lib/atproto/social';
-	import { APP_URL } from '$lib/config';
 
 	$: hasPair = t.hasPair();
 	$: isLight = t.isLight();
@@ -21,7 +19,6 @@
 
 	let deleteModalOpen = false;
 	let deleteInput = '';
-	let deleteScope: 'instance' | 'all' = 'instance';
 	let deleting = false;
 	let deleteError = false;
 	let deleteSuccess = false;
@@ -31,7 +28,8 @@
 		deleting = true;
 		deleteError = false;
 		try {
-			await deleteUserData($session.did, deleteScope === 'instance' ? APP_URL : null);
+			const res = await fetch('/api/auth/delete-data', { method: 'POST' });
+			if (!res.ok) throw new Error();
 			deleteSuccess = true;
 			deleteModalOpen = false;
 			deleteInput = '';
@@ -112,24 +110,7 @@
 		<div class="w-full max-w-sm rounded-xl border {$t.borderStrong} {$t.surfaceBg} p-6 space-y-4 shadow-xl">
 			<div class="space-y-1">
 				<h2 class="text-base font-semibold text-red-400">Delete my data</h2>
-				<p class="text-xs {$t.textMuted}">Permanently deletes your songs, votes, mixtapes, and proposals. This cannot be undone.</p>
-			</div>
-			<div class="space-y-2">
-				<p class="text-xs font-medium {$t.textSecondary}">What to delete:</p>
-				<label class="flex items-start gap-3 cursor-pointer">
-					<input type="radio" bind:group={deleteScope} value="instance" class="mt-0.5 accent-red-500" />
-					<div>
-						<p class="text-sm {$t.textPrimary}">This instance only</p>
-						<p class="text-xs {$t.textMuted}">Removes content you shared here. Your data on other Khord instances is untouched.</p>
-					</div>
-				</label>
-				<label class="flex items-start gap-3 cursor-pointer">
-					<input type="radio" bind:group={deleteScope} value="all" class="mt-0.5 accent-red-500" />
-					<div>
-						<p class="text-sm {$t.textPrimary}">All Khord instances</p>
-						<p class="text-xs {$t.textMuted}">Removes all your Khord content from your AT Protocol identity, across every instance.</p>
-					</div>
-				</label>
+				<p class="text-xs {$t.textMuted}">Permanently deletes your songs, votes, mixtapes, and proposals. Your account is kept so you can sign back in. This cannot be undone.</p>
 			</div>
 			<div class="space-y-2">
 				<p class="text-xs {$t.textMuted}">Type <span class="text-red-400 font-mono font-bold">DELETE</span> to confirm:</p>

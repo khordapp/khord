@@ -1,11 +1,7 @@
 import { writable } from 'svelte/store';
 import { browser } from '$app/environment';
-import type { KhordSongRecord } from '$lib/atproto/lexicons/song';
 
-export type PlatformKey = Extract<
-	keyof KhordSongRecord,
-	'appleMusicUrl' | 'spotifyUrl' | 'youtubeMusicUrl' | 'deezerUrl'
->;
+export type PlatformKey = 'appleMusicUrl' | 'spotifyUrl' | 'youtubeMusicUrl' | 'deezerUrl';
 
 const STORAGE_KEY = 'khord_preferred_platform';
 

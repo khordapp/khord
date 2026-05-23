@@ -1,10 +1,7 @@
 <script lang="ts">
-	import type { KhordSongRecord } from '$lib/atproto/lexicons/song';
-	import { SONG_NSID } from '$lib/atproto/lexicons/song';
-	import type { FollowedUser } from '$lib/atproto/social';
+	import type { SongRecord } from '$lib/stores/shareSong';
 	import { votes } from '$lib/stores/votes';
 	import { session } from '$lib/stores/auth';
-	import { getAgent } from '$lib/atproto/agent';
 	import { instanceConfig } from '$lib/stores/instance';
 	import { theme as t } from '$lib/theme';
 	import { prefs } from '$lib/stores/prefs';
@@ -18,18 +15,17 @@
 		{ key: 'deezerUrl',       label: 'Deezer',        color: '#EF5466' },
 	];
 
-	export let uri: string;
-	export let cid: string;
-	export let record: KhordSongRecord;
-	export let sharedBy: FollowedUser;
+	export let id: number;
+	export let record: SongRecord;
+	export let sharedBy: { userId: number; username: string; displayName?: string };
 	export let selected = false;
-	export let onselect: (uri: string) => void = () => {};
+	export let onselect: (id: number) => void = () => {};
 	export let voteCount = 0;
 	export let publicView = false;
 
-	$: liked = $votes.has(uri);
+	$: liked = $votes.songs.has(id);
 
-	$: allPlatforms = PLATFORMS.filter((p) => record[p.key]);
+	$: allPlatforms = PLATFORMS.filter((p) => record[p.key as keyof SongRecord]);
 	$: preferredPlatform = $prefs ? (allPlatforms.find((p) => p.key === $prefs) ?? null) : null;
 	$: primaryPlatform = preferredPlatform ?? allPlatforms[0] ?? null;
 
@@ -37,30 +33,24 @@
 	$: localCount = voteCount;
 
 	let liking = false;
-	let sharing = false;
-	let shared = false;
 	let resyncing = false;
 	let resynced = false;
 	let resyncError = '';
+	let sharing = false;
+	let shared = false;
 
-	$: isOwn = $session?.did === sharedBy.did;
+	$: isOwn = $session?.id === sharedBy.userId;
 
 	async function shareNative() {
 		if (sharing) return;
 		sharing = true;
 		try {
 			const text = `${record.title}${record.artist ? ` by ${record.artist}` : ''}`;
-			const rkey = uri.split('/').pop()!;
-			const shareUrl = sharedBy.handle && !sharedBy.handle.startsWith('did:')
-				? `${APP_URL}/song/${sharedBy.handle}/${rkey}`
-				: (record.songlinkUrl ?? '');
-			if (!shareUrl) return;
+			const shareUrl = `${APP_URL}/song/${id}`;
 			if (navigator.share) {
 				try {
-					// Share URL only — iMessage unfurls it into a single rich preview
-					// card using the song page's OG tags (title, artist, album art)
 					await navigator.share({ url: shareUrl });
-				} catch { /* user cancelled — no feedback needed */ }
+				} catch { /* user cancelled */ }
 			} else {
 				try {
 					await navigator.clipboard.writeText(`${text}\n${shareUrl}`);
@@ -79,8 +69,8 @@
 		const wasLiked = liked;
 		localCount = wasLiked ? Math.max(0, localCount - 1) : localCount + 1;
 		try {
-			if (wasLiked) await votes.unlike($session.did, uri);
-			else await votes.like($session.did, uri, cid);
+			if (wasLiked) await votes.unlike(id);
+			else await votes.like(id);
 		} catch {
 			localCount = wasLiked ? localCount + 1 : Math.max(0, localCount - 1);
 		} finally {
@@ -94,23 +84,18 @@
 		resyncError = '';
 		try {
 			const p = new URLSearchParams({ title: record.title, artist: record.artist });
-			const res = await fetch(`/api/resolve?${p}`);
-			if (!res.ok) throw new Error(`Resolve failed (${res.status})`);
-			const { spotifyUrl, youtubeMusicUrl, deezerUrl } = await res.json();
-			const updated: KhordSongRecord = {
-				...record,
-				...(spotifyUrl      && { spotifyUrl }),
-				...(youtubeMusicUrl && { youtubeMusicUrl }),
-				...(deezerUrl       && { deezerUrl }),
-			};
-			const rkey = uri.split('/').pop()!;
-			await getAgent().com.atproto.repo.putRecord({
-				repo: $session.did,
-				collection: SONG_NSID,
-				rkey,
-				record: { $type: SONG_NSID, ...updated }
+			const resolveRes = await fetch(`/api/resolve?${p}`);
+			if (!resolveRes.ok) throw new Error(`Resolve failed (${resolveRes.status})`);
+			const { spotifyUrl, youtubeMusicUrl, deezerUrl } = await resolveRes.json();
+
+			const updateRes = await fetch(`/api/songs/${id}`, {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ spotifyUrl, youtubeMusicUrl, deezerUrl })
 			});
-			record = updated;
+			if (!updateRes.ok) throw new Error('Update failed');
+			const updated = await updateRes.json();
+			record = { ...record, ...updated };
 			resynced = true;
 			setTimeout(() => { resynced = false; }, 3000);
 		} catch (e) {
@@ -141,11 +126,10 @@
 		type="button"
 		aria-label={selected ? 'Deselect song' : 'Select song'}
 		title={selected ? 'Deselect' : 'Select for bulk actions (delete, create mixtape)'}
-		on:click={() => onselect(uri)}
+		on:click={() => onselect(id)}
 		class="w-full text-left space-y-2"
 	>
 		<div class="flex items-start gap-3">
-			<!-- Selection indicator / album art -->
 			<div class="shrink-0 relative">
 				{#if !$instanceConfig.albumArtDisabled && record.thumbnailUrl}
 					<img
@@ -182,13 +166,11 @@
 				</p>
 			</div>
 		</div>
-
 	</button>
 
-	<!-- Floating play button -->
 	{#if primaryPlatform}
 		<a
-			href={record[primaryPlatform.key] as string}
+			href={record[primaryPlatform.key as keyof SongRecord] as string}
 			title="Listen on {primaryPlatform.label}"
 			on:click|stopPropagation
 			class="absolute right-4 inset-y-0 flex items-center z-10"
@@ -205,17 +187,10 @@
 	{/if}
 
 	<div class="flex items-center gap-2 min-w-0" style="padding-left: {!$instanceConfig.albumArtDisabled && record.thumbnailUrl ? '3.75rem' : '1.75rem'}">
-		{#if sharedBy.avatar}
-			<img src={sharedBy.avatar} alt={sharedBy.handle} class="w-5 h-5 rounded-full object-cover shrink-0" />
-		{/if}
 		<p class="text-xs {$t.textMuted} truncate">
-			{#if sharedBy.handle && !sharedBy.handle.startsWith('did:')}
-				<a href="https://bsky.app/profile/{sharedBy.handle}" target="_blank" rel="noopener noreferrer"
-					class="{$t.textSecondary} {$t.hoverText} transition-colors"
-				>{sharedBy.displayName ?? sharedBy.handle}</a>
-			{:else}
-				<span class="{$t.textSecondary}">{sharedBy.displayName ?? sharedBy.handle}</span>
-			{/if}
+			<a href="/song/{id}" class="{$t.textSecondary} {$t.hoverText} transition-colors">
+				{sharedBy.displayName ?? sharedBy.username}
+			</a>
 			· {timeAgo(record.createdAt)}
 		</p>
 	</div>
@@ -224,26 +199,23 @@
 		<p class="text-sm {$t.textSecondary} leading-snug" style="padding-left: {!$instanceConfig.albumArtDisabled && record.thumbnailUrl ? '3.75rem' : '1.75rem'}">{record.note}</p>
 	{/if}
 
-	<!-- Action row: left-aligned to album art -->
 	<div class="flex items-center gap-6">
-		{#if sharedBy.handle && !sharedBy.handle.startsWith('did:')}
-			<button
-				on:click={shareNative}
-				aria-label="Share song"
-				title="Share this song"
-				class="p-2 transition-colors {shared ? $t.textPrimary : `${$t.textFaint} ${$t.hoverTextSecondary}`}"
-			>
-				{#if shared}
-					<svg viewBox="0 0 14 14" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-						<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
-				{:else}
-					<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-						<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
-				{/if}
-			</button>
-		{/if}
+		<button
+			on:click={shareNative}
+			aria-label="Share song"
+			title="Share this song"
+			class="p-2 transition-colors {shared ? $t.textPrimary : `${$t.textFaint} ${$t.hoverTextSecondary}`}"
+		>
+			{#if shared}
+				<svg viewBox="0 0 14 14" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+					<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+			{:else}
+				<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+					<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+			{/if}
+		</button>
 		{#if !publicView}
 			<button
 				on:click={toggleLike}

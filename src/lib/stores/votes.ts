@@ -1,63 +1,73 @@
 import { writable, get } from 'svelte/store';
-import { getAgent } from '$lib/atproto/agent';
-import { VOTE_NSID, type KhordVoteRecord } from '$lib/atproto/lexicons/vote';
 
-// Maps song URI → vote record rkey for the current user's upvotes
-const _map = writable<Map<string, string>>(new Map());
+// songs: songId → voteRowId, setlists: setlistId → voteRowId
+interface VotesState {
+	songs:    Map<number, number>;
+	setlists: Map<number, number>;
+}
+
+const _state = writable<VotesState>({ songs: new Map(), setlists: new Map() });
 
 export const votes = {
-	subscribe: _map.subscribe,
+	subscribe: _state.subscribe,
 
-	async load(did: string) {
-		// Always load from PDS — we need the vote rkeys to support unlike.
-		// The AppView /api/votes endpoint is used for display-only vote counts
-		// in future, but rkey resolution requires the user's own PDS.
-		const res = await getAgent().com.atproto.repo.listRecords({
-			repo: did,
-			collection: VOTE_NSID,
-			limit: 100
+	async load() {
+		const res = await fetch('/api/votes/mine');
+		if (!res.ok) return;
+		const { songs, setlists } = await res.json();
+		_state.set({
+			songs:    new Map(Object.entries(songs).map(([k, v]) => [Number(k), v as number])),
+			setlists: new Map(Object.entries(setlists).map(([k, v]) => [Number(k), v as number])),
 		});
-		const map = new Map<string, string>();
-		for (const r of res.data.records) {
-			const v = r.value as KhordVoteRecord;
-			if (v.direction === 'up') {
-				map.set(v.subject.uri, r.uri.split('/').pop()!);
-			}
-		}
-		_map.set(map);
 	},
 
-	async like(did: string, songUri: string, songCid: string) {
-		const res = await getAgent().com.atproto.repo.createRecord({
-			repo: did,
-			collection: VOTE_NSID,
-			record: {
-				$type: VOTE_NSID,
-				subject: { uri: songUri, cid: songCid },
-				direction: 'up',
-				createdAt: new Date().toISOString()
-			}
+	async like(songId: number): Promise<void> {
+		const res = await fetch('/api/votes', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ songId })
 		});
-		const rkey = res.data.uri.split('/').pop()!;
-		_map.update((m) => new Map(m).set(songUri, rkey));
+		if (!res.ok) throw new Error('Vote failed');
+		const { id } = await res.json();
+		_state.update((s) => ({ ...s, songs: new Map(s.songs).set(songId, id) }));
 	},
 
-	async unlike(did: string, songUri: string) {
-		const rkey = get(_map).get(songUri);
-		if (!rkey) return;
-		await getAgent().com.atproto.repo.deleteRecord({
-			repo: did,
-			collection: VOTE_NSID,
-			rkey
+	async unlike(songId: number): Promise<void> {
+		const voteId = get(_state).songs.get(songId);
+		if (!voteId) return;
+		const res = await fetch(`/api/votes/${voteId}`, { method: 'DELETE' });
+		if (!res.ok && res.status !== 404) throw new Error('Unlike failed');
+		_state.update((s) => {
+			const songs = new Map(s.songs);
+			songs.delete(songId);
+			return { ...s, songs };
 		});
-		_map.update((m) => {
-			const next = new Map(m);
-			next.delete(songUri);
-			return next;
+	},
+
+	async likeSetlist(setlistId: number): Promise<void> {
+		const res = await fetch('/api/votes', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ setlistId })
+		});
+		if (!res.ok) throw new Error('Vote failed');
+		const { id } = await res.json();
+		_state.update((s) => ({ ...s, setlists: new Map(s.setlists).set(setlistId, id) }));
+	},
+
+	async unlikeSetlist(setlistId: number): Promise<void> {
+		const voteId = get(_state).setlists.get(setlistId);
+		if (!voteId) return;
+		const res = await fetch(`/api/votes/${voteId}`, { method: 'DELETE' });
+		if (!res.ok && res.status !== 404) throw new Error('Unlike failed');
+		_state.update((s) => {
+			const setlists = new Map(s.setlists);
+			setlists.delete(setlistId);
+			return { ...s, setlists };
 		});
 	},
 
 	reset() {
-		_map.set(new Map());
+		_state.set({ songs: new Map(), setlists: new Map() });
 	}
 };

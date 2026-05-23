@@ -1,18 +1,16 @@
 # Deploying Khord
 
-Docker Compose handles the full stack — SvelteKit app, firehose indexer, and Caddy reverse proxy with automatic HTTPS.
+Docker Compose handles the full stack — SvelteKit app and Caddy reverse proxy with automatic HTTPS.
 
 ## Architecture
 
 ```
 Caddy (HTTPS, auto TLS)  ← ports 80/443
   └── SvelteKit app (port 3000)
-       └── SQLite /data/khord.db  ← shared Docker volume
-Firehose indexer (long-running Node process)
-  └── SQLite /data/khord.db
+       └── SQLite /data/khord.db  ← Docker volume
 ```
 
-The app and indexer share a single SQLite database via a Docker volume. The indexer is a separate image ([khordapp/khord-indexer](https://github.com/khordapp/khord-indexer)) pulled from GHCR.
+The entire state of a Khord instance lives in a single SQLite database.
 
 ## VPS
 
@@ -59,9 +57,7 @@ For automated backups, [Litestream](https://litestream.io/) can stream WAL chang
 
 ## Unraid
 
-Both containers — `khord` and `khord-indexer` — are available in the Unraid **Community Applications** store. Search for "khord" and install both. Set the same Data Path on each so they share the same SQLite database.
-
-> AT Protocol OAuth requires a publicly accessible HTTPS URL, so a reverse proxy with a valid TLS certificate is required. The Community Applications templates do not include Caddy — point your existing Unraid reverse proxy at port 3000.
+The **khord** container is available in the Unraid **Community Applications** store. Search for "khord" and install it. Point your existing Unraid reverse proxy at port 3000.
 
 ### Reverse proxy
 
@@ -86,18 +82,13 @@ Or configure [Litestream](https://litestream.io/) to stream WAL changes to a loc
 | `PUBLIC_APP_URL` | Publicly accessible URL (e.g. `https://khord.example.com`) |
 | `PUBLIC_APP_NAME` | Display name in UI and page titles (default: `Khord`) |
 | `PUBLIC_APP_TAGLINE` | Tagline on the home page (default: `Share music, listen anywhere.`) |
-| `PUBLIC_AUTH_PROVIDER_NAME` | Identity provider name in sign-in UI (default: `Bluesky`) |
 | `PUBLIC_THEME` | UI color theme — see [Themes](#themes) (default: `dark`) |
 | `PUBLIC_SPOTIFY_CLIENT_ID` | Spotify app client ID — from developer.spotify.com |
 | `SPOTIFY_CLIENT_SECRET` | Spotify app client secret — server-only |
 | `YOUTUBE_API_KEY` | YouTube Data API v3 key — enables YouTube Music links; toggle per instance in admin settings. Free quota is ~100 songs/day. |
-| `OWNER_DIDS` | Comma-separated AT Protocol DIDs with admin/owner privileges (ban management) |
-| `ALLOWED_DIDS` | Comma-separated AT Protocol DIDs allowed to sign in; unset = open registration |
-| `BANNED_DIDS` | Comma-separated AT Protocol DIDs blocked from signing in; requires restart |
-| `MAX_USERS` | Max registered users (0 = unlimited) |
+| `OWNER_EMAILS` | Comma-separated email addresses with admin/owner privileges (ban management, admin panel access) |
 | `DISABLE_ALBUM_ART` | Set to `true` to hide album art thumbnails globally |
 | `INDEXER_DB_PATH` | Full path to the SQLite database (default: `/data/khord.db`). For Unraid, use `INDEXER_DB_NAME` instead — see the Unraid section. |
-| `FIREHOSE_RELAY` | AT Protocol firehose relay URL (default: `wss://bsky.network`) |
 
 See `.env.example` for full documentation and defaults.
 

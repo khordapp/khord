@@ -3,10 +3,7 @@
 	import { closeShareSong, lastSharedSong, prefilledTrack } from '$lib/stores/shareSong';
 	import SongSearch from './SongSearch.svelte';
 	import { type TrackResult } from '$lib/search';
-	import { getAgent } from '$lib/atproto/agent';
 	import { session } from '$lib/stores/auth';
-	import { SONG_NSID, type KhordSongRecord } from '$lib/atproto/lexicons/song';
-	import { APP_URL } from '$lib/config';
 	import { theme as t } from '$lib/theme';
 	import { fly } from 'svelte/transition';
 
@@ -21,7 +18,6 @@
 			prefilledTrack.set(null);
 			selected = track;
 
-			// Immediately resolve other platform URLs so all services show in the modal.
 			if (track.title && track.artist) {
 				resolving = true;
 				try {
@@ -43,14 +39,12 @@
 			}
 		}
 	});
+
 	let note = '';
 	let sharing = false;
 	let shareError = '';
 	let shared = false;
 
-	// Shift the bottom sheet above the on-screen keyboard on iOS Safari.
-	// visualViewport.height shrinks when the keyboard appears; the difference
-	// is how far up we need to move the fixed-bottom panel.
 	let keyboardOffset = 0;
 	function updateKeyboardOffset() {
 		const vv = window.visualViewport;
@@ -85,11 +79,8 @@
 
 		const track = selected;
 		const trimmedNote = note.trim();
-		const agent = getAgent();
-		const did = $session.did;
 
 		try {
-			// Only resolve if we're still missing platform URLs (pre-resolve on mount may have already filled them).
 			let resolved: { spotifyUrl?: string; appleMusicUrl?: string; youtubeMusicUrl?: string; deezerUrl?: string } = {};
 			const needsResolve = track.title && track.artist &&
 				(!track.spotifyUrl || !track.appleMusicUrl || !track.youtubeMusicUrl || !track.deezerUrl);
@@ -99,28 +90,44 @@
 				if (r.ok) resolved = await r.json();
 			}
 
-			const record: KhordSongRecord = {
-				title: track.title,
-				artist: track.artist,
-				...(track.album        && { album:          track.album }),
-				...(track.artworkUrl   && { thumbnailUrl:   track.artworkUrl }),
-				// Platform URLs: prefer pre-known source URL, fall back to resolved result.
-				...(( track.appleMusicUrl)                                  && { appleMusicUrl:    track.appleMusicUrl }),
-				...((track.spotifyUrl      || resolved.spotifyUrl)      && { spotifyUrl:       track.spotifyUrl      ?? resolved.spotifyUrl }),
-				...((track.youtubeMusicUrl || resolved.youtubeMusicUrl) && { youtubeMusicUrl:  track.youtubeMusicUrl ?? resolved.youtubeMusicUrl }),
-				...((track.deezerUrl       || resolved.deezerUrl)       && { deezerUrl:        track.deezerUrl       ?? resolved.deezerUrl }),
-				...(trimmedNote && { note: trimmedNote }),
-				instanceUrl: APP_URL,
-				createdAt: new Date().toISOString()
-			};
-
-			const createRes = await agent.com.atproto.repo.createRecord({
-				repo: did,
-				collection: SONG_NSID,
-				record: { $type: SONG_NSID, ...record }
+			const res = await fetch('/api/songs', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					title: track.title,
+					artist: track.artist,
+					...(track.album      && { album:          track.album }),
+					...(track.artworkUrl && { thumbnailUrl:   track.artworkUrl }),
+					...(( track.appleMusicUrl)                                  && { appleMusicUrl:    track.appleMusicUrl }),
+					...((track.spotifyUrl      || resolved.spotifyUrl)      && { spotifyUrl:       track.spotifyUrl      ?? resolved.spotifyUrl }),
+					...((track.youtubeMusicUrl || resolved.youtubeMusicUrl) && { youtubeMusicUrl:  track.youtubeMusicUrl ?? resolved.youtubeMusicUrl }),
+					...((track.deezerUrl       || resolved.deezerUrl)       && { deezerUrl:        track.deezerUrl       ?? resolved.deezerUrl }),
+					...(trimmedNote && { note: trimmedNote }),
+					listed: 1
+				})
 			});
 
-			lastSharedSong.set({ uri: createRes.data.uri, cid: createRes.data.cid, value: record });
+			if (!res.ok) {
+				const msg = await res.text();
+				throw new Error(msg || 'Failed to share song');
+			}
+
+			const { id, createdAt } = await res.json();
+			lastSharedSong.set({
+				id,
+				record: {
+					title: track.title,
+					artist: track.artist,
+					...(track.album && { album: track.album }),
+					...(track.artworkUrl && { thumbnailUrl: track.artworkUrl }),
+					...(track.appleMusicUrl && { appleMusicUrl: track.appleMusicUrl }),
+					...((track.spotifyUrl || resolved.spotifyUrl) && { spotifyUrl: track.spotifyUrl ?? resolved.spotifyUrl }),
+					...((track.youtubeMusicUrl || resolved.youtubeMusicUrl) && { youtubeMusicUrl: track.youtubeMusicUrl ?? resolved.youtubeMusicUrl }),
+					...((track.deezerUrl || resolved.deezerUrl) && { deezerUrl: track.deezerUrl ?? resolved.deezerUrl }),
+					...(trimmedNote && { note: trimmedNote }),
+					createdAt
+				}
+			});
 			shared = true;
 			setTimeout(closeShareSong, 800);
 		} catch (e) {
@@ -139,14 +146,12 @@
 
 <svelte:window on:keydown={handleKeydown} />
 
-<!-- Backdrop -->
 <button
 	class="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
 	aria-label="Close"
 	on:click={closeShareSong}
 ></button>
 
-<!-- Modal -->
 <div
 	transition:fly={{ y: 320, duration: 260 }}
 	style={keyboardOffset > 0 ? `bottom: ${keyboardOffset}px; transition: bottom 0.2s ease;` : undefined}
@@ -159,7 +164,6 @@
 	aria-modal="true"
 	aria-label="Share a song"
 >
-	<!-- Drag handle (mobile only) -->
 	<div class="flex justify-center pt-3 pb-1 sm:hidden shrink-0">
 		<div class="w-10 h-1 rounded-full {$t.borderStrong} bg-current opacity-30"></div>
 	</div>
@@ -235,7 +239,7 @@
 			>
 				{#if sharing}
 					<span class="w-3.5 h-3.5 border-2 border-zinc-400 border-t-zinc-800 rounded-full animate-spin"></span>
-					Resolving platforms…
+					Sharing…
 				{:else}
 					Share to your lineup
 				{/if}
@@ -243,6 +247,5 @@
 		{/if}
 	</div>
 
-	<!-- Safe-area spacer for home indicator -->
 	<div class="shrink-0 sm:hidden" style="height: env(safe-area-inset-bottom, 12px)"></div>
 </div>

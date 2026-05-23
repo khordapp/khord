@@ -28,31 +28,24 @@ Everything an instance owner needs to deploy and manage a Khord instance.
 
 ### Docker Compose (VPS)
 
-A single `docker-compose.yml` runs the app, firehose indexer, and Caddy (HTTPS + reverse proxy) together.
+A single `docker-compose.yml` runs the app and Caddy (HTTPS + reverse proxy) together.
 
 **Minimum specs:** 1 vCPU, 512 MB RAM, 5 GB disk. A Hetzner CX22 (~€4/mo) handles hundreds of active users comfortably.
 
 ```bash
 git clone https://github.com/khordapp/khord && cd khord
 cp .env.example .env
-# Fill in at minimum: PUBLIC_APP_URL, OWNER_DIDS
+# Fill in at minimum: PUBLIC_APP_URL, OWNER_EMAILS
 docker compose up -d
 ```
 
 Edit `Caddyfile` to replace `khord.app` with your domain before starting — Caddy handles TLS automatically.
 
-AT Protocol OAuth requires a publicly accessible HTTPS URL. The app won't work on plain HTTP or `localhost`.
-
 ### Unraid
 
-Install both containers from Community Applications (search **Khord**):
+Install the **khord** container from Community Applications (search **Khord**). Set a Data Path (e.g. `/mnt/user/appdata/khord/data`) and point your Unraid reverse proxy (NGINX Proxy Manager, Swag, Traefik) at **khord** on port **3000** with HTTPS.
 
-1. Install **khord-indexer** first — set Data Path to `/mnt/user/appdata/khord/data`
-2. Install **khord** — set the **same** Data Path so both containers share the SQLite database
-3. Point your Unraid reverse proxy (NGINX Proxy Manager, Swag, Traefik) at **khord** on port **3000** with HTTPS
-4. Set `PUBLIC_APP_URL` to your public HTTPS URL
-
-Both containers must use the exact same Data Path — they read and write the same `khord.db` file.
+Set `PUBLIC_APP_URL` to your public HTTPS URL and `OWNER_EMAILS` to your email address.
 
 ---
 
@@ -64,8 +57,8 @@ All variables can be set in `.env` (Docker Compose) or the Unraid template. Vari
 
 | Variable | Description |
 |---|---|
-| `PUBLIC_APP_URL` | Publicly accessible HTTPS URL, e.g. `https://khord.yourdomain.com`. Must match the AT Protocol OAuth redirect URI. |
-| `OWNER_DIDS` | Comma-separated AT Protocol DIDs with admin privileges. Find yours at `https://bsky.social/xrpc/com.atproto.identity.resolveHandle?handle=your.handle` |
+| `PUBLIC_APP_URL` | Publicly accessible HTTPS URL, e.g. `https://khord.yourdomain.com`. |
+| `OWNER_EMAILS` | Comma-separated email addresses with admin privileges. The first account you register with a matching email automatically receives the admin role. |
 
 ### Branding
 
@@ -73,7 +66,6 @@ All variables can be set in `.env` (Docker Compose) or the Unraid template. Vari
 |---|---|---|
 | `PUBLIC_APP_NAME` | `Khord` | Display name in the UI and page titles |
 | `PUBLIC_APP_TAGLINE` | `Music, across every platform.` | One-line tagline on the home page |
-| `PUBLIC_AUTH_PROVIDER_NAME` | `Bluesky` | Identity provider name shown in sign-in copy |
 | `PUBLIC_THEME` | `dark` | UI color theme — see [Themes](#themes). Requires a container restart. |
 
 ### Streaming integrations
@@ -93,15 +85,15 @@ Deezer search and track links work without any credentials.
 
 | Variable | Description |
 |---|---|
-| `ALLOWED_DIDS` | Comma-separated DIDs allowed to sign in. Leave unset for open registration. |
-| `BANNED_DIDS` | Comma-separated DIDs blocked from signing in. Requires a restart. For live bans use the admin panel instead. |
-| `MAX_USERS` | Maximum registered users. `0` = unlimited. **DB override** — adjustable live from admin panel. |
+| `OWNER_EMAILS` | Comma-separated email addresses with admin privileges. |
+
+Registration can be limited further via the admin panel — see [Access control](#access-control).
 
 ### Storage
 
 | Variable | Default | Description |
 |---|---|---|
-| `INDEXER_DB_NAME` | `khord.db` | **Unraid only** — database file name inside the Data Path directory. Must match between the app and indexer containers. |
+| `INDEXER_DB_NAME` | `khord.db` | **Unraid only** — database file name inside the Data Path directory. |
 | `INDEXER_DB_PATH` | `/data/khord.db` | **Docker Compose** — full path to the SQLite database. Ignored when `INDEXER_DB_NAME` is set. |
 | `THUMBNAIL_CACHE_DIR` | `/data/thumbnails` | Directory for the server-side album art disk cache. Managed from admin panel. |
 
@@ -110,25 +102,24 @@ Deezer search and track links work without any credentials.
 | Variable | Default | Description |
 |---|---|---|
 | `DISABLE_ALBUM_ART` | `false` | Hide album art thumbnails on song cards. **DB override** — toggleable live from admin panel. |
-| `FIREHOSE_RELAY` | `wss://bsky.network` | AT Protocol firehose relay URL. Rarely needs changing. |
 
 ---
 
 ## Admin panel
 
-Access the admin panel at `/admin`. Only DIDs listed in `OWNER_DIDS` can enter.
+Access the admin panel at `/admin`. Only users whose email matches `OWNER_EMAILS` (or who have `role = 'admin'` in the database) can enter.
 
 ### Users
 
-Paginated list of all registered users — AT Protocol DID, handle, display name, and registration date. Useful for seeing who's on your instance.
+Paginated list of all registered users — username, email, display name, and registration date. Useful for seeing who's on your instance.
 
 ### Bans
 
-Add and remove banned DIDs. Banned users are immediately blocked from signing in — no restart needed. You can ban by DID (paste directly) or by clicking Ban from the Users tab.
+Add and remove banned users. Banned users are immediately blocked from signing in — no restart needed. Enter a username or email to ban; the user is looked up and added to the ban list.
 
 ### Requests
 
-Only visible when **invite-only** mode is on. Shows pending access requests submitted by users who tried to sign in. Approve to register them; decline to reject. Approved users are immediately able to sign in.
+Only visible when **invite-only** mode is on. Shows pending access requests submitted by users who tried to register. Approve to create their account; decline to reject. Approved users can sign in immediately.
 
 ### Settings
 
@@ -137,9 +128,9 @@ All toggles and settings take effect immediately and persist across restarts (st
 | Setting | Default | Description |
 |---|---|---|
 | Album art | On | Show thumbnail images on song cards. Disable if the iTunes CDN becomes unreliable. |
-| Open registration | On | Allow new users to sign up. Turning this off prevents new sign-ins without affecting existing users. |
-| Invite-only | Off | New users must request access via the Requests tab before being registered. Existing users are unaffected. |
-| Instance-scoped feed | Off | Only show songs shared from this instance. Songs from other Khord instances won't appear even if a followed user shared from one. |
+| Open registration | On | Allow new users to sign up. Turning this off prevents new registrations without affecting existing users. |
+| Invite-only | Off | New users must request access and be approved before their account is created. Existing users are unaffected. |
+| Instance-scoped feed | Off | Only show songs shared from this instance. |
 | Spotify links | On | Resolve Spotify URLs when sharing songs. Requires `PUBLIC_SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET`. |
 | YouTube Music links | Off | Resolve YouTube Music URLs when sharing songs. Requires `YOUTUBE_API_KEY`. Uses ~100 YouTube Data API quota units per song shared (free quota: ~100 songs/day). |
 | Apple Music playlist import | Off | Let users import playlists from Apple Music. Requires a MusicKit developer token — see [Apple Music playlist import](#apple-music-playlist-import). |
@@ -160,7 +151,7 @@ Enables Spotify URLs on shared songs and Spotify playlist import.
 
 1. Create an app at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
    - The account that owns the app must have an **active Spotify Premium subscription**
-   - Add your `PUBLIC_APP_URL` as an allowed redirect URI (required for the app to be approved)
+   - Add your `PUBLIC_APP_URL` as an allowed redirect URI
 2. Copy the **Client ID** and **Client Secret**
 3. Set `PUBLIC_SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in your `.env` or Unraid template
 4. Restart the container
@@ -223,8 +214,6 @@ Or use any JWT library that supports ES256 — the payload fields are `iss` (Tea
 
 **Token expiry:** Tokens are valid for up to 6 months. Set a calendar reminder to regenerate before expiry — expired tokens will silently break playlist import. You can update the token in the admin panel at any time without restarting the container.
 
-**Future:** Once the developer token is configured, setlist export from Khord to Apple Music becomes feasible. Export requires MusicKit JS user authorization (each user grants access to their library) in addition to the developer token — the infrastructure is in place, the feature is on the roadmap.
-
 ---
 
 ## Themes
@@ -245,15 +234,13 @@ To add a custom theme: create `src/lib/theme/mytheme.ts` implementing the `Theme
 
 Three modes — mix and match:
 
-**Open (default):** Anyone with an AT Protocol identity (Bluesky account or self-hosted PDS) can sign in.
+**Open (default):** Anyone can register with an email address and password.
 
-**Allowlist (`ALLOWED_DIDS`):** Only the DIDs you list can sign in. Everyone else is rejected at the OAuth callback.
+**Invite-only (admin panel toggle):** Anyone can attempt to register, but new users are placed in a pending queue. You approve or decline them individually from the admin Requests tab. Existing registered users are not affected when you enable this.
 
-**Invite-only (admin panel toggle):** Anyone can try to sign in, but new users are placed in a pending queue. You approve or decline them individually from the admin Requests tab. Existing registered users are not affected when you enable this.
+**Bans:** Individual users can be banned regardless of mode. The admin panel ban list takes effect immediately — no restart needed.
 
-**Bans:** Individual DIDs can be banned regardless of mode. The admin panel ban list takes effect immediately — no restart needed.
-
-**User cap (`MAX_USERS`):** Hard limit on total registered users. New sign-in attempts are rejected once reached. Adjustable live from admin panel Settings.
+**User cap (`max_users` setting):** Hard limit on total registered users. New sign-in attempts are rejected once reached. Adjustable live from admin panel Settings.
 
 You can combine these — for example, invite-only + user cap enforces both a review step and a hard ceiling.
 
@@ -263,10 +250,8 @@ You can combine these — for example, invite-only + user cap enforces both a re
 
 The entire state of your Khord instance lives in two places:
 
-1. **`khord.db`** — the SQLite database. Contains the AppView index (songs, votes, proposals), registered users, bans, and instance settings. Back this up regularly.
+1. **`khord.db`** — the SQLite database. Contains all songs, votes, setlists, users, bans, and instance settings. Back this up regularly.
 2. **`thumbnails/`** — the album art disk cache. Expendable — entries rebuild on demand from iTunes CDN. You can skip backing this up.
-
-AT Protocol records (songs, votes, setlists) are also stored on each user's PDS — so they're not lost even if your database is wiped. The indexer will re-index them from the firehose over time, or you can trigger a backfill from the admin panel once that feature ships.
 
 **Simple backup with SQLite:**
 ```bash

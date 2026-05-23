@@ -70,6 +70,6 @@
 
 	<!-- Sign-in note -->
 	<p class="text-xs {$t.textFaint} text-center pb-2">
-		{APP_NAME} uses your Bluesky account — no separate sign-up needed.
+		Sign up with an email address — no third-party accounts needed.
 	</p>
 </div>
