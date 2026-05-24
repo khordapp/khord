@@ -5,6 +5,7 @@
 	import { prefs, type PlatformKey } from '$lib/stores/prefs';
 	import { theme as t } from '$lib/theme';
 	import { APP_NAME, APP_URL, thumbUrl } from '$lib/config';
+	import { setlistSlug } from '$lib/slug';
 	import { goto } from '$app/navigation';
 	import { dndzone } from 'svelte-dnd-action';
 	import { flip } from 'svelte/animate';
@@ -404,7 +405,7 @@
 
 	// Share
 	function shareSetlist() {
-		const url = `${APP_URL}/s/${setlist.id}`;
+		const url = `${APP_URL}/s/${setlistSlug(setlist.title, setlist.id)}`;
 		if (navigator.share) {
 			navigator.share({ title: setlist.title, url }).catch(() => {});
 		} else {
@@ -610,7 +611,7 @@
 			{#each dndItems as item (item.id)}
 				{@const rec = item.record}
 				{@const primary = rec ? getPrimaryPlatform(rec) : null}
-				<li animate:flip={{ duration: 200 }} class="relative flex items-center gap-3 border-b {$t.borderFaded} pl-5 pr-5 py-4 transition-colors">
+				<li animate:flip={{ duration: 200 }} class="relative flex items-start gap-3 border-b {$t.borderFaded} pl-5 pr-5 py-4 transition-colors">
 					{#if isOwner && editing}
 						<div class="cursor-grab active:cursor-grabbing {$t.textFaint} shrink-0">
 							<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
@@ -623,7 +624,7 @@
 							<img src={thumbUrl(rec.thumbnailUrl)} alt="" class="w-12 h-12 rounded-md object-cover shrink-0" />
 						{/if}
 						<div class="flex-1 min-w-0">
-							<p class="text-base font-semibold {$t.textPrimary} leading-snug truncate">{rec.title}</p>
+							<p class="text-base font-semibold {$t.textPrimary} leading-snug line-clamp-2">{rec.title}</p>
 							<p class="text-sm {$t.textMuted} mt-0.5 truncate">{rec.artist}{rec.album ? ` · ${rec.album}` : ''}</p>
 						</div>
 						{#if primary && !editing}

@@ -1,9 +1,10 @@
 import type { PageServerLoad } from './$types';
 import { getDb } from '$lib/server/db';
-import { error } from '@sveltejs/kit';
+import { error, redirect } from '@sveltejs/kit';
+import { parseSlugId, setlistSlug } from '$lib/slug';
 
 export const load: PageServerLoad = ({ params, locals }) => {
-	const id = parseInt(params.id, 10);
+	const id = parseSlugId(params.id);
 	if (!id) error(404, 'Setlist not found');
 
 	const db = getDb();
@@ -15,6 +16,9 @@ export const load: PageServerLoad = ({ params, locals }) => {
 		WHERE sl.id = ?
 	`).get(id) as any;
 	if (!setlist) error(404, 'Setlist not found');
+
+	const canonical = setlistSlug(setlist.title, setlist.id);
+	if (params.id !== canonical) redirect(301, `/s/${canonical}`);
 
 	const items = db.prepare(`
 		SELECT

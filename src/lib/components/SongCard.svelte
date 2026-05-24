@@ -6,6 +6,7 @@
 	import { theme as t } from '$lib/theme';
 	import { prefs } from '$lib/stores/prefs';
 	import { APP_URL, thumbUrl } from '$lib/config';
+	import { songSlug } from '$lib/slug';
 	import type { PlatformKey } from '$lib/stores/prefs';
 
 	const PLATFORMS: { key: PlatformKey; label: string; color: string }[] = [
@@ -46,7 +47,7 @@
 		sharing = true;
 		try {
 			const text = `${record.title}${record.artist ? ` by ${record.artist}` : ''}`;
-			const shareUrl = `${APP_URL}/song/${id}`;
+			const shareUrl = `${APP_URL}/song/${songSlug(record.title, record.artist, id)}`;
 			if (navigator.share) {
 				try {
 					await navigator.share({ url: shareUrl });
@@ -188,7 +189,7 @@
 
 	<div class="flex items-center gap-2 min-w-0" style="padding-left: {!$instanceConfig.albumArtDisabled && record.thumbnailUrl ? '3.75rem' : '1.75rem'}">
 		<p class="text-xs {$t.textMuted} truncate">
-			<a href="/song/{id}" class="{$t.textSecondary} {$t.hoverText} transition-colors">
+			<a href="/song/{songSlug(record.title, record.artist, id)}" class="{$t.textSecondary} {$t.hoverText} transition-colors">
 				{sharedBy.displayName ?? sharedBy.username}
 			</a>
 			· {timeAgo(record.createdAt)}

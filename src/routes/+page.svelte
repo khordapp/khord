@@ -7,6 +7,7 @@
 	import SongCard from '$lib/components/SongCard.svelte';
 	import StreamingServiceModal from '$lib/components/StreamingServiceModal.svelte';
 	import { APP_NAME, APP_TAGLINE, APP_URL } from '$lib/config';
+	import { setlistSlug } from '$lib/slug';
 	import { instanceConfig } from '$lib/stores/instance';
 	import { goto } from '$app/navigation';
 	import { onMount, tick } from 'svelte';
@@ -168,7 +169,7 @@
 			selectedIds = new Set();
 			dailySelectedIds = new Set();
 			setlistPendingIds = new Set();
-			goto(`/s/${setlistId}`);
+			goto(`/s/${setlistSlug(newSetlistTitle.trim(), setlistId)}`);
 		} finally {
 			creatingSetlist = false;
 		}
@@ -806,7 +807,7 @@
 							{@const liked = $votes.setlists.has(pin.id)}
 							{@const isLiking = setlistLiking.has(pin.id)}
 							<article class="relative border-b {$t.borderFaded} pl-5 py-4 space-y-3 transition-colors">
-								<a href="/s/{pin.id}" class="block">
+								<a href="/s/{setlistSlug(pin.title, pin.id)}" class="block">
 									<div class="flex items-start gap-3">
 										<div class="shrink-0 w-12 h-12 rounded-md {$t.recessedBg} flex items-center justify-center">
 											<svg viewBox="0 0 24 24" fill="none" class="w-5 h-5 {$t.textFaint}" xmlns="http://www.w3.org/2000/svg">
@@ -876,7 +877,7 @@
 							{@const liked = $votes.setlists.has(setlist.id)}
 							{@const isLiking = setlistLiking.has(setlist.id)}
 							<article class="relative border-b {$t.borderFaded} pl-5 py-4 space-y-3 transition-colors">
-								<a href="/s/{setlist.id}" class="block">
+								<a href="/s/{setlistSlug(setlist.title, setlist.id)}" class="block">
 									<div class="flex items-start gap-3">
 										<div class="shrink-0 w-12 h-12 rounded-md {$t.recessedBg} flex items-center justify-center">
 											<svg viewBox="0 0 24 24" fill="none" class="w-5 h-5 {$t.textFaint}" xmlns="http://www.w3.org/2000/svg">
