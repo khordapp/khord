@@ -16,7 +16,7 @@ export async function findDeezerUrl(title: string, artist: string): Promise<stri
 	try {
 		const q = `artist:"${artist}" track:"${title}"`;
 		const params = new URLSearchParams({ q, limit: '5' });
-		const res = await fetch(`${SEARCH_URL}?${params}`);
+		const res = await fetch(`${SEARCH_URL}?${params}`, { signal: AbortSignal.timeout(5000) });
 		if (!res.ok) return null;
 		const data = await res.json();
 		const results: Array<{ title: string; artist: { name: string }; link: string }> = data.data ?? [];

@@ -96,55 +96,61 @@
 
 		const songIds: { id: number; track: typeof dedupedTracks[0]; snapshot: Record<string, string | undefined> }[] = [];
 
-		for (const track of dedupedTracks) {
-			try {
-				const p = new URLSearchParams({ title: track.title, artist: track.artist });
-				const resolveRes = await fetch(`/api/resolve?${p}`);
-				const resolved = resolveRes.ok ? await resolveRes.json() : {};
+		const CONCURRENCY = 5;
+		for (let i = 0; i < dedupedTracks.length; i += CONCURRENCY) {
+			const batch = dedupedTracks.slice(i, i + CONCURRENCY);
+			const results = await Promise.all(batch.map(async (track) => {
+				try {
+					const p = new URLSearchParams({ title: track.title, artist: track.artist });
+					const resolveRes = await fetch(`/api/resolve?${p}`);
+					const resolved = resolveRes.ok ? await resolveRes.json() : {};
 
-				const spotifyUrl      = sourceUrlFor(track, 'spotify')  ?? resolved.spotifyUrl;
-				const appleMusicUrl   = sourceUrlFor(track, 'apple')    ?? resolved.appleMusicUrl;
-				const deezerUrl       = sourceUrlFor(track, 'deezer')   ?? resolved.deezerUrl;
-				const youtubeMusicUrl = sourceUrlFor(track, 'youtube')  ?? resolved.youtubeMusicUrl;
+					const spotifyUrl      = sourceUrlFor(track, 'spotify')  ?? resolved.spotifyUrl;
+					const appleMusicUrl   = sourceUrlFor(track, 'apple')    ?? resolved.appleMusicUrl;
+					const deezerUrl       = sourceUrlFor(track, 'deezer')   ?? resolved.deezerUrl;
+					const youtubeMusicUrl = sourceUrlFor(track, 'youtube')  ?? resolved.youtubeMusicUrl;
 
-				const songBody: Record<string, unknown> = {
-					title:  track.title,
-					artist: track.artist,
-					listed: 0,
-					...(track.album      && { album: track.album }),
-					...(track.artworkUrl && { thumbnailUrl: track.artworkUrl }),
-					...(spotifyUrl       && { spotifyUrl }),
-					...(appleMusicUrl    && { appleMusicUrl }),
-					...(youtubeMusicUrl  && { youtubeMusicUrl }),
-					...(deezerUrl        && { deezerUrl }),
-				};
-
-				const res = await fetch('/api/songs', {
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(songBody),
-				});
-				if (!res.ok) throw new Error('Failed to create song');
-				const { id } = await res.json();
-
-				songIds.push({
-					id,
-					track,
-					snapshot: {
+					const songBody: Record<string, unknown> = {
 						title:  track.title,
 						artist: track.artist,
+						listed: 0,
 						...(track.album      && { album: track.album }),
 						...(track.artworkUrl && { thumbnailUrl: track.artworkUrl }),
 						...(spotifyUrl       && { spotifyUrl }),
 						...(appleMusicUrl    && { appleMusicUrl }),
 						...(youtubeMusicUrl  && { youtubeMusicUrl }),
 						...(deezerUrl        && { deezerUrl }),
-					},
-				});
-			} catch {
-				// Skip failed tracks
-			}
-			createStep++;
+					};
+
+					const res = await fetch('/api/songs', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(songBody),
+					});
+					if (!res.ok) throw new Error('Failed to create song');
+					const { id } = await res.json();
+
+					return {
+						id,
+						track,
+						snapshot: {
+							title:  track.title,
+							artist: track.artist,
+							...(track.album      && { album: track.album }),
+							...(track.artworkUrl && { thumbnailUrl: track.artworkUrl }),
+							...(spotifyUrl       && { spotifyUrl }),
+							...(appleMusicUrl    && { appleMusicUrl }),
+							...(youtubeMusicUrl  && { youtubeMusicUrl }),
+							...(deezerUrl        && { deezerUrl }),
+						},
+					};
+				} catch {
+					return null;
+				} finally {
+					createStep++;
+				}
+			}));
+			songIds.push(...results.filter((r): r is NonNullable<typeof r> => r !== null));
 		}
 
 		if (songIds.length === 0) {
@@ -163,13 +169,13 @@
 			if (!slRes.ok) throw new Error('Failed to create setlist');
 			const { id: setlistId } = await slRes.json();
 
-			for (const { id: songId, snapshot } of songIds) {
-				await fetch(`/api/setlists/${setlistId}/items`, {
+			await Promise.all(songIds.map(({ id: songId, snapshot }) =>
+				fetch(`/api/setlists/${setlistId}/items`, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ songId, snapshot }),
-				});
-			}
+				})
+			));
 
 			goto(`/s/${setlistId}`);
 		} catch {

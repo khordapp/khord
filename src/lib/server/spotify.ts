@@ -23,7 +23,8 @@ async function getToken(): Promise<string> {
 			'Content-Type': 'application/x-www-form-urlencoded',
 			Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`
 		},
-		body: 'grant_type=client_credentials'
+		body: 'grant_type=client_credentials',
+		signal: AbortSignal.timeout(5000),
 	});
 
 	if (!res.ok) throw new Error(`Spotify token request failed (${res.status})`);
@@ -41,7 +42,8 @@ export async function fetchSpotifyTrack(id: string): Promise<{
 	try {
 		const token = await getToken();
 		const res = await fetch(`https://api.spotify.com/v1/tracks/${encodeURIComponent(id)}`, {
-			headers: { Authorization: `Bearer ${token}` }
+			headers: { Authorization: `Bearer ${token}` },
+			signal: AbortSignal.timeout(5000),
 		});
 		if (!res.ok) return null;
 		const data = await res.json();
@@ -76,10 +78,12 @@ export async function fetchSpotifyPlaylist(id: string): Promise<{
 		// No fields filter — avoids Spotify rejecting encoded parentheses.
 		const [metaRes, tracksRes] = await Promise.all([
 			fetch(`https://api.spotify.com/v1/playlists/${encodeURIComponent(id)}`, {
-				headers: { Authorization: `Bearer ${token}` }
+				headers: { Authorization: `Bearer ${token}` },
+				signal: AbortSignal.timeout(5000),
 			}),
 			fetch(`https://api.spotify.com/v1/playlists/${encodeURIComponent(id)}/tracks?limit=50`, {
-				headers: { Authorization: `Bearer ${token}` }
+				headers: { Authorization: `Bearer ${token}` },
+				signal: AbortSignal.timeout(5000),
 			}),
 		]);
 
@@ -129,7 +133,8 @@ export async function findSpotifyUrl(title: string, artist: string): Promise<str
 		const params = new URLSearchParams({ q, type: 'track', limit: '5' });
 
 		const res = await fetch(`${SEARCH_URL}?${params}`, {
-			headers: { Authorization: `Bearer ${token}` }
+			headers: { Authorization: `Bearer ${token}` },
+			signal: AbortSignal.timeout(5000),
 		});
 
 		if (!res.ok) return null;

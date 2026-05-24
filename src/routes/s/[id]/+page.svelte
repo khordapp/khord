@@ -34,6 +34,9 @@
 		addedBy?: string;
 	}
 
+	let isLightTheme = false;
+	$: if ($t) isLightTheme = t.isLight();
+
 	let setlist = data.setlist;
 	let dndItems: DndItem[] = setlist.items.map((item) => ({
 		id: item.id,
@@ -79,6 +82,9 @@
 		}
 	}
 
+	// Edit mode
+	let editing = false;
+
 	// Title editing
 	let editingTitle = false;
 	let titleDraft = '';
@@ -86,6 +92,7 @@
 	let saving = false;
 
 	async function startEditTitle() {
+		if (!editing) return;
 		titleDraft = setlist.title;
 		editingTitle = true;
 		setTimeout(() => titleInputEl?.focus(), 50);
@@ -406,10 +413,10 @@
 	</div>
 {/if}
 
-<div class="space-y-6">
+<div class="space-y-6" style="padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px))">
 	<!-- Header -->
 	<div class="space-y-1">
-		{#if editingTitle && isOwner}
+		{#if editingTitle && isOwner && editing}
 			<input
 				bind:this={titleInputEl}
 				bind:value={titleDraft}
@@ -419,13 +426,16 @@
 				class="text-2xl font-bold w-full {$t.textPrimary} bg-transparent border-b {$t.borderStrong} focus:outline-none pb-0.5"
 			/>
 		{:else}
-			<button
-				on:click={isOwner ? startEditTitle : undefined}
-				class="text-left w-full"
-				disabled={!isOwner}
-			>
-				<h1 class="text-2xl font-bold {$t.textPrimary} {isOwner ? 'hover:opacity-70 transition-opacity' : ''}">{setlist.title}</h1>
-			</button>
+			<div class="flex items-start gap-2">
+				<h1 class="text-2xl font-bold {$t.textPrimary} flex-1">{setlist.title}</h1>
+				{#if isOwner && editing}
+					<button on:click={startEditTitle} class="{$t.textFaint} hover:opacity-70 transition-opacity mt-1 shrink-0" title="Edit title" aria-label="Edit title">
+						<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
+							<path d="M11.5 2.5a1.414 1.414 0 0 1 2 2L5 13H3v-2L11.5 2.5Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+					</button>
+				{/if}
+			</div>
 		{/if}
 		<p class="text-sm {$t.textMuted}">
 			{dndItems.length} {dndItems.length === 1 ? 'song' : 'songs'} · @{setlist.owner.username}
@@ -435,84 +445,8 @@
 		</p>
 	</div>
 
-	<!-- Action bar (owner) -->
-	{#if isOwner}
-		<div class="flex flex-wrap gap-2">
-			<button
-				on:click={() => (addOpen = !addOpen)}
-				class="flex items-center gap-1.5 text-sm font-medium {$t.elevatedBg} {$t.textSecondary} border {$t.borderStrong} px-3 py-1.5 rounded-full {$t.hoverBg} transition-colors"
-			>
-				<svg viewBox="0 0 14 14" fill="none" class="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg">
-					<path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-				</svg>
-				Add song
-			</button>
-			<button
-				on:click={toggleSetlistLike}
-				disabled={setlistLiking || !$session}
-				class="flex items-center gap-1.5 text-sm {setlistLiked ? $t.accentText : `${$t.textFaint} ${$t.hoverTextSecondary}`} px-2 py-1.5 rounded-full transition-colors disabled:opacity-50"
-				title={setlistLiked ? 'Remove your upnote' : 'Upnote this mixtape'}
-			>
-				<svg viewBox="0 0 24 24" fill={setlistLiked ? 'currentColor' : 'none'} class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
-					<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
-				<span class="text-base leading-none -mt-0.5">♪</span>
-			</button>
-			<button
-				on:click={shareSetlist}
-				class="flex items-center gap-1.5 text-sm {$t.textFaint} {$t.hoverTextSecondary} px-2 py-1.5 rounded-full transition-colors"
-				title="Share this mixtape"
-			>
-				<svg viewBox="0 0 24 24" fill="none" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
-					<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
-			</button>
-			{#if $instanceConfig.isOwner}
-				<button
-					on:click={togglePin}
-					disabled={pinLoading}
-					class="flex items-center gap-1.5 text-sm {isPinned ? $t.accentText : `${$t.textFaint} ${$t.hoverTextSecondary}`} px-2 py-1.5 rounded-full transition-colors disabled:opacity-50"
-					title={isPinned ? 'Unpin from home' : 'Pin to home'}
-				>
-					<svg viewBox="0 0 24 24" fill={isPinned ? 'currentColor' : 'none'} class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
-						<path d="M12 2l2 6h6l-5 4 2 6-5-4-5 4 2-6-5-4h6z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
-				</button>
-			{/if}
-			<button on:click={() => (confirmDeleteOpen = true)} class="flex items-center gap-1.5 text-sm text-red-400 hover:text-red-300 px-2 py-1.5 rounded-full transition-colors" title="Delete mixtape">
-				<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
-					<path d="M3 4.5h10M6 4.5V3.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v1M12 4.5l-.6 8.5a1 1 0 0 1-1 .9H5.6a1 1 0 0 1-1-.9L4 4.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
-			</button>
-		</div>
-	{:else if $session}
-		<!-- Non-owner actions -->
-		<div class="flex flex-wrap gap-2">
-			<button
-				on:click={toggleSetlistLike}
-				disabled={setlistLiking}
-				class="flex items-center gap-1.5 text-sm {setlistLiked ? $t.accentText : `${$t.textFaint} ${$t.hoverTextSecondary}`} px-2 py-1.5 rounded-full transition-colors disabled:opacity-50"
-				title={setlistLiked ? 'Remove your upnote' : 'Upnote this mixtape'}
-			>
-				<svg viewBox="0 0 24 24" fill={setlistLiked ? 'currentColor' : 'none'} class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
-					<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
-				<span class="text-base leading-none -mt-0.5">♪</span>
-				{#if setlistLikeCount > 0}<span class="tabular-nums">{setlistLikeCount}</span>{/if}
-			</button>
-			<button on:click={shareSetlist} class="flex items-center gap-1.5 text-sm {$t.textFaint} {$t.hoverTextSecondary} px-2 py-1.5 rounded-full transition-colors" title="Share">
-				<svg viewBox="0 0 24 24" fill="none" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
-					<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
-			</button>
-			<button on:click={() => (proposeOpen = !proposeOpen)} class="flex items-center gap-1.5 text-sm font-medium {$t.textFaint} {$t.hoverTextSecondary} border {$t.borderStrong} px-3 py-1.5 rounded-full {$t.hoverBg} transition-colors">
-				Propose a song
-			</button>
-		</div>
-	{/if}
-
-	<!-- Add song panel (owner) -->
-	{#if addOpen && isOwner}
+	<!-- Add song panel (owner, edit mode) -->
+	{#if addOpen && isOwner && editing}
 		<div class="rounded-xl border {$t.borderStrong} {$t.surfaceBg} p-4 space-y-3">
 			<div class="flex items-center justify-between">
 				<p class="text-sm font-medium {$t.textPrimary}">Add a song</p>
@@ -622,6 +556,8 @@
 		</div>
 	{/if}
 
+	<!-- Propose a song panel (non-owner, logged in) — kept inline above song list -->
+
 	<!-- Song list -->
 	{#if dndItems.length === 0}
 		<div class="rounded-xl border {$t.borderBase} {$t.surfaceBg} px-5 py-10 text-center space-y-2">
@@ -630,7 +566,7 @@
 		</div>
 	{:else}
 		<ul
-			use:dndzone={{ items: dndItems, dragDisabled: !isOwner, type: 'setlist-items' }}
+			use:dndzone={{ items: dndItems, dragDisabled: !isOwner || !editing, type: 'setlist-items' }}
 			on:consider={handleDndConsider}
 			on:finalize={handleDndFinalize}
 			class="space-y-2"
@@ -639,7 +575,7 @@
 				{@const rec = item.record}
 				{@const primary = rec ? getPrimaryPlatform(rec) : null}
 				<li animate:flip={{ duration: 200 }} class="flex items-center gap-3 rounded-xl border {$t.borderBase} {$t.surfaceBg} px-4 py-3">
-					{#if isOwner}
+					{#if isOwner && editing}
 						<div class="cursor-grab active:cursor-grabbing {$t.textFaint} shrink-0">
 							<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
 								<path d="M5 5h1M5 8h1M5 11h1M10 5h1M10 8h1M10 11h1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
@@ -672,7 +608,7 @@
 							<p class="text-xs {$t.textFaint}">Song unavailable</p>
 						</div>
 					{/if}
-					{#if isOwner}
+					{#if isOwner && editing}
 						<button
 							on:click={() => removeItem(item.id)}
 							aria-label="Remove"
@@ -688,3 +624,132 @@
 		</ul>
 	{/if}
 </div>
+
+<!-- Fixed bottom toolbar -->
+<nav
+	class="fixed bottom-0 left-0 right-0 z-30"
+	style="
+		background: {isLightTheme ? 'rgba(255,255,255,0.60)' : 'rgba(9,9,11,0.60)'};
+		backdrop-filter: blur(32px) saturate(200%) brightness({isLightTheme ? '108%' : '120%'});
+		-webkit-backdrop-filter: blur(32px) saturate(200%) brightness({isLightTheme ? '108%' : '120%'});
+		border-top: 1px solid {isLightTheme ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.12)'};
+		box-shadow: inset 0 1px 0 {isLightTheme ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.07)'}, 0 -8px 32px {isLightTheme ? 'rgba(0,0,0,0.06)' : 'rgba(0,0,0,0.35)'};
+		padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+	"
+>
+	<div class="absolute inset-0 pointer-events-none" style="background: linear-gradient(to bottom, {isLightTheme ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.05)'} 0%, transparent 60%);"></div>
+	{#if isOwner && editing}
+		<!-- Edit mode toolbar -->
+		<div class="flex h-20">
+			<button
+				on:click={() => { editing = false; addOpen = false; }}
+				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
+			>
+				<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+					<path d="M3 8h10M8 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+				<span class="text-[11px] leading-none">Done</span>
+			</button>
+			<button
+				on:click={() => (addOpen = !addOpen)}
+				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {addOpen ? $t.accentText : $t.textMuted}"
+			>
+				<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+					<path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+				</svg>
+				<span class="text-[11px] leading-none">Add</span>
+			</button>
+			{#if $instanceConfig.isOwner}
+				<button
+					on:click={togglePin}
+					disabled={pinLoading}
+					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {isPinned ? $t.accentText : $t.textMuted} disabled:opacity-50"
+				>
+					<svg viewBox="0 0 24 24" fill={isPinned ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+						<path d="M12 2l2 6h6l-5 4 2 6-5-4-5 4 2-6-5-4h6z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+					<span class="text-[11px] leading-none">{isPinned ? 'Unpin' : 'Pin'}</span>
+				</button>
+			{:else}
+				<div class="flex-1"></div>
+			{/if}
+			<button
+				on:click={() => (confirmDeleteOpen = true)}
+				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors text-red-400"
+			>
+				<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+					<path d="M3 4.5h10M6 4.5V3.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v1M12 4.5l-.6 8.5a1 1 0 0 1-1 .9H5.6a1 1 0 0 1-1-.9L4 4.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+				<span class="text-[11px] leading-none">Delete</span>
+			</button>
+		</div>
+	{:else if isOwner}
+		<!-- Owner view toolbar -->
+		<div class="flex h-20">
+			<button
+				on:click={toggleSetlistLike}
+				disabled={setlistLiking || !$session}
+				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {setlistLiked ? $t.accentText : $t.textMuted} disabled:opacity-50"
+			>
+				<svg viewBox="0 0 24 24" fill={setlistLiked ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+					<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+				<span class="text-[11px] leading-none">{setlistLikeCount > 0 ? setlistLikeCount : 'Upnote'}</span>
+			</button>
+			<button
+				on:click={shareSetlist}
+				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
+			>
+				<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+					<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+				<span class="text-[11px] leading-none">Share</span>
+			</button>
+			<button
+				on:click={() => { editing = true; }}
+				class="flex-1 flex flex-col items-center justify-center"
+				aria-label="Edit mixtape"
+			>
+				<div class="w-11 h-11 {$t.btnPrimaryBg} rounded-full flex items-center justify-center shadow-md">
+					<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6 {$t.btnPrimaryText}" xmlns="http://www.w3.org/2000/svg">
+						<path d="M11.5 2.5a1.414 1.414 0 0 1 2 2L5 13H3v-2L11.5 2.5Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+				</div>
+			</button>
+			<div class="flex-1"></div>
+			<div class="flex-1"></div>
+		</div>
+	{:else if $session}
+		<!-- Non-owner toolbar -->
+		<div class="flex h-20">
+			<button
+				on:click={toggleSetlistLike}
+				disabled={setlistLiking}
+				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {setlistLiked ? $t.accentText : $t.textMuted} disabled:opacity-50"
+			>
+				<svg viewBox="0 0 24 24" fill={setlistLiked ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+					<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+				<span class="text-[11px] leading-none">{setlistLikeCount > 0 ? setlistLikeCount : 'Upnote'}</span>
+			</button>
+			<button
+				on:click={shareSetlist}
+				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
+			>
+				<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+					<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+				<span class="text-[11px] leading-none">Share</span>
+			</button>
+			<button
+				on:click={() => (proposeOpen = !proposeOpen)}
+				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {proposeOpen ? $t.accentText : $t.textMuted}"
+			>
+				<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+					<path d="M8 2v10M2 8h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+				</svg>
+				<span class="text-[11px] leading-none">Propose</span>
+			</button>
+		</div>
+	{/if}
+</nav>

@@ -8,7 +8,7 @@ import { getSetting } from '$lib/server/settings';
 async function findAppleMusicUrl(title: string, artist: string): Promise<string | null> {
 	try {
 		const params = new URLSearchParams({ term: `${title} ${artist}`, entity: 'song', limit: '1' });
-		const res = await fetch(`https://itunes.apple.com/search?${params}`);
+		const res = await fetch(`https://itunes.apple.com/search?${params}`, { signal: AbortSignal.timeout(5000) });
 		if (!res.ok) return null;
 		const data = await res.json();
 		return data.results?.[0]?.trackViewUrl ?? null;
