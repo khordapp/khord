@@ -10,7 +10,7 @@
 	let returnTo = '/settings';
 
 	onMount(async () => {
-		returnTo = sessionStorage.getItem(SPOTIFY_RETURN_TO_KEY) ?? '/settings';
+		returnTo = localStorage.getItem(SPOTIFY_RETURN_TO_KEY) ?? '/settings';
 
 		const params = page.url.searchParams;
 		const code = params.get('code');
@@ -32,7 +32,7 @@
 		try {
 			const tokens = await exchangeSpotifyCode(code, state);
 			spotifyTokens.save(tokens);
-			sessionStorage.removeItem(SPOTIFY_RETURN_TO_KEY);
+			localStorage.removeItem(SPOTIFY_RETURN_TO_KEY);
 			goto(returnTo);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Authorization failed. Please try again.';

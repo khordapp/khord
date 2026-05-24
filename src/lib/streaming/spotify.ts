@@ -7,7 +7,6 @@
 //   3. Set PUBLIC_SPOTIFY_CLIENT_ID=<your-client-id> in .env
 
 import { env } from '$env/dynamic/public';
-import { APP_URL } from '$lib/config';
 
 const SPOTIFY_ACCOUNTS = 'https://accounts.spotify.com';
 const SPOTIFY_API = 'https://api.spotify.com/v1';
@@ -43,8 +42,11 @@ async function generatePKCE(): Promise<{ verifier: string; challenge: string }> 
 }
 
 function getRedirectUri(): string {
-	const base = (env.PUBLIC_APP_URL ?? APP_URL).replace(/\/$/, '');
-	return `${base}/spotify/callback`;
+	// Use window.location.origin so the URI always matches the actual running
+	// domain exactly — avoids mismatches caused by env-var misconfiguration and
+	// ensures the Spotify native app (which validates the URI strictly on iOS)
+	// sees the same value that was sent in the authorize request.
+	return `${window.location.origin}/spotify/callback`;
 }
 
 // --- Auth flow ---
@@ -56,9 +58,11 @@ export async function initiateSpotifyAuth(returnTo = '/settings'): Promise<void>
 	const { verifier, challenge } = await generatePKCE();
 	const state = base64url(crypto.getRandomValues(new Uint8Array(16)));
 
-	sessionStorage.setItem(VERIFIER_KEY, verifier);
-	sessionStorage.setItem(STATE_KEY, state);
-	sessionStorage.setItem(SPOTIFY_RETURN_TO_KEY, returnTo);
+	// Use localStorage so the callback page can read these values even when
+	// it opens in regular Safari instead of the PWA context (iOS).
+	localStorage.setItem(VERIFIER_KEY, verifier);
+	localStorage.setItem(STATE_KEY, state);
+	localStorage.setItem(SPOTIFY_RETURN_TO_KEY, returnTo);
 
 	const params = new URLSearchParams({
 		client_id: clientId,
@@ -86,11 +90,11 @@ export async function exchangeSpotifyCode(
 	const clientId = env.PUBLIC_SPOTIFY_CLIENT_ID;
 	if (!clientId) throw new Error('PUBLIC_SPOTIFY_CLIENT_ID is not set');
 
-	const verifier = sessionStorage.getItem(VERIFIER_KEY);
-	const expectedState = sessionStorage.getItem(STATE_KEY);
+	const verifier = localStorage.getItem(VERIFIER_KEY);
+	const expectedState = localStorage.getItem(STATE_KEY);
 
-	sessionStorage.removeItem(VERIFIER_KEY);
-	sessionStorage.removeItem(STATE_KEY);
+	localStorage.removeItem(VERIFIER_KEY);
+	localStorage.removeItem(STATE_KEY);
 
 	if (!verifier) throw new Error('No PKCE verifier found — please try signing in again.');
 	if (returnedState !== expectedState) throw new Error('State mismatch — possible CSRF. Please try again.');

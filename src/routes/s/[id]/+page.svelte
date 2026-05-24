@@ -105,7 +105,7 @@
 	async function exportToSpotify() {
 		if (exporting) return;
 		if (!$spotifyAuthorized) {
-			if (browser) sessionStorage.setItem(PENDING_EXPORT_KEY, String(setlist.id));
+			if (browser) localStorage.setItem(PENDING_EXPORT_KEY, String(setlist.id));
 			await initiateSpotifyAuth(`/s/${setlistSlug(setlist.title, setlist.id)}`);
 			return;
 		}
@@ -117,7 +117,7 @@
 			// Tokens gone or expired — clear and re-auth
 			exporting = false;
 			spotifyTokens.clear();
-			if (browser) sessionStorage.setItem(PENDING_EXPORT_KEY, String(setlist.id));
+			if (browser) localStorage.setItem(PENDING_EXPORT_KEY, String(setlist.id));
 			await initiateSpotifyAuth(`/s/${setlistSlug(setlist.title, setlist.id)}`);
 			return;
 		}
@@ -497,8 +497,8 @@
 			}
 		}
 		// Auto-trigger export if we just returned from Spotify auth
-		if (sessionStorage.getItem(PENDING_EXPORT_KEY) === String(setlist.id)) {
-			sessionStorage.removeItem(PENDING_EXPORT_KEY);
+		if (localStorage.getItem(PENDING_EXPORT_KEY) === String(setlist.id)) {
+			localStorage.removeItem(PENDING_EXPORT_KEY);
 			if (isOwner) editing = true;
 			exportToSpotify();
 		}
