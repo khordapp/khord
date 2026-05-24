@@ -302,6 +302,7 @@
 				...(resolved.spotifyUrl && { spotifyUrl: resolved.spotifyUrl }),
 				...(resolved.youtubeMusicUrl && { youtubeMusicUrl: resolved.youtubeMusicUrl }),
 				...(resolved.deezerUrl && { deezerUrl: resolved.deezerUrl }),
+				urlsResolvedAt: new Date().toISOString(),
 				createdAt: new Date().toISOString()
 			};
 

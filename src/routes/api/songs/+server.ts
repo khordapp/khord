@@ -14,7 +14,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 
 	const { title, artist, album, thumbnailUrl, spotifyUrl, appleMusicUrl,
 		youtubeMusicUrl, deezerUrl, tidalUrl, amazonMusicUrl, soundcloudUrl,
-		note, listed = 1 } = body;
+		note, listed = 1, urlsResolvedAt } = body;
 
 	if (!title || typeof title !== 'string') error(400, 'title is required');
 	if (!artist || typeof artist !== 'string') error(400, 'artist is required');
@@ -28,8 +28,9 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		INSERT INTO songs (
 			user_id, title, artist, album, thumbnail_url,
 			spotify_url, apple_music_url, youtube_music_url, deezer_url,
-			tidal_url, amazon_music_url, soundcloud_url, note, listed
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			tidal_url, amazon_music_url, soundcloud_url, note, listed,
+			urls_resolved_at
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`).run(
 		locals.user.id,
 		title.trim(),
@@ -44,7 +45,8 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 		amazonMusicUrl ?? null,
 		soundcloudUrl ?? null,
 		note?.trim() ?? null,
-		listed ? 1 : 0
+		listed ? 1 : 0,
+		urlsResolvedAt ?? null
 	);
 
 	const row = db.prepare('SELECT id, created_at FROM songs WHERE id = ?').get(result.lastInsertRowid) as { id: number; created_at: string };
