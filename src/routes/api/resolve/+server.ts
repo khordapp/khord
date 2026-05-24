@@ -17,7 +17,8 @@ async function findAppleMusicUrl(title: string, artist: string): Promise<string 
 	}
 }
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, locals }) => {
+	if (!locals.user) error(401, 'Unauthorized');
 	const spotifyEnabled      = getSetting('spotify_enabled', 'true') === 'true';
 	const youtubeMusicEnabled = getSetting('youtube_music_enabled', 'false') === 'true';
 

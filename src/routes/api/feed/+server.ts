@@ -2,12 +2,13 @@
 // Returns listed songs from all users, sorted by created_at DESC.
 // No fallback needed — DB is authoritative.
 
-import { json } from '@sveltejs/kit';
+import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
 import { getSetting } from '$lib/server/settings';
 
-export const GET: RequestHandler = ({ url }) => {
+export const GET: RequestHandler = ({ url, locals }) => {
+	if (!locals.user) error(401, 'Unauthorized');
 	const db = getDb();
 	const limit  = Math.min(parseInt(url.searchParams.get('limit') ?? '50'), 100);
 	const cursor = url.searchParams.get('cursor'); // ISO datetime of last item
