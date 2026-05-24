@@ -239,7 +239,7 @@
 					{/if}
 				{/if}
 			</button>
-			{#if isOwn}
+			{#if isOwn || $instanceConfig.isOwner}
 				<button
 					on:click={resync}
 					disabled={resyncing}
