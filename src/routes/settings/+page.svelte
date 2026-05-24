@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
 	import { prefs } from '$lib/stores/prefs';
 	import { APP_NAME } from '$lib/config';
 	import { theme as t } from '$lib/theme';
@@ -16,6 +17,40 @@
 	$: currentLabel = $prefs ? (PLATFORM_LABELS[$prefs] ?? null) : null;
 
 	let modalOpen = false;
+
+	// --- Public profile ---
+	let profilePublic = true;
+	let profilePublicLoading = false;
+	let profilePublicMsg = '';
+
+	onMount(async () => {
+		try {
+			const res = await fetch('/api/profile');
+			if (res.ok) {
+				const d = await res.json();
+				profilePublic = d.profilePublic;
+			}
+		} catch { /* ignore */ }
+	});
+
+	async function toggleProfilePublic(val: boolean) {
+		if (profilePublicLoading) return;
+		profilePublicLoading = true;
+		profilePublicMsg = '';
+		try {
+			const res = await fetch('/api/profile', {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ profilePublic: val }),
+			});
+			if (!res.ok) throw new Error();
+			profilePublic = val;
+		} catch {
+			profilePublicMsg = 'Failed to save — please try again.';
+		} finally {
+			profilePublicLoading = false;
+		}
+	}
 
 	// --- Avatar ---
 	let avatarFileInput: HTMLInputElement;
@@ -185,6 +220,26 @@
 			</div>
 			{#if avatarMsg}
 				<p class="text-xs {avatarMsgIsError ? 'text-red-400' : 'text-green-400'}">{avatarMsg}</p>
+			{/if}
+		</div>
+
+		<div class="space-y-3">
+			<div class="space-y-1">
+				<h2 class="text-sm font-semibold {$t.textPrimary}">Public profile</h2>
+				<p class="text-xs {$t.textMuted}">When enabled, visitors who are not logged in can see your name and avatar at <span class="font-mono">/u/{$session.username}</span>.</p>
+			</div>
+			<button
+				on:click={() => toggleProfilePublic(!profilePublic)}
+				disabled={profilePublicLoading}
+				class="w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-colors
+					{$t.borderStrong} {$t.surfaceBg} {$t.textSecondary} {$t.hoverBorderStrong} {$t.hoverText}
+					disabled:opacity-50"
+			>
+				<span class="text-sm">{profilePublic ? 'Public profile on' : 'Public profile off'}</span>
+				<span class="text-xs {$t.textMuted}">{profilePublic ? 'Turn off' : 'Turn on'}</span>
+			</button>
+			{#if profilePublicMsg}
+				<p class="text-xs text-red-400">{profilePublicMsg}</p>
 			{/if}
 		</div>
 	{/if}

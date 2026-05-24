@@ -189,7 +189,7 @@
 
 	<div class="flex items-center gap-2 min-w-0" style="padding-left: {!$instanceConfig.albumArtDisabled && record.thumbnailUrl ? '3.75rem' : '1.75rem'}">
 		<p class="text-xs {$t.textMuted} truncate">
-			<a href="/song/{songSlug(record.title, record.artist, id)}" class="{$t.textSecondary} {$t.hoverText} transition-colors">
+			<a href="/u/{sharedBy.username}" class="{$t.textSecondary} {$t.hoverText} transition-colors">
 				{sharedBy.displayName ?? sharedBy.username}
 			</a>
 			· {timeAgo(record.createdAt)}

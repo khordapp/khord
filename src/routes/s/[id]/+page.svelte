@@ -476,7 +476,7 @@
 			</div>
 		{/if}
 		<p class="text-sm {$t.textMuted}">
-			{dndItems.length} {dndItems.length === 1 ? 'song' : 'songs'} · @{setlist.owner.username}
+			{dndItems.length} {dndItems.length === 1 ? 'song' : 'songs'} · <a href="/u/{setlist.owner.username}" class="{$t.hoverText} transition-colors">@{setlist.owner.username}</a>
 			{#if setlistLikeCount > 0}
 				<span class="{setlistLiked ? $t.accentText : ''}"> · ♥ {setlistLikeCount}</span>
 			{/if}

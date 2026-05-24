@@ -140,6 +140,7 @@ function openDb(): import('better-sqlite3').Database {
 		'ALTER TABLE users ADD COLUMN avatar BLOB',
 		'ALTER TABLE users ADD COLUMN avatar_mime TEXT',
 		'ALTER TABLE songs ADD COLUMN urls_resolved_at TEXT',
+		'ALTER TABLE users ADD COLUMN profile_public INTEGER NOT NULL DEFAULT 1',
 	]) {
 		try { db.exec(stmt); } catch { /* column already exists */ }
 	}
