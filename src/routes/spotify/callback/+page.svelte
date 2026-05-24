@@ -7,8 +7,11 @@
 	import { theme as t } from '$lib/theme';
 
 	let error = '';
+	let returnTo = '/settings';
 
 	onMount(async () => {
+		returnTo = sessionStorage.getItem(SPOTIFY_RETURN_TO_KEY) ?? '/settings';
+
 		const params = page.url.searchParams;
 		const code = params.get('code');
 		const state = params.get('state');
@@ -29,7 +32,6 @@
 		try {
 			const tokens = await exchangeSpotifyCode(code, state);
 			spotifyTokens.save(tokens);
-			const returnTo = sessionStorage.getItem(SPOTIFY_RETURN_TO_KEY) ?? '/settings';
 			sessionStorage.removeItem(SPOTIFY_RETURN_TO_KEY);
 			goto(returnTo);
 		} catch (e) {
@@ -45,8 +47,8 @@
 <div class="flex flex-col items-center justify-center py-24 space-y-4 text-center">
 	{#if error}
 		<p class="text-red-400 text-sm max-w-sm">{error}</p>
-		<a href="/settings" class="text-sm {$t.textMuted} {$t.hoverText} transition-colors">
-			← Back to settings
+		<a href={returnTo} class="text-sm {$t.textMuted} {$t.hoverText} transition-colors">
+			← Try again
 		</a>
 	{:else}
 		<div class="w-6 h-6 border-2 {$t.borderStrong} border-t-white rounded-full animate-spin"></div>

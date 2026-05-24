@@ -106,12 +106,22 @@
 		if (exporting) return;
 		if (!$spotifyAuthorized) {
 			if (browser) sessionStorage.setItem(PENDING_EXPORT_KEY, String(setlist.id));
-			initiateSpotifyAuth(`/s/${setlistSlug(setlist.title, setlist.id)}`);
+			await initiateSpotifyAuth(`/s/${setlistSlug(setlist.title, setlist.id)}`);
 			return;
 		}
 		exporting = true; exportDone = false; exportError = '';
+		let token: string;
 		try {
-			const token = await spotifyTokens.getValidToken();
+			token = await spotifyTokens.getValidToken();
+		} catch {
+			// Tokens gone or expired — clear and re-auth
+			exporting = false;
+			spotifyTokens.clear();
+			if (browser) sessionStorage.setItem(PENDING_EXPORT_KEY, String(setlist.id));
+			await initiateSpotifyAuth(`/s/${setlistSlug(setlist.title, setlist.id)}`);
+			return;
+		}
+		try {
 			const user = await getSpotifyUser(token);
 			const trackIds: string[] = [];
 			for (const item of dndItems) {
