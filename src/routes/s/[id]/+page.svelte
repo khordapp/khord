@@ -743,6 +743,28 @@
 		<!-- Owner view toolbar -->
 		<div class="flex h-20">
 			<button
+				on:click={() => history.back()}
+				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
+				aria-label="Go back"
+			>
+				<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+					<path d="M19 12H5M5 12l7 7M5 12l7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+				<span class="text-[11px] leading-none">Back</span>
+			</button>
+			<div class="flex-1"></div>
+			<button
+				on:click={() => { editing = true; }}
+				class="flex-1 flex flex-col items-center justify-center"
+				aria-label="Edit mixtape"
+			>
+				<div class="w-11 h-11 {$t.btnPrimaryBg} rounded-full flex items-center justify-center shadow-md">
+					<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6 {$t.btnPrimaryText}" xmlns="http://www.w3.org/2000/svg">
+						<path d="M11.5 2.5a1.414 1.414 0 0 1 2 2L5 13H3v-2L11.5 2.5Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+				</div>
+			</button>
+			<button
 				on:click={toggleSetlistLike}
 				disabled={setlistLiking || !$session}
 				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {setlistLiked ? $t.accentText : $t.textMuted} disabled:opacity-50"
@@ -764,28 +786,6 @@
 				</svg>
 				<span class="text-[11px] leading-none">Share</span>
 			</button>
-			<button
-				on:click={() => { editing = true; }}
-				class="flex-1 flex flex-col items-center justify-center"
-				aria-label="Edit mixtape"
-			>
-				<div class="w-11 h-11 {$t.btnPrimaryBg} rounded-full flex items-center justify-center shadow-md">
-					<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6 {$t.btnPrimaryText}" xmlns="http://www.w3.org/2000/svg">
-						<path d="M11.5 2.5a1.414 1.414 0 0 1 2 2L5 13H3v-2L11.5 2.5Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
-				</div>
-			</button>
-			<button
-				on:click={() => history.back()}
-				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
-				aria-label="Go back"
-			>
-				<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-					<path d="M19 12H5M5 12l7 7M5 12l7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
-				<span class="text-[11px] leading-none">Back</span>
-			</button>
-			<div class="flex-1"></div>
 		</div>
 	{:else if $session}
 		<!-- Non-owner toolbar -->
