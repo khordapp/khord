@@ -484,12 +484,12 @@
 				const { pins } = await pinRes.json();
 				isPinned = pins.some((p: any) => p.id === setlist.id);
 			}
-			// Auto-trigger export if we just returned from Spotify auth
-			if (sessionStorage.getItem(PENDING_EXPORT_KEY) === String(setlist.id)) {
-				sessionStorage.removeItem(PENDING_EXPORT_KEY);
-				editing = true;
-				exportToSpotify();
-			}
+		}
+		// Auto-trigger export if we just returned from Spotify auth
+		if (sessionStorage.getItem(PENDING_EXPORT_KEY) === String(setlist.id)) {
+			sessionStorage.removeItem(PENDING_EXPORT_KEY);
+			if (isOwner) editing = true;
+			exportToSpotify();
 		}
 	});
 </script>
@@ -904,6 +904,33 @@
 				</svg>
 				<span class="text-[11px] leading-none">Share</span>
 			</button>
+			{#if spotifyEnabled}
+				<button
+					on:click={exportToSpotify}
+					disabled={exporting}
+					title={$spotifyAuthorized ? 'Export to Spotify playlist' : 'Connect Spotify to export'}
+					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50
+						{exportDone ? 'text-green-400' : exportError ? 'text-red-400' : $t.textMuted}"
+				>
+					{#if exporting}
+						<span class="w-6 h-6 flex items-center justify-center">
+							<span class="w-4 h-4 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin"></span>
+						</span>
+					{:else if exportDone}
+						<svg viewBox="0 0 14 14" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+							<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+					{:else}
+						<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+							<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+							<path d="M7 9.5c2.8-1 5.8-.8 8 .8M7.5 12.5c2.3-.8 4.7-.7 6.5.5M8 15.5c1.8-.6 3.6-.5 5 .4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+						</svg>
+					{/if}
+					<span class="text-[11px] leading-none">
+						{exporting ? 'Exporting…' : exportDone ? 'Exported!' : 'Spotify'}
+					</span>
+				</button>
+			{/if}
 			<button
 				on:click={() => (proposeOpen = !proposeOpen)}
 				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {proposeOpen ? $t.accentText : $t.textMuted}"
