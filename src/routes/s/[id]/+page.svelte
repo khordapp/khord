@@ -606,12 +606,11 @@
 			use:dndzone={{ items: dndItems, dragDisabled: !isOwner || !editing, type: 'setlist-items' }}
 			on:consider={handleDndConsider}
 			on:finalize={handleDndFinalize}
-			class="space-y-2"
 		>
 			{#each dndItems as item (item.id)}
 				{@const rec = item.record}
 				{@const primary = rec ? getPrimaryPlatform(rec) : null}
-				<li animate:flip={{ duration: 200 }} class="flex items-center gap-3 rounded-xl border {$t.borderBase} {$t.surfaceBg} px-4 py-3">
+				<li animate:flip={{ duration: 200 }} class="relative flex items-center gap-3 border-b {$t.borderFaded} pl-5 pr-5 py-4 transition-colors">
 					{#if isOwner && editing}
 						<div class="cursor-grab active:cursor-grabbing {$t.textFaint} shrink-0">
 							<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
@@ -621,28 +620,28 @@
 					{/if}
 					{#if rec}
 						{#if !$instanceConfig.albumArtDisabled && rec.thumbnailUrl}
-							<img src={thumbUrl(rec.thumbnailUrl)} alt="" class="w-10 h-10 rounded object-cover shrink-0" />
+							<img src={thumbUrl(rec.thumbnailUrl)} alt="" class="w-12 h-12 rounded-md object-cover shrink-0" />
 						{/if}
 						<div class="flex-1 min-w-0">
-							<p class="text-sm font-medium {$t.textPrimary} truncate">{rec.title}</p>
-							<p class="text-xs {$t.textMuted} truncate">{rec.artist}{rec.album ? ` · ${rec.album}` : ''}</p>
+							<p class="text-base font-semibold {$t.textPrimary} leading-snug truncate">{rec.title}</p>
+							<p class="text-sm {$t.textMuted} mt-0.5 truncate">{rec.artist}{rec.album ? ` · ${rec.album}` : ''}</p>
 						</div>
-						{#if primary}
+						{#if primary && !editing}
 							<a
 								href={rec[primary.key as keyof SongRecord] as string}
 								title="Listen on {primary.label}"
-								class="shrink-0 w-8 h-8 rounded-full flex items-center justify-center shadow-sm hover:opacity-80 transition-opacity"
+								class="shrink-0 w-10 h-10 rounded-full flex items-center justify-center shadow-md hover:opacity-80 transition-opacity"
 								style="background-color: {primary.color}"
 								on:click|stopPropagation
 							>
-								<svg viewBox="0 0 10 10" fill="white" class="w-3 h-3 ml-0.5" xmlns="http://www.w3.org/2000/svg">
+								<svg viewBox="0 0 10 10" fill="white" class="w-4 h-4 ml-0.5" xmlns="http://www.w3.org/2000/svg">
 									<path d="M2 1.5l6 3.5-6 3.5V1.5Z"/>
 								</svg>
 							</a>
 						{/if}
 					{:else}
 						<div class="flex-1 min-w-0">
-							<p class="text-xs {$t.textFaint}">Song unavailable</p>
+							<p class="text-sm {$t.textFaint}">Song unavailable</p>
 						</div>
 					{/if}
 					{#if isOwner && editing}
@@ -722,7 +721,7 @@
 					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {isPinned ? $t.accentText : $t.textMuted} disabled:opacity-50"
 				>
 					<svg viewBox="0 0 24 24" fill={isPinned ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-						<path d="M12 2l2 6h6l-5 4 2 6-5-4-5 4 2-6-5-4h6z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+						<path d="M12 20v-7M9 3h6l1 5-2 2v2H10V10L8 8l1-5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 					</svg>
 					<span class="text-[11px] leading-none">{isPinned ? 'Unpin' : 'Pin'}</span>
 				</button>
@@ -747,9 +746,12 @@
 				disabled={setlistLiking || !$session}
 				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {setlistLiked ? $t.accentText : $t.textMuted} disabled:opacity-50"
 			>
-				<svg viewBox="0 0 24 24" fill={setlistLiked ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-					<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
+				<span class="flex items-center gap-0.5">
+					<svg viewBox="0 0 24 24" fill={setlistLiked ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+						<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+					<span class="text-base leading-none -mt-0.5">♪</span>
+				</span>
 				<span class="text-[11px] leading-none">{setlistLikeCount > 0 ? setlistLikeCount : 'Upnote'}</span>
 			</button>
 			<button
@@ -772,7 +774,16 @@
 					</svg>
 				</div>
 			</button>
-			<div class="flex-1"></div>
+			<button
+				on:click={() => history.back()}
+				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
+				aria-label="Go back"
+			>
+				<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+					<path d="M19 12H5M5 12l7 7M5 12l7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+				<span class="text-[11px] leading-none">Back</span>
+			</button>
 			<div class="flex-1"></div>
 		</div>
 	{:else if $session}
@@ -783,9 +794,12 @@
 				disabled={setlistLiking}
 				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {setlistLiked ? $t.accentText : $t.textMuted} disabled:opacity-50"
 			>
-				<svg viewBox="0 0 24 24" fill={setlistLiked ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-					<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
+				<span class="flex items-center gap-0.5">
+					<svg viewBox="0 0 24 24" fill={setlistLiked ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+						<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+					<span class="text-base leading-none -mt-0.5">♪</span>
+				</span>
 				<span class="text-[11px] leading-none">{setlistLikeCount > 0 ? setlistLikeCount : 'Upnote'}</span>
 			</button>
 			<button
@@ -805,6 +819,30 @@
 					<path d="M8 2v10M2 8h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
 				</svg>
 				<span class="text-[11px] leading-none">Propose</span>
+			</button>
+			<button
+				on:click={() => history.back()}
+				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
+				aria-label="Go back"
+			>
+				<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+					<path d="M19 12H5M5 12l7 7M5 12l7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+				<span class="text-[11px] leading-none">Back</span>
+			</button>
+		</div>
+	{:else}
+		<!-- Logged-out toolbar -->
+		<div class="flex h-20">
+			<button
+				on:click={() => history.back()}
+				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
+				aria-label="Go back"
+			>
+				<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+					<path d="M19 12H5M5 12l7 7M5 12l7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+				<span class="text-[11px] leading-none">Back</span>
 			</button>
 		</div>
 	{/if}

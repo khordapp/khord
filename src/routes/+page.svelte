@@ -805,50 +805,57 @@
 							{@const count = setlistVoteCounts.get(pin.id) ?? 0}
 							{@const liked = $votes.setlists.has(pin.id)}
 							{@const isLiking = setlistLiking.has(pin.id)}
-							<div class="flex rounded-xl border {$t.borderBase} {$t.surfaceBg} {$t.hoverBorderBase} {$t.hoverBg} transition-colors overflow-hidden">
-								<a href="/s/{pin.id}" class="flex-1 min-w-0 flex items-center gap-4 pl-5 pr-3 py-4">
-									<div class="min-w-0 flex-1">
-										<p class="text-sm font-semibold {$t.textPrimary} truncate">{pin.title}</p>
-										<p class="text-xs {$t.textMuted} mt-0.5">
-											{pin.itemCount} {pin.itemCount === 1 ? 'song' : 'songs'} · @{pin.owner.username}{#if pin.createdAt} · {new Date(pin.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}{/if}
-										</p>
-									</div>
-									<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 {$t.textFaint} shrink-0" xmlns="http://www.w3.org/2000/svg">
-										<path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-									</svg>
-								</a>
-								{#if $session}
-									<button
-										on:click={() => toggleSetlistLike(pin.id)}
-										disabled={isLiking}
-										aria-label={liked ? 'Unlike' : 'Upnote'}
-										title={liked ? 'Remove your upnote' : 'Upnote this mixtape'}
-										class="shrink-0 pr-4 self-stretch flex flex-col items-center justify-center gap-0.5 transition-colors disabled:opacity-50 {liked ? $t.accentText : `${$t.textFaint} ${$t.hoverTextSecondary}`}"
-									>
-										{#if isLiking}
-											<span class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
-										{:else}
-											<span class="flex items-center gap-0.5">
-												<svg viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
-													<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-												</svg>
-												<span class="text-sm leading-none -mt-0.5">♪</span>
-											</span>
-											{#if count > 0}<span class="text-xs tabular-nums">{count}</span>{/if}
-										{/if}
-									</button>
-								{:else if count > 0}
-									<span class="shrink-0 pr-4 self-stretch flex flex-col items-center justify-center gap-0.5 text-xs {$t.textFaint}">
-										<span class="flex items-center gap-0.5">
-											<svg viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
-												<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+							<article class="relative border-b {$t.borderFaded} pl-5 py-4 space-y-3 transition-colors">
+								<a href="/s/{pin.id}" class="block">
+									<div class="flex items-start gap-3">
+										<div class="shrink-0 w-12 h-12 rounded-md {$t.recessedBg} flex items-center justify-center">
+											<svg viewBox="0 0 24 24" fill="none" class="w-5 h-5 {$t.textFaint}" xmlns="http://www.w3.org/2000/svg">
+												<path d="M3 6h12M3 10h12M3 14h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+												<path d="M18 7v7.5a2 2 0 1 1-1.5-1.94V7z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 											</svg>
-											<span class="text-sm leading-none -mt-0.5">♪</span>
+										</div>
+										<div class="min-w-0">
+											<p class="text-base font-semibold {$t.textPrimary} leading-snug truncate">{pin.title}</p>
+											<p class="text-sm {$t.textMuted} mt-0.5">
+												{pin.itemCount} {pin.itemCount === 1 ? 'song' : 'songs'} · @{pin.owner.username}{#if pin.createdAt} · {new Date(pin.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}{/if}
+											</p>
+										</div>
+									</div>
+								</a>
+								<div class="flex items-center gap-6" style="padding-left: 3.75rem">
+									{#if $session}
+										<button
+											on:click|stopPropagation={() => toggleSetlistLike(pin.id)}
+											disabled={isLiking}
+											aria-label={liked ? 'Unlike' : 'Upnote'}
+											title={liked ? 'Remove your upnote' : 'Upnote this mixtape'}
+											class="p-2 flex items-center gap-1.5 transition-colors disabled:opacity-50 {liked ? $t.accentText : `${$t.textFaint} ${$t.hoverTextSecondary}`}"
+										>
+											{#if isLiking}
+												<span class="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
+											{:else}
+												<span class="flex items-center gap-0.5">
+													<svg viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+														<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+													</svg>
+													<span class="text-base leading-none -mt-0.5">♪</span>
+												</span>
+												{#if count > 0}<span class="text-sm tabular-nums">{count}</span>{/if}
+											{/if}
+										</button>
+									{:else if count > 0}
+										<span class="p-2 flex items-center gap-1.5 text-sm {$t.textFaint}">
+											<span class="flex items-center gap-0.5">
+												<svg viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+													<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+												</svg>
+												<span class="text-base leading-none -mt-0.5">♪</span>
+											</span>
+											<span class="tabular-nums">{count}</span>
 										</span>
-										<span class="tabular-nums">{count}</span>
-									</span>
-								{/if}
-							</div>
+									{/if}
+								</div>
+							</article>
 						{/each}
 					</div>
 				{/if}
@@ -868,40 +875,47 @@
 							{@const count = setlistVoteCounts.get(setlist.id) ?? 0}
 							{@const liked = $votes.setlists.has(setlist.id)}
 							{@const isLiking = setlistLiking.has(setlist.id)}
-							<div class="flex rounded-xl border {$t.borderBase} {$t.surfaceBg} {$t.hoverBorderBase} {$t.hoverBg} transition-colors overflow-hidden">
-								<a href="/s/{setlist.id}" class="flex-1 min-w-0 flex items-center gap-4 pl-5 pr-3 py-4">
-									<div class="min-w-0 flex-1">
-										<p class="text-sm font-semibold {$t.textPrimary} truncate">{setlist.title}</p>
-										<p class="text-xs {$t.textMuted} mt-0.5">
-											{setlist.itemCount} {setlist.itemCount === 1 ? 'song' : 'songs'}
-											· @{$session?.username}
-											· {new Date(setlist.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-										</p>
-									</div>
-									<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 {$t.textFaint} shrink-0" xmlns="http://www.w3.org/2000/svg">
-										<path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-									</svg>
-								</a>
-								<button
-									on:click={() => toggleSetlistLike(setlist.id)}
-									disabled={isLiking}
-									aria-label={liked ? 'Unlike' : 'Upnote'}
-									title={liked ? 'Remove your upnote' : 'Upnote this mixtape'}
-									class="shrink-0 pr-4 self-stretch flex flex-col items-center justify-center gap-0.5 transition-colors disabled:opacity-50 {liked ? $t.accentText : `${$t.textFaint} ${$t.hoverTextSecondary}`}"
-								>
-									{#if isLiking}
-										<span class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
-									{:else}
-										<span class="flex items-center gap-0.5">
-											<svg viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
-												<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+							<article class="relative border-b {$t.borderFaded} pl-5 py-4 space-y-3 transition-colors">
+								<a href="/s/{setlist.id}" class="block">
+									<div class="flex items-start gap-3">
+										<div class="shrink-0 w-12 h-12 rounded-md {$t.recessedBg} flex items-center justify-center">
+											<svg viewBox="0 0 24 24" fill="none" class="w-5 h-5 {$t.textFaint}" xmlns="http://www.w3.org/2000/svg">
+												<path d="M3 6h12M3 10h12M3 14h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+												<path d="M18 7v7.5a2 2 0 1 1-1.5-1.94V7z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 											</svg>
-											<span class="text-sm leading-none -mt-0.5">♪</span>
-										</span>
-										{#if count > 0}<span class="text-xs tabular-nums">{count}</span>{/if}
-									{/if}
-								</button>
-							</div>
+										</div>
+										<div class="min-w-0">
+											<p class="text-base font-semibold {$t.textPrimary} leading-snug truncate">{setlist.title}</p>
+											<p class="text-sm {$t.textMuted} mt-0.5">
+												{setlist.itemCount} {setlist.itemCount === 1 ? 'song' : 'songs'}
+												· @{$session?.username}
+												· {new Date(setlist.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+											</p>
+										</div>
+									</div>
+								</a>
+								<div class="flex items-center gap-6" style="padding-left: 3.75rem">
+									<button
+										on:click|stopPropagation={() => toggleSetlistLike(setlist.id)}
+										disabled={isLiking}
+										aria-label={liked ? 'Unlike' : 'Upnote'}
+										title={liked ? 'Remove your upnote' : 'Upnote this mixtape'}
+										class="p-2 flex items-center gap-1.5 transition-colors disabled:opacity-50 {liked ? $t.accentText : `${$t.textFaint} ${$t.hoverTextSecondary}`}"
+									>
+										{#if isLiking}
+											<span class="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
+										{:else}
+											<span class="flex items-center gap-0.5">
+												<svg viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+													<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+												</svg>
+												<span class="text-base leading-none -mt-0.5">♪</span>
+											</span>
+											{#if count > 0}<span class="text-sm tabular-nums">{count}</span>{/if}
+										{/if}
+									</button>
+								</div>
+							</article>
 						{/each}
 					</div>
 				{/if}
