@@ -879,6 +879,24 @@
 				</svg>
 				<span class="text-[11px] leading-none">Share</span>
 			</button>
+			{#if $instanceConfig.isOwner}
+				<button
+					on:click={togglePin}
+					disabled={pinLoading}
+					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {isPinned ? $t.accentText : $t.textMuted} disabled:opacity-50"
+				>
+					{#if pinLoading}
+						<span class="w-6 h-6 flex items-center justify-center">
+							<span class="w-4 h-4 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin"></span>
+						</span>
+					{:else}
+						<svg viewBox="0 0 24 24" fill={isPinned ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+							<path d="M12 20v-7M9 3h6l1 5-2 2v2H10V10L8 8l1-5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+					{/if}
+					<span class="text-[11px] leading-none">{isPinned ? 'Unpin' : 'Pin'}</span>
+				</button>
+			{/if}
 		</div>
 	{:else if $session}
 		<!-- Non-owner toolbar -->
