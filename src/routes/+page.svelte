@@ -282,6 +282,24 @@
 		}
 	}
 
+	let pinLoading = new Set<number>();
+
+	async function togglePin(setlistId: number) {
+		if (pinLoading.has(setlistId)) return;
+		pinLoading.add(setlistId); pinLoading = pinLoading;
+		const wasPinned = pinnedIds.has(setlistId);
+		try {
+			await fetch('/api/pinned-setlists', {
+				method: wasPinned ? 'DELETE' : 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ setlistId })
+			});
+			await loadPinnedSetlists();
+		} catch { /* ignore */ } finally {
+			pinLoading.delete(setlistId); pinLoading = pinLoading;
+		}
+	}
+
 	async function loadPinnedSetlists() {
 		try {
 			const r = await fetch('/api/pinned-setlists');
@@ -855,6 +873,23 @@
 											<span class="tabular-nums">{count}</span>
 										</span>
 									{/if}
+									{#if $instanceConfig.isOwner}
+										<button
+											on:click|stopPropagation={() => togglePin(pin.id)}
+											disabled={pinLoading.has(pin.id)}
+											aria-label="Unpin mixtape"
+											title="Unpin this mixtape"
+											class="p-2 transition-colors disabled:opacity-50 {$t.accentText} hover:opacity-70"
+										>
+											{#if pinLoading.has(pin.id)}
+												<span class="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
+											{:else}
+												<svg viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+													<path d="M12 20v-7M9 3h6l1 5-2 2v2H10V10L8 8l1-5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+												</svg>
+											{/if}
+										</button>
+									{/if}
 								</div>
 							</article>
 						{/each}
@@ -915,6 +950,23 @@
 											{#if count > 0}<span class="text-sm tabular-nums">{count}</span>{/if}
 										{/if}
 									</button>
+									{#if $instanceConfig.isOwner}
+										<button
+											on:click|stopPropagation={() => togglePin(setlist.id)}
+											disabled={pinLoading.has(setlist.id)}
+											aria-label="Pin mixtape"
+											title="Pin this mixtape"
+											class="p-2 transition-colors disabled:opacity-50 {$t.textFaint} {$t.hoverTextSecondary}"
+										>
+											{#if pinLoading.has(setlist.id)}
+												<span class="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
+											{:else}
+												<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+													<path d="M12 20v-7M9 3h6l1 5-2 2v2H10V10L8 8l1-5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+												</svg>
+											{/if}
+										</button>
+									{/if}
 								</div>
 							</article>
 						{/each}
