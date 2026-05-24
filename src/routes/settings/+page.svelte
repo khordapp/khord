@@ -5,6 +5,11 @@
 	import { theme as t } from '$lib/theme';
 	import StreamingServiceModal from '$lib/components/StreamingServiceModal.svelte';
 	import { session, avatarVersion } from '$lib/stores/auth';
+	import { initiateSpotifyAuth } from '$lib/streaming/spotify';
+	import { spotifyTokens, spotifyAuthorized } from '$lib/stores/spotify';
+	import { env } from '$env/dynamic/public';
+
+	$: spotifyClientId = env.PUBLIC_SPOTIFY_CLIENT_ID;
 
 	$: hasPair = t.hasPair();
 	$: isLight = t.isLight();
@@ -240,6 +245,33 @@
 			</button>
 			{#if profilePublicMsg}
 				<p class="text-xs text-red-400">{profilePublicMsg}</p>
+			{/if}
+		</div>
+	{/if}
+
+	{#if spotifyClientId}
+		<div class="space-y-3">
+			<div class="space-y-1">
+				<h2 class="text-sm font-semibold {$t.textPrimary}">Spotify</h2>
+				<p class="text-xs {$t.textMuted}">Connect your account to export mixtapes as Spotify playlists.</p>
+			</div>
+			{#if $spotifyAuthorized}
+				<div class="flex items-center justify-between px-4 py-3 rounded-lg border {$t.borderStrong} {$t.surfaceBg}">
+					<span class="text-sm {$t.textSecondary}">Connected</span>
+					<button
+						on:click={() => spotifyTokens.clear()}
+						class="text-xs text-red-400 hover:text-red-300 transition-colors"
+					>Disconnect</button>
+				</div>
+			{:else}
+				<button
+					on:click={() => initiateSpotifyAuth('/settings')}
+					class="w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-colors
+						{$t.borderStrong} {$t.surfaceBg} {$t.textSecondary} {$t.hoverBorderStrong} {$t.hoverText}"
+				>
+					<span class="text-sm">Connect Spotify</span>
+					<span class="text-xs {$t.textMuted}">Authorize</span>
+				</button>
 			{/if}
 		</div>
 	{/if}

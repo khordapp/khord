@@ -23,6 +23,7 @@ const SCOPES = [
 
 const VERIFIER_KEY = 'spotify_pkce_verifier';
 const STATE_KEY = 'spotify_pkce_state';
+export const SPOTIFY_RETURN_TO_KEY = 'spotify_return_to';
 
 // --- PKCE helpers ---
 
@@ -48,7 +49,7 @@ function getRedirectUri(): string {
 
 // --- Auth flow ---
 
-export async function initiateSpotifyAuth(): Promise<void> {
+export async function initiateSpotifyAuth(returnTo = '/settings'): Promise<void> {
 	const clientId = env.PUBLIC_SPOTIFY_CLIENT_ID;
 	if (!clientId) throw new Error('PUBLIC_SPOTIFY_CLIENT_ID is not set');
 
@@ -57,6 +58,7 @@ export async function initiateSpotifyAuth(): Promise<void> {
 
 	sessionStorage.setItem(VERIFIER_KEY, verifier);
 	sessionStorage.setItem(STATE_KEY, state);
+	sessionStorage.setItem(SPOTIFY_RETURN_TO_KEY, returnTo);
 
 	const params = new URLSearchParams({
 		client_id: clientId,
@@ -276,4 +278,26 @@ export function getTrackUrl(trackId: string): string {
 
 export function getTrackUri(trackId: string): string {
 	return `spotify:track:${trackId}`;
+}
+
+export async function replacePlaylistTracks(
+	playlistId: string,
+	trackIds: string[],
+	accessToken: string
+): Promise<void> {
+	const uris = trackIds.map((id) => `spotify:track:${id}`);
+	// PUT replaces the full playlist (max 100 tracks)
+	const res = await apiRequest(`/playlists/${playlistId}/tracks`, accessToken, {
+		method: 'PUT',
+		body: JSON.stringify({ uris: uris.slice(0, 100) })
+	});
+	if (!res.ok) throw new Error(`Failed to replace tracks: ${res.status}`);
+	// POST appends remaining batches beyond 100
+	for (let i = 100; i < uris.length; i += 100) {
+		const r = await apiRequest(`/playlists/${playlistId}/tracks`, accessToken, {
+			method: 'POST',
+			body: JSON.stringify({ uris: uris.slice(i, i + 100) })
+		});
+		if (!r.ok) throw new Error(`Failed to add tracks: ${r.status}`);
+	}
 }

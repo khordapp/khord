@@ -7,11 +7,19 @@
 	import { APP_NAME, APP_URL, thumbUrl } from '$lib/config';
 	import { setlistSlug } from '$lib/slug';
 	import { goto } from '$app/navigation';
+	import { browser } from '$app/environment';
+	import { env } from '$env/dynamic/public';
 	import { dndzone } from 'svelte-dnd-action';
 	import { flip } from 'svelte/animate';
 	import { searchTracks, type TrackResult } from '$lib/search';
 	import type { PageData } from './$types';
 	import type { SongRecord } from '$lib/stores/shareSong';
+	import {
+		initiateSpotifyAuth, createPlaylist, replacePlaylistTracks,
+		searchSpotifyTracks, extractSpotifyId, getSpotifyUser,
+		SPOTIFY_RETURN_TO_KEY
+	} from '$lib/streaming/spotify';
+	import { spotifyTokens, spotifyAuthorized } from '$lib/stores/spotify';
 
 	export let data: PageData;
 
@@ -85,6 +93,57 @@
 
 	// Edit mode
 	let editing = false;
+
+	// Spotify export
+	$: spotifyEnabled = !!env.PUBLIC_SPOTIFY_CLIENT_ID;
+	let exporting = false;
+	let exportDone = false;
+	let exportError = '';
+	let exportPlaylistUrl = '';
+	const PENDING_EXPORT_KEY = 'khord_spotify_pending_export';
+
+	async function exportToSpotify() {
+		if (exporting) return;
+		if (!$spotifyAuthorized) {
+			if (browser) sessionStorage.setItem(PENDING_EXPORT_KEY, String(setlist.id));
+			initiateSpotifyAuth(`/s/${setlistSlug(setlist.title, setlist.id)}`);
+			return;
+		}
+		exporting = true; exportDone = false; exportError = '';
+		try {
+			const token = await spotifyTokens.getValidToken();
+			const user = await getSpotifyUser(token);
+			const trackIds: string[] = [];
+			for (const item of dndItems) {
+				if (!item.record) continue;
+				const fromUrl = item.record.spotifyUrl ? extractSpotifyId(item.record.spotifyUrl) : null;
+				if (fromUrl) {
+					trackIds.push(fromUrl);
+				} else {
+					const results = await searchSpotifyTracks(
+						`${item.record.title} ${item.record.artist}`, token, 1
+					);
+					if (results.length > 0) trackIds.push(results[0].spotifyId);
+				}
+			}
+			if (trackIds.length === 0) throw new Error('No Spotify tracks found in this mixtape.');
+			const storageKey = `khord_spotify_export_${setlist.id}`;
+			let playlistId = browser ? localStorage.getItem(storageKey) : null;
+			if (!playlistId) {
+				playlistId = await createPlaylist(user.id, setlist.title, token);
+				if (browser) localStorage.setItem(storageKey, playlistId);
+			}
+			await replacePlaylistTracks(playlistId, trackIds, token);
+			exportPlaylistUrl = `https://open.spotify.com/playlist/${playlistId}`;
+			exportDone = true;
+			setTimeout(() => { exportDone = false; }, 5000);
+		} catch (e) {
+			exportError = e instanceof Error ? e.message : 'Export failed.';
+			setTimeout(() => { exportError = ''; }, 5000);
+		} finally {
+			exporting = false;
+		}
+	}
 
 	// Resolve missing streaming URLs
 	let resolving = false;
@@ -425,6 +484,12 @@
 				const { pins } = await pinRes.json();
 				isPinned = pins.some((p: any) => p.id === setlist.id);
 			}
+			// Auto-trigger export if we just returned from Spotify auth
+			if (sessionStorage.getItem(PENDING_EXPORT_KEY) === String(setlist.id)) {
+				sessionStorage.removeItem(PENDING_EXPORT_KEY);
+				editing = true;
+				exportToSpotify();
+			}
 		}
 	});
 </script>
@@ -696,6 +761,33 @@
 				</svg>
 				<span class="text-[11px] leading-none">Add</span>
 			</button>
+			{#if spotifyEnabled}
+				<button
+					on:click={exportToSpotify}
+					disabled={exporting}
+					title={$spotifyAuthorized ? 'Export to Spotify playlist' : 'Connect Spotify to export'}
+					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50
+						{exportDone ? 'text-green-400' : exportError ? 'text-red-400' : $t.textMuted}"
+				>
+					{#if exporting}
+						<span class="w-6 h-6 flex items-center justify-center">
+							<span class="w-4 h-4 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin"></span>
+						</span>
+					{:else if exportDone}
+						<svg viewBox="0 0 14 14" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+							<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+					{:else}
+						<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+							<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+							<path d="M7 9.5c2.8-1 5.8-.8 8 .8M7.5 12.5c2.3-.8 4.7-.7 6.5.5M8 15.5c1.8-.6 3.6-.5 5 .4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+						</svg>
+					{/if}
+					<span class="text-[11px] leading-none">
+						{exporting ? 'Exporting…' : exportDone ? 'Exported!' : 'Spotify'}
+					</span>
+				</button>
+			{/if}
 			{#if unresolvedCount > 0}
 				<button
 					on:click={resolveUnresolved}
@@ -848,3 +940,15 @@
 		</div>
 	{/if}
 </nav>
+
+{#if exportError}
+	<p class="fixed bottom-24 left-0 right-0 text-center text-xs text-red-400 px-4 z-40 pointer-events-none">{exportError}</p>
+{/if}
+{#if exportDone && exportPlaylistUrl}
+	<a
+		href={exportPlaylistUrl}
+		target="_blank"
+		rel="noopener noreferrer"
+		class="fixed bottom-24 left-0 right-0 text-center text-xs text-green-400 underline px-4 z-40"
+	>Open in Spotify →</a>
+{/if}

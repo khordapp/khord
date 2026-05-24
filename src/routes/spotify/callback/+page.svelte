@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { exchangeSpotifyCode } from '$lib/streaming/spotify';
+	import { exchangeSpotifyCode, SPOTIFY_RETURN_TO_KEY } from '$lib/streaming/spotify';
 	import { spotifyTokens } from '$lib/stores/spotify';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -29,7 +29,9 @@
 		try {
 			const tokens = await exchangeSpotifyCode(code, state);
 			spotifyTokens.save(tokens);
-			goto('/settings');
+			const returnTo = sessionStorage.getItem(SPOTIFY_RETURN_TO_KEY) ?? '/settings';
+			sessionStorage.removeItem(SPOTIFY_RETURN_TO_KEY);
+			goto(returnTo);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Authorization failed. Please try again.';
 		}
