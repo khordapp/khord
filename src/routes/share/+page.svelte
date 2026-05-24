@@ -14,8 +14,6 @@
 	let mixtapeName = '';
 	let selected: Set<number> = new Set();
 	let creating = false;
-	let createStep = 0;
-	let createTotal = 0;
 	let createError = '';
 
 	onMount(() => {
@@ -52,7 +50,6 @@
 	$: playlist = data.type === 'playlist' ? data.playlist : null;
 	$: allSelected = playlist ? selected.size === playlist.tracks.length : false;
 	$: selectedCount = selected.size;
-	$: progressPct = createTotal > 0 ? Math.round((createStep / createTotal) * 100) : 0;
 
 	function toggleAll() {
 		if (allSelected) {
@@ -91,67 +88,41 @@
 			return true;
 		});
 
-		createTotal = dedupedTracks.length;
-		createStep = 0;
+		// Phase 1: create all songs immediately with whatever URLs we already have from the source playlist.
+		// Streaming URL resolution happens in the background after navigation.
+		const songResults = await Promise.all(dedupedTracks.map(async (track) => {
+			const spotifyUrl      = sourceUrlFor(track, 'spotify');
+			const appleMusicUrl   = sourceUrlFor(track, 'apple');
+			const deezerUrl       = sourceUrlFor(track, 'deezer');
+			const youtubeMusicUrl = sourceUrlFor(track, 'youtube');
 
-		const songIds: { id: number; track: typeof dedupedTracks[0]; snapshot: Record<string, string | undefined> }[] = [];
+			const songBody: Record<string, unknown> = {
+				title:  track.title,
+				artist: track.artist,
+				listed: 0,
+				...(track.album      && { album: track.album }),
+				...(track.artworkUrl && { thumbnailUrl: track.artworkUrl }),
+				...(spotifyUrl       && { spotifyUrl }),
+				...(appleMusicUrl    && { appleMusicUrl }),
+				...(youtubeMusicUrl  && { youtubeMusicUrl }),
+				...(deezerUrl        && { deezerUrl }),
+			};
 
-		const CONCURRENCY = 5;
-		for (let i = 0; i < dedupedTracks.length; i += CONCURRENCY) {
-			const batch = dedupedTracks.slice(i, i + CONCURRENCY);
-			const results = await Promise.all(batch.map(async (track) => {
-				try {
-					const p = new URLSearchParams({ title: track.title, artist: track.artist });
-					const resolveRes = await fetch(`/api/resolve?${p}`);
-					const resolved = resolveRes.ok ? await resolveRes.json() : {};
+			try {
+				const res = await fetch('/api/songs', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(songBody),
+				});
+				if (!res.ok) return null;
+				const { id } = await res.json();
+				return { id, track, spotifyUrl, appleMusicUrl, deezerUrl, youtubeMusicUrl };
+			} catch {
+				return null;
+			}
+		}));
 
-					const spotifyUrl      = sourceUrlFor(track, 'spotify')  ?? resolved.spotifyUrl;
-					const appleMusicUrl   = sourceUrlFor(track, 'apple')    ?? resolved.appleMusicUrl;
-					const deezerUrl       = sourceUrlFor(track, 'deezer')   ?? resolved.deezerUrl;
-					const youtubeMusicUrl = sourceUrlFor(track, 'youtube')  ?? resolved.youtubeMusicUrl;
-
-					const songBody: Record<string, unknown> = {
-						title:  track.title,
-						artist: track.artist,
-						listed: 0,
-						...(track.album      && { album: track.album }),
-						...(track.artworkUrl && { thumbnailUrl: track.artworkUrl }),
-						...(spotifyUrl       && { spotifyUrl }),
-						...(appleMusicUrl    && { appleMusicUrl }),
-						...(youtubeMusicUrl  && { youtubeMusicUrl }),
-						...(deezerUrl        && { deezerUrl }),
-					};
-
-					const res = await fetch('/api/songs', {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify(songBody),
-					});
-					if (!res.ok) throw new Error('Failed to create song');
-					const { id } = await res.json();
-
-					return {
-						id,
-						track,
-						snapshot: {
-							title:  track.title,
-							artist: track.artist,
-							...(track.album      && { album: track.album }),
-							...(track.artworkUrl && { thumbnailUrl: track.artworkUrl }),
-							...(spotifyUrl       && { spotifyUrl }),
-							...(appleMusicUrl    && { appleMusicUrl }),
-							...(youtubeMusicUrl  && { youtubeMusicUrl }),
-							...(deezerUrl        && { deezerUrl }),
-						},
-					};
-				} catch {
-					return null;
-				} finally {
-					createStep++;
-				}
-			}));
-			songIds.push(...results.filter((r): r is NonNullable<typeof r> => r !== null));
-		}
+		const songIds = songResults.filter((r): r is NonNullable<typeof r> => r !== null);
 
 		if (songIds.length === 0) {
 			createError = 'Could not create any tracks. Please try again.';
@@ -169,15 +140,49 @@
 			if (!slRes.ok) throw new Error('Failed to create setlist');
 			const { id: setlistId } = await slRes.json();
 
-			await Promise.all(songIds.map(({ id: songId, snapshot }) =>
-				fetch(`/api/setlists/${setlistId}/items`, {
+			await Promise.all(songIds.map(({ id: songId, track, spotifyUrl, appleMusicUrl, deezerUrl, youtubeMusicUrl }) => {
+				const snapshot: Record<string, string | undefined> = {
+					title:  track.title,
+					artist: track.artist,
+					...(track.album      && { album: track.album }),
+					...(track.artworkUrl && { thumbnailUrl: track.artworkUrl }),
+					...(spotifyUrl       && { spotifyUrl }),
+					...(appleMusicUrl    && { appleMusicUrl }),
+					...(youtubeMusicUrl  && { youtubeMusicUrl }),
+					...(deezerUrl        && { deezerUrl }),
+				};
+				return fetch(`/api/setlists/${setlistId}/items`, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({ songId, snapshot }),
-				})
-			));
+				});
+			}));
 
 			goto(`/s/${setlistId}`);
+
+			// Phase 2: resolve missing streaming URLs in the background — fire and forget.
+			// PUT /api/songs/[id] uses COALESCE so only missing fields get filled in.
+			for (const { id: songId, track, spotifyUrl, appleMusicUrl, deezerUrl, youtubeMusicUrl } of songIds) {
+				const needsResolve = !spotifyUrl || !appleMusicUrl || !deezerUrl || !youtubeMusicUrl;
+				if (!needsResolve) continue;
+				const p = new URLSearchParams({ title: track.title, artist: track.artist });
+				fetch(`/api/resolve?${p}`)
+					.then(r => r.ok ? r.json() : {})
+					.then((resolved: { spotifyUrl?: string; appleMusicUrl?: string; deezerUrl?: string; youtubeMusicUrl?: string }) => {
+						const updates: Record<string, string> = {};
+						if (!spotifyUrl      && resolved.spotifyUrl)      updates.spotifyUrl      = resolved.spotifyUrl;
+						if (!appleMusicUrl   && resolved.appleMusicUrl)   updates.appleMusicUrl   = resolved.appleMusicUrl;
+						if (!deezerUrl       && resolved.deezerUrl)       updates.deezerUrl       = resolved.deezerUrl;
+						if (!youtubeMusicUrl && resolved.youtubeMusicUrl) updates.youtubeMusicUrl = resolved.youtubeMusicUrl;
+						if (Object.keys(updates).length === 0) return;
+						return fetch(`/api/songs/${songId}`, {
+							method: 'PUT',
+							headers: { 'Content-Type': 'application/json' },
+							body: JSON.stringify(updates),
+						});
+					})
+					.catch(() => {});
+			}
 		} catch {
 			createError = 'Failed to create mixtape. Please try again.';
 			creating = false;
@@ -293,17 +298,9 @@
 				<p class="text-xs text-red-400">{createError}</p>
 			{/if}
 			{#if creating}
-				<div class="space-y-1.5">
-					<div class="flex justify-between text-xs {$t.textMuted}">
-						<span>Creating mixtape…</span>
-						<span>{createStep} / {createTotal}</span>
-					</div>
-					<div class="w-full h-1.5 {$t.surfaceBg} rounded-full overflow-hidden">
-						<div
-							class="{$t.accentBg} h-full rounded-full transition-all duration-300"
-							style="width: {progressPct}%"
-						></div>
-					</div>
+				<div class="flex items-center justify-center gap-2 py-2 text-sm {$t.textMuted}">
+					<span class="w-4 h-4 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin shrink-0"></span>
+					Creating mixtape…
 				</div>
 			{:else}
 				<button
