@@ -50,7 +50,8 @@ CREATE TABLE IF NOT EXISTS songs (
   note              TEXT,
   listed            INTEGER NOT NULL DEFAULT 1,
   created_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
-  updated_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+  updated_at        TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+  urls_resolved_at  TEXT
 );
 CREATE INDEX IF NOT EXISTS songs_user_id    ON songs(user_id);
 CREATE INDEX IF NOT EXISTS songs_created_at ON songs(created_at DESC);
@@ -138,6 +139,7 @@ function openDb(): import('better-sqlite3').Database {
 	for (const stmt of [
 		'ALTER TABLE users ADD COLUMN avatar BLOB',
 		'ALTER TABLE users ADD COLUMN avatar_mime TEXT',
+		'ALTER TABLE songs ADD COLUMN urls_resolved_at TEXT',
 	]) {
 		try { db.exec(stmt); } catch { /* column already exists */ }
 	}

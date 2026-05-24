@@ -24,7 +24,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 			s.title, s.artist, s.album, s.thumbnail_url,
 			s.spotify_url, s.apple_music_url, s.youtube_music_url,
 			s.deezer_url, s.tidal_url, s.amazon_music_url, s.soundcloud_url,
-			s.note, s.created_at as song_created_at
+			s.note, s.created_at as song_created_at, s.urls_resolved_at
 		FROM setlist_items si
 		LEFT JOIN songs s ON s.id = si.song_id
 		LEFT JOIN users adder ON adder.id = si.added_by_user_id
@@ -59,6 +59,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 					tidalUrl:        r.tidal_url ?? undefined,
 					note:            r.note ?? undefined,
 					createdAt:       r.song_created_at,
+					urlsResolvedAt:  r.urls_resolved_at ?? undefined,
 				} : snapshot;
 				return {
 					id:       r.id,

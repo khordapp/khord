@@ -15,6 +15,7 @@ export interface SongRecord {
 	soundcloudUrl?: string;
 	note?: string;
 	createdAt: string;
+	urlsResolvedAt?: string;
 }
 
 export interface SharedSong {

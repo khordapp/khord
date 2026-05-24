@@ -85,6 +85,43 @@
 	// Edit mode
 	let editing = false;
 
+	// Resolve missing streaming URLs
+	let resolving = false;
+	$: unresolvedCount = dndItems.filter(i => i.songId && i.record && !i.record.urlsResolvedAt).length;
+
+	function resolveUnresolved() {
+		if (resolving) return;
+		resolving = true;
+		const targets = dndItems.filter(i => i.songId && i.record && !i.record.urlsResolvedAt);
+		let remaining = targets.length;
+		if (remaining === 0) { resolving = false; return; }
+		for (const item of targets) {
+			const p = new URLSearchParams({ title: item.record!.title, artist: item.record!.artist });
+			fetch(`/api/resolve?${p}`)
+				.then(r => r.ok ? r.json() : {})
+				.then((resolved: { spotifyUrl?: string; appleMusicUrl?: string; deezerUrl?: string; youtubeMusicUrl?: string }) => {
+					dndItems = dndItems.map(i => i.id !== item.id ? i : {
+						...i,
+						record: {
+							...i.record!,
+							...(resolved.spotifyUrl      && { spotifyUrl:      resolved.spotifyUrl }),
+							...(resolved.appleMusicUrl   && { appleMusicUrl:   resolved.appleMusicUrl }),
+							...(resolved.deezerUrl       && { deezerUrl:       resolved.deezerUrl }),
+							...(resolved.youtubeMusicUrl && { youtubeMusicUrl: resolved.youtubeMusicUrl }),
+							urlsResolvedAt: new Date().toISOString(),
+						}
+					});
+					return fetch(`/api/songs/${item.songId}`, {
+						method: 'PUT',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(resolved),
+					});
+				})
+				.catch(() => {})
+				.finally(() => { if (--remaining === 0) resolving = false; });
+		}
+	}
+
 	// Title editing
 	let editingTitle = false;
 	let titleDraft = '';
@@ -659,6 +696,25 @@
 				</svg>
 				<span class="text-[11px] leading-none">Add</span>
 			</button>
+			{#if unresolvedCount > 0}
+				<button
+					on:click={resolveUnresolved}
+					disabled={resolving}
+					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {resolving ? $t.textFaint : $t.accentText} disabled:opacity-60"
+				>
+					{#if resolving}
+						<span class="w-6 h-6 flex items-center justify-center">
+							<span class="w-4 h-4 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin"></span>
+						</span>
+					{:else}
+						<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+							<path d="M13.5 8A5.5 5.5 0 1 1 8 2.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
+							<path d="M13.5 2.5v3.5H10" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+					{/if}
+					<span class="text-[11px] leading-none">{resolving ? 'Resolving…' : `Resolve (${unresolvedCount})`}</span>
+				</button>
+			{/if}
 			{#if $instanceConfig.isOwner}
 				<button
 					on:click={togglePin}

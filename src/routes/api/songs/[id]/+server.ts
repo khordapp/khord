@@ -28,7 +28,8 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 			youtube_music_url = COALESCE(?, youtube_music_url),
 			deezer_url        = COALESCE(?, deezer_url),
 			tidal_url         = COALESCE(?, tidal_url),
-			updated_at        = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+			updated_at        = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'),
+			urls_resolved_at  = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
 		WHERE id = ?
 	`).run(
 		spotifyUrl ?? null,
@@ -40,7 +41,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	);
 
 	const row = db.prepare(`
-		SELECT spotify_url, apple_music_url, youtube_music_url, deezer_url, tidal_url, updated_at
+		SELECT spotify_url, apple_music_url, youtube_music_url, deezer_url, tidal_url, updated_at, urls_resolved_at
 		FROM songs WHERE id = ?
 	`).get(id) as any;
 
@@ -51,6 +52,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		deezerUrl:       row.deezer_url ?? undefined,
 		tidalUrl:        row.tidal_url ?? undefined,
 		updatedAt:       row.updated_at,
+		urlsResolvedAt:  row.urls_resolved_at ?? undefined,
 	});
 };
 
