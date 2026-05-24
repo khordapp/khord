@@ -115,6 +115,26 @@
 	let pruning = false;
 	let pruneResult: { count: number; bytesFreed: number } | null = null;
 	let pruneError = false;
+	let orphanPruning = false;
+	let orphanPruneResult: { count: number; bytesFreed: number } | null = null;
+	let orphanPruneError = false;
+
+	async function runOrphanPrune() {
+		if (orphanPruning) return;
+		orphanPruning = true;
+		orphanPruneResult = null;
+		orphanPruneError = false;
+		try {
+			const r = await fetch('/api/admin/thumbnails', { method: 'POST' });
+			if (!r.ok) throw new Error();
+			orphanPruneResult = await r.json();
+			await loadCacheStats();
+		} catch {
+			orphanPruneError = true;
+		} finally {
+			orphanPruning = false;
+		}
+	}
 
 	// ── Pinned setlists ───────────────────────────────────────────────────────────
 	let pins: PinnedSetlist[] = [];
@@ -1078,6 +1098,31 @@
 						{/if}
 					</p>
 				{:else if pruneError}
+					<p class="text-xs text-red-400">Prune failed — check server logs.</p>
+				{/if}
+			</div>
+
+			<div class="{$t.surfaceBg} border {$t.borderStrong} rounded-xl p-4 space-y-4">
+				<div>
+					<p class="text-sm font-medium {$t.textPrimary}">Prune orphan thumbnails</p>
+					<p class="text-xs {$t.textMuted} mt-0.5">Remove cached images no longer referenced by any song. Safe to run at any time — missing thumbnails are re-fetched on next view.</p>
+				</div>
+				<button
+					on:click={runOrphanPrune}
+					disabled={orphanPruning || cacheStats?.count === 0}
+					class="text-sm font-medium px-4 py-2 rounded-lg {$t.btnPrimaryBg} {$t.btnPrimaryText} {$t.btnPrimaryHover} transition-colors disabled:opacity-50"
+				>
+					{orphanPruning ? 'Scanning…' : 'Prune orphans'}
+				</button>
+				{#if orphanPruneResult}
+					<p class="text-xs {$t.textFaint}">
+						{#if orphanPruneResult.count === 0}
+							No orphan thumbnails found — nothing removed.
+						{:else}
+							Removed {orphanPruneResult.count.toLocaleString()} {orphanPruneResult.count === 1 ? 'thumbnail' : 'thumbnails'} · {formatBytes(orphanPruneResult.bytesFreed)} freed.
+						{/if}
+					</p>
+				{:else if orphanPruneError}
 					<p class="text-xs text-red-400">Prune failed — check server logs.</p>
 				{/if}
 			</div>

@@ -78,6 +78,30 @@ export interface PruneResult {
 	bytesFreed: number;
 }
 
+export function pruneOrphanThumbnails(activeThumbnailUrls: string[]): PruneResult {
+	const dir = getCacheDir();
+	if (!existsSync(dir)) return { count: 0, bytesFreed: 0 };
+	const validKeys = new Set(activeThumbnailUrls.filter(Boolean).map(urlToKey));
+	try {
+		const entries = readdirSync(dir);
+		let count = 0;
+		let bytesFreed = 0;
+		for (const name of entries) {
+			const filePath = join(dir, name);
+			const st = statSync(filePath);
+			if (!st.isFile()) continue;
+			if (!validKeys.has(name)) {
+				bytesFreed += st.size;
+				unlinkSync(filePath);
+				count++;
+			}
+		}
+		return { count, bytesFreed };
+	} catch {
+		return { count: 0, bytesFreed: 0 };
+	}
+}
+
 export function pruneCache(olderThanDays: number): PruneResult {
 	const dir = getCacheDir();
 	if (!existsSync(dir)) return { count: 0, bytesFreed: 0 };
