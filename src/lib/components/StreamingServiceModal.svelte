@@ -57,16 +57,24 @@
 					{/if}
 				</button>
 			{/each}
-			{#if $prefs}
-				<div class="border-t {$t.borderBase} py-1 mt-1">
+			<div class="border-t {$t.borderBase} py-1 mt-1">
+				{#if $prefs}
 					<button
 						on:click={() => { prefs.setPreferredPlatform(null); open = false; }}
 						class="w-full flex items-center px-5 py-3 text-sm {$t.textFaint} {$t.hoverText} {$t.hoverBg} transition-colors"
 					>
 						Clear preference
 					</button>
-				</div>
-			{/if}
+				{/if}
+				<a
+					href="/settings"
+					on:click={() => (open = false)}
+					class="flex items-center gap-2.5 px-5 py-3 text-sm {$t.textMuted} {$t.hoverText} {$t.hoverBg} transition-colors"
+				>
+					<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" stroke="currentColor" stroke-width="1.25"/><path d="M13.3 6.6a1 1 0 0 0 .2-1.1l-.8-1.4a1 1 0 0 0-1-.5l-1 .2a5 5 0 0 0-.8-.5l-.2-1A1 1 0 0 0 8.8 2H7.2a1 1 0 0 0-1 .8l-.2 1a5 5 0 0 0-.8.5l-1-.2a1 1 0 0 0-1 .5L2.4 6a1 1 0 0 0 .2 1.1l.7.7v.4l-.7.7a1 1 0 0 0-.2 1.1l.8 1.4a1 1 0 0 0 1 .5l1-.2c.3.2.5.3.8.5l.2 1a1 1 0 0 0 1 .8h1.6a1 1 0 0 0 1-.8l.2-1c.3-.2.5-.3.8-.5l1 .2a1 1 0 0 0 1-.5l.8-1.4a1 1 0 0 0-.2-1.1l-.7-.7v-.4l.7-.7Z" stroke="currentColor" stroke-width="1.25"/></svg>
+					All Settings
+				</a>
+			</div>
 		</div>
 	</div>
 {/if}
