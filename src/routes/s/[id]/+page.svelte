@@ -846,6 +846,18 @@
 					<span class="text-[11px] leading-none">{exporting ? 'Exporting…' : exportDone ? 'Exported!' : 'Spotify'}</span>
 				</button>
 			{/if}
+			{#if isOwner}
+				<button
+					on:click={() => (editing = true)}
+					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
+				>
+					<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+						<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
+						<path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+					<span class="text-[11px] leading-none">Edit</span>
+				</button>
+			{/if}
 			<button
 				on:click={shareSetlist}
 				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
