@@ -3,7 +3,7 @@ import { getDb } from '$lib/server/db';
 import { error } from '@sveltejs/kit';
 import { songSlug, setlistSlug } from '$lib/slug';
 
-export const load: PageServerLoad = ({ params, locals }) => {
+export const load: PageServerLoad = ({ params, locals, url }) => {
 	const db = getDb();
 
 	const user = db.prepare(`
@@ -14,8 +14,10 @@ export const load: PageServerLoad = ({ params, locals }) => {
 
 	if (!user) error(404, 'User not found');
 
-	const viewerLoggedIn = !!locals.user;
-	const isOwnProfile = locals.user?.id === user.id;
+	const actualIsOwnProfile = locals.user?.id === user.id;
+	const previewMode = actualIsOwnProfile && url.searchParams.has('preview');
+	const viewerLoggedIn = previewMode ? false : !!locals.user;
+	const isOwnProfile = previewMode ? false : actualIsOwnProfile;
 
 	const profile = {
 		id:            user.id,

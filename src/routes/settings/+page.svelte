@@ -246,6 +246,17 @@
 			{#if profilePublicMsg}
 				<p class="text-xs text-red-400">{profilePublicMsg}</p>
 			{/if}
+			<a
+				href="/u/{$session.username}?preview"
+				target="_blank"
+				rel="noopener"
+				class="inline-flex items-center gap-1 text-xs {$t.textMuted} hover:underline transition-colors"
+			>
+				Preview as visitor
+				<svg viewBox="0 0 12 12" fill="none" class="w-3 h-3" xmlns="http://www.w3.org/2000/svg">
+					<path d="M2 10L10 2M10 2H5M10 2v5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+			</a>
 		</div>
 	{/if}
 

@@ -15,7 +15,7 @@
 	import { navigating } from '$app/stores';
 	import { instanceConfig } from '$lib/stores/instance';
 	import { theme as t } from '$lib/theme';
-	import { prefs } from '$lib/stores/prefs';
+	import { prefs, type PlatformKey } from '$lib/stores/prefs';
 	import type { LayoutData } from './$types';
 
 	export let data: LayoutData;
@@ -24,6 +24,13 @@
 		spotifyUrl: 'Spotify', appleMusicUrl: 'Apple Music', youtubeMusicUrl: 'YouTube Music',
 		tidalUrl: 'Tidal', deezerUrl: 'Deezer', amazonMusicUrl: 'Amazon Music', soundcloudUrl: 'SoundCloud',
 	};
+
+	const DRAWER_PLATFORMS: { key: PlatformKey; label: string; color: string }[] = [
+		{ key: 'appleMusicUrl',   label: 'Apple Music',   color: '#FC3C44' },
+		{ key: 'spotifyUrl',      label: 'Spotify',       color: '#1DB954' },
+		{ key: 'youtubeMusicUrl', label: 'YouTube Music', color: '#FF0000' },
+		{ key: 'deezerUrl',       label: 'Deezer',        color: '#EF5466' },
+	];
 
 	$: currentPlatformLabel = $prefs ? (PLATFORM_LABELS[$prefs] ?? null) : null;
 
@@ -158,19 +165,6 @@
 		</a>
 
 		<div class="flex items-center gap-4">
-			{#if $isLoggedIn}
-				<button
-					on:click={() => (serviceSelectorOpen = true)}
-					title={currentPlatformLabel ? `Streaming on ${currentPlatformLabel} — change` : 'Set streaming service'}
-					class="hidden sm:flex items-center gap-1 transition-opacity hover:opacity-70 {currentPlatformLabel ? '' : $t.textFaint}"
-				>
-					<span class="text-2xl leading-none" aria-hidden="true">🎧</span>
-					<svg viewBox="0 0 10 10" fill="none" class="w-2 h-2 shrink-0" xmlns="http://www.w3.org/2000/svg">
-						<path d="M2 4l3 3 3-3" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
-				</button>
-			{/if}
-
 			<div class="relative">
 				{#if $isLoggedIn}
 					<button
@@ -284,9 +278,36 @@
 								<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M2 6.5 8 2l6 4.5V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6.5Z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/><path d="M6 15v-5h4v5" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></svg>
 								Feed
 							</a>
+							<!-- Streaming service inline selector -->
+							<div class="border-b {$t.borderBase} pb-1 mb-1">
+								<p class="px-5 pt-4 pb-1 text-xs font-semibold uppercase tracking-wider {$t.textMuted}">Streaming service</p>
+								{#each DRAWER_PLATFORMS as platform}
+									<button
+										on:click={() => prefs.setPreferredPlatform($prefs === platform.key ? null : platform.key)}
+										class="w-full flex items-center gap-4 px-5 py-4 text-base transition-colors {$t.hoverBg}
+											{$prefs === platform.key ? $t.textPrimary : $t.textSecondary}"
+									>
+										<span class="w-4 h-4 rounded-full shrink-0" style="background-color: {platform.color}"></span>
+										<span class="flex-1 text-left">{platform.label}</span>
+										{#if $prefs === platform.key}
+											<svg viewBox="0 0 14 14" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg">
+												<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+											</svg>
+										{/if}
+									</button>
+								{/each}
+								{#if $prefs}
+									<button
+										on:click={() => prefs.setPreferredPlatform(null)}
+										class="w-full flex items-center px-5 py-3 text-sm {$t.textFaint} {$t.hoverText} {$t.hoverBg} transition-colors"
+									>
+										Clear preference
+									</button>
+								{/if}
+							</div>
 							<a href="/settings" on:click={closeMenu} class="flex items-center gap-4 px-5 py-4 text-base {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
 								<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" stroke="currentColor" stroke-width="1.25"/><path d="M13.3 6.6a1 1 0 0 0 .2-1.1l-.8-1.4a1 1 0 0 0-1-.5l-1 .2a5 5 0 0 0-.8-.5l-.2-1A1 1 0 0 0 8.8 2H7.2a1 1 0 0 0-1 .8l-.2 1a5 5 0 0 0-.8.5l-1-.2a1 1 0 0 0-1 .5L2.4 6a1 1 0 0 0 .2 1.1l.7.7v.4l-.7.7a1 1 0 0 0-.2 1.1l.8 1.4a1 1 0 0 0 1 .5l1-.2c.3.2.5.3.8.5l.2 1a1 1 0 0 0 1 .8h1.6a1 1 0 0 0 1-.8l.2-1c.3-.2.5-.3.8-.5l1 .2a1 1 0 0 0 1-.5l.8-1.4a1 1 0 0 0-.2-1.1l-.7-.7v-.4l.7-.7Z" stroke="currentColor" stroke-width="1.25"/></svg>
-								Settings
+								All Settings
 							</a>
 							<a href="/invite" on:click={closeMenu} class="flex items-center gap-4 px-5 py-4 text-base {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
 								<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M10.5 8H14M12 6.5V9.5M6 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM2 13s-.5-4 4-4 4 4 4 4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
