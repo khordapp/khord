@@ -127,6 +127,13 @@ CREATE TABLE IF NOT EXISTS access_requests (
   requested_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
   reviewed_at  TEXT
 );
+
+CREATE TABLE IF NOT EXISTS notification_tokens (
+  token      TEXT PRIMARY KEY,
+  user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS notification_tokens_user_id ON notification_tokens(user_id);
 `;
 
 function openDb(): import('better-sqlite3').Database {

@@ -90,6 +90,23 @@
 
 		if (data.user) {
 			votes.load().catch(() => {});
+			// Register a notification token in Capacitor Preferences so the
+			// background fetch task can authenticate against /api/feed/new.
+			const Prefs = (window as any).Capacitor?.Plugins?.Preferences;
+			if (Prefs) {
+				fetch('/api/auth/notif-token', { method: 'POST' })
+					.then(r => r.ok ? r.json() : null)
+					.then(async (d) => {
+						if (!d?.token) return;
+						await Prefs.set({ key: 'notif_token', value: d.token });
+						await Prefs.set({ key: 'instance_url', value: window.location.origin });
+						const existing = await Prefs.get({ key: 'notif_last_seen' });
+						if (!existing?.value) {
+							await Prefs.set({ key: 'notif_last_seen', value: new Date().toISOString() });
+						}
+					})
+					.catch(() => {});
+			}
 		}
 
 		authReady.set(true);
