@@ -4,6 +4,7 @@
 	import { prefs } from '$lib/stores/prefs';
 	import type { PlatformKey } from '$lib/stores/prefs';
 	import { theme as t } from '$lib/theme';
+	import { PlayIcon, CaretDownIcon, XIcon } from 'phosphor-svelte';
 
 	export let record: SongRecord;
 
@@ -53,9 +54,7 @@
 				class="text-xs flex items-center gap-1.5 px-2.5 hover:opacity-70 transition-opacity whitespace-nowrap"
 				on:click={(e) => openPlatformUrl(e, record[first.key] as string)}
 			>
-				<svg viewBox="0 0 10 10" fill="currentColor" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg">
-					<path d="M2 1.5l6 3.5-6 3.5V1.5Z"/>
-				</svg>
+				<PlayIcon size={20} weight="fill" class="shrink-0" />
 				{first.label}
 			</a>
 			{#if rest.length > 0}
@@ -66,9 +65,7 @@
 					style="color:{first.brand.bg}"
 					class="flex items-center px-1.5 hover:opacity-70 transition-opacity"
 				>
-					<svg viewBox="0 0 10 10" fill="none" class="w-2.5 h-2.5" xmlns="http://www.w3.org/2000/svg">
-						<path d="M2 4l3 3 3-3" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
+					<CaretDownIcon size={10} />
 				</button>
 			{/if}
 		</div>
@@ -106,9 +103,7 @@
 				<div class="flex items-center justify-between px-4 pt-4 pb-3 border-b {$t.borderBase}">
 					<span class="text-sm font-semibold {$t.textPrimary}">Listen on…</span>
 					<button on:click={() => (open = false)} aria-label="Close" class="{$t.textMuted} {$t.hoverTextSecondary} transition-colors">
-						<svg viewBox="0 0 14 14" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
-							<path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-						</svg>
+						<XIcon size={16} />
 					</button>
 				</div>
 				{#each rest as platform}

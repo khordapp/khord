@@ -6,6 +6,7 @@
 	import { instanceConfig } from '$lib/stores/instance';
 	import { APP_NAME } from '$lib/config';
 	import { theme as t } from '$lib/theme';
+	import { CaretDownIcon, ArrowsClockwiseIcon } from 'phosphor-svelte';
 
 	// ── Auth gate ────────────────────────────────────────────────────────────────
 	$: if ($authReady && $instanceConfig.loaded && browser) {
@@ -517,9 +518,7 @@
 				<option value="cache">Cache</option>
 			</select>
 			<div class="absolute inset-y-0 right-3 flex items-center pointer-events-none {$t.accentText}">
-				<svg viewBox="0 0 10 10" fill="none" class="w-3 h-3" xmlns="http://www.w3.org/2000/svg">
-					<path d="M2 4l3 3 3-3" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
+				<CaretDownIcon size={12} />
 			</div>
 		</div>
 	</div>
@@ -1052,9 +1051,7 @@
 					disabled={cacheStatsLoading}
 					class="flex items-center gap-1.5 text-xs {$t.textMuted} {$t.hoverText} border {$t.borderBase} {$t.hoverBorderBase} px-2.5 py-1 rounded-full disabled:opacity-50 transition-colors"
 				>
-					<svg viewBox="0 0 24 24" fill="none" class="w-3 h-3 {cacheStatsLoading ? 'animate-spin' : ''}" xmlns="http://www.w3.org/2000/svg">
-						<path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
+					<ArrowsClockwiseIcon size={12} class="{cacheStatsLoading ? 'animate-spin' : ''}" />
 					Refresh
 				</button>
 			</div>

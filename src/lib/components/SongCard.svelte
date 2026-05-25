@@ -8,6 +8,7 @@
 	import { APP_URL, thumbUrl } from '$lib/config';
 	import { songSlug } from '$lib/slug';
 	import type { PlatformKey } from '$lib/stores/prefs';
+	import { CheckCircleIcon, PlayIcon, CheckIcon, UploadSimpleIcon, HeartIcon, ArrowsClockwiseIcon } from 'phosphor-svelte';
 
 	const PLATFORMS: { key: PlatformKey; label: string; color: string }[] = [
 		{ key: 'appleMusicUrl',   label: 'Apple Music',   color: '#FC3C44' },
@@ -141,19 +142,13 @@
 					/>
 					{#if selected}
 						<div class="absolute inset-0 rounded-md bg-black/60 flex items-center justify-center">
-							<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
-								<circle cx="8" cy="8" r="8" fill="white"/>
-								<path d="M4.5 8L7 10.5L11.5 6" stroke="#09090b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-							</svg>
+							<CheckCircleIcon size={16} weight="fill" color="white" />
 						</div>
 					{/if}
 				{:else}
 					<div class="mt-0.5 w-4 h-4 flex items-center justify-center">
 						{#if selected}
-							<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
-								<circle cx="8" cy="8" r="8" fill="white"/>
-								<path d="M4.5 8L7 10.5L11.5 6" stroke="#09090b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-							</svg>
+							<CheckCircleIcon size={16} weight="fill" class="{$t.accentText}" />
 						{:else}
 							<div class="w-4 h-4 rounded-full border {$t.borderStrong}"></div>
 						{/if}
@@ -174,15 +169,13 @@
 			href={record[primaryPlatform.key as keyof SongRecord] as string}
 			title="Listen on {primaryPlatform.label}"
 			on:click|stopPropagation
-			class="absolute right-4 inset-y-0 flex items-center z-10"
+			class="absolute right-4 top-4 z-10"
 		>
 			<div
-				class="w-10 h-10 rounded-full flex items-center justify-center shadow-md transition-opacity hover:opacity-80"
+				class="w-12 h-12 rounded-full flex items-center justify-center shadow-md transition-opacity hover:opacity-80"
 				style="background-color: {primaryPlatform.color}"
 			>
-				<svg viewBox="0 0 10 10" fill="white" class="w-4 h-4 ml-0.5" xmlns="http://www.w3.org/2000/svg">
-					<path d="M2 1.5l6 3.5-6 3.5V1.5Z"/>
-				</svg>
+				<PlayIcon size={20} weight="fill" color="white" class="ml-0.5" />
 			</div>
 		</a>
 	{/if}
@@ -208,13 +201,9 @@
 			class="p-2 transition-colors {shared ? $t.textPrimary : `${$t.textFaint} ${$t.hoverTextSecondary}`}"
 		>
 			{#if shared}
-				<svg viewBox="0 0 14 14" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-					<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
+				<CheckIcon size={24} />
 			{:else}
-				<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-					<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
+				<UploadSimpleIcon size={24} />
 			{/if}
 		</button>
 		{#if !publicView}
@@ -229,9 +218,7 @@
 					<span class="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
 				{:else}
 					<span class="flex items-center gap-0.5">
-						<svg viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-							<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
+						<HeartIcon size={24} weight={liked ? "fill" : "regular"} />
 						<span class="text-base leading-none -mt-0.5">♪</span>
 					</span>
 					{#if localCount > 0}
@@ -250,13 +237,9 @@
 					{#if resyncing}
 						<span class="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
 					{:else if resynced}
-						<svg viewBox="0 0 14 14" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-							<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
+						<CheckIcon size={24} />
 					{:else}
-						<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-							<path d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
+						<ArrowsClockwiseIcon size={24} />
 					{/if}
 				</button>
 			{/if}

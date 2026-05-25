@@ -32,6 +32,7 @@
     "@atproto/sync": "0.1.40",
     "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.8.0",
+    "phosphor-svelte": "^3.1.0",
     "svelte-dnd-action": "^0.9.69"
   }
 }

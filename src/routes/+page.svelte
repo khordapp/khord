@@ -16,8 +16,9 @@
 	import { prefs } from '$lib/stores/prefs';
 	import LandingContent from '$lib/landing.svelte';
 	import { env } from '$env/dynamic/public';
-	import { initiateSpotifyAuth } from '$lib/streaming/spotify';
-	import { spotifyAuthorized } from '$lib/stores/spotify';
+	import { initiateSpotifyAuth, createPlaylist, replacePlaylistTracks, searchSpotifyTracks, extractSpotifyId, getSpotifyUser } from '$lib/streaming/spotify';
+	import { spotifyAuthorized, spotifyTokens } from '$lib/stores/spotify';
+	import { ArrowDownIcon, CalendarIcon, PlusIcon, TrashIcon, MusicNotesIcon, HeartIcon, SpotifyLogoIcon, UploadSimpleIcon, PushPinIcon, ArrowRightIcon, ListPlusIcon, ArrowSquareInIcon, XIcon, HouseIcon, ListIcon, GearIcon } from 'phosphor-svelte';
 
 	$: spotifyEnabled = !!env.PUBLIC_SPOTIFY_CLIENT_ID;
 	const PENDING_EXPORT_KEY = 'khord_spotify_pending_export';
@@ -31,13 +32,89 @@
 		}
 	}
 
-	function exportSetlistToSpotify(title: string, id: number) {
+	let exportDialog: { id: number; title: string } | null = null;
+	let exportItems: { record: { spotifyUrl?: string; title: string; artist: string } | null }[] = [];
+	let exportItemsLoading = false;
+	let exporting = false;
+	let exportDone = false;
+	let exportError = '';
+	let exportPlaylistUrl = '';
+	let exportHasExisting = false;
+
+	async function exportSetlistToSpotify(title: string, id: number) {
 		const slug = setlistSlug(title, id);
 		if ($spotifyAuthorized) {
-			goto(`/s/${slug}?autoExport=1`);
+			exportDialog = { id, title };
+			exportItemsLoading = true;
+			exportDone = false;
+			exportError = '';
+			exportPlaylistUrl = '';
+			exportHasExisting = browser ? !!localStorage.getItem(`khord_spotify_export_${id}`) : false;
+			try {
+				const res = await fetch(`/api/setlists/${id}`);
+				if (res.ok) exportItems = (await res.json()).items;
+			} finally {
+				exportItemsLoading = false;
+			}
 		} else {
 			localStorage.setItem(PENDING_EXPORT_KEY, String(id));
 			initiateSpotifyAuth(`/s/${slug}`);
+		}
+	}
+
+	function closeExportDialog() {
+		if (exporting) return;
+		exportDialog = null;
+		exportItems = [];
+		exportDone = false;
+		exportError = '';
+		exportPlaylistUrl = '';
+	}
+
+	async function doListExport() {
+		if (!exportDialog || exporting) return;
+		const { id, title } = exportDialog;
+		exporting = true;
+		exportError = '';
+		let token: string;
+		try {
+			token = await spotifyTokens.getValidToken();
+		} catch {
+			exporting = false;
+			spotifyTokens.clear();
+			exportDialog = null;
+			localStorage.setItem(PENDING_EXPORT_KEY, String(id));
+			await initiateSpotifyAuth(`/s/${setlistSlug(title, id)}`);
+			return;
+		}
+		try {
+			const user = await getSpotifyUser(token);
+			const trackIds: string[] = [];
+			for (const item of exportItems) {
+				if (!item.record) continue;
+				const fromUrl = item.record.spotifyUrl ? extractSpotifyId(item.record.spotifyUrl) : null;
+				if (fromUrl) {
+					trackIds.push(fromUrl);
+				} else {
+					const results = await searchSpotifyTracks(`${item.record.title} ${item.record.artist}`, token, 1);
+					if (results.length > 0) trackIds.push(results[0].spotifyId);
+				}
+			}
+			if (trackIds.length === 0) throw new Error('No Spotify tracks found in this mixtape.');
+			const storageKey = `khord_spotify_export_${id}`;
+			let playlistId = browser ? localStorage.getItem(storageKey) : null;
+			if (!playlistId) {
+				playlistId = await createPlaylist(user.id, title, token);
+				if (browser) localStorage.setItem(storageKey, playlistId);
+			}
+			await replacePlaylistTracks(playlistId, trackIds, token);
+			exportPlaylistUrl = `https://open.spotify.com/playlist/${playlistId}`;
+			exportHasExisting = true;
+			exportDone = true;
+		} catch (e) {
+			exportError = e instanceof Error ? e.message : 'Export failed.';
+		} finally {
+			exporting = false;
 		}
 	}
 
@@ -649,6 +726,57 @@
 	</div>
 {/if}
 
+{#if exportDialog}
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+		<button class="absolute inset-0 bg-black/60 backdrop-blur-sm" aria-label="Close" disabled={exporting} on:click={closeExportDialog}></button>
+		<div class="relative w-full max-w-sm {$t.surfaceBg} border {$t.borderStrong} rounded-2xl shadow-2xl overflow-hidden">
+			<div class="px-5 pt-5 pb-4 space-y-3">
+				<div class="flex items-center gap-3">
+					<SpotifyLogoIcon size={28} class="shrink-0 {$t.textPrimary}" />
+					<div class="min-w-0">
+						<p class="text-sm font-semibold {$t.textPrimary}">Export to Spotify</p>
+						<p class="text-xs {$t.textMuted} truncate">{exportDialog.title}</p>
+					</div>
+				</div>
+				{#if exportItemsLoading}
+					<p class="text-xs {$t.textMuted}">Loading…</p>
+				{:else}
+					<div class="space-y-1">
+						<p class="text-xs {$t.textMuted}">{exportItems.length} {exportItems.length === 1 ? 'song' : 'songs'}</p>
+						<p class="text-xs {$t.textMuted}">
+							{exportHasExisting
+								? 'A Spotify playlist was previously created for this mixtape and will be updated with the current songs.'
+								: 'A new Spotify playlist will be created for this mixtape.'}
+						</p>
+					</div>
+				{/if}
+				{#if exportError}
+					<p class="text-xs text-red-400">{exportError}</p>
+				{/if}
+				{#if exportDone}
+					<p class="text-xs text-green-400">Exported successfully!</p>
+				{/if}
+			</div>
+			<div class="flex border-t {$t.borderBase}">
+				{#if exportDone}
+					<button on:click={closeExportDialog} class="flex-1 px-4 py-3.5 text-sm {$t.textMuted} {$t.hoverText} {$t.hoverBg} transition-colors">Close</button>
+					<a href={exportPlaylistUrl} target="_blank" rel="noopener noreferrer" class="flex-1 px-4 py-3.5 text-sm font-medium text-green-400 hover:text-green-300 border-l {$t.borderBase} transition-colors text-center">View on Spotify →</a>
+				{:else}
+					<button on:click={closeExportDialog} disabled={exporting} class="flex-1 px-4 py-3.5 text-sm {$t.textMuted} {$t.hoverText} {$t.hoverBg} transition-colors disabled:opacity-40">Cancel</button>
+					<button on:click={doListExport} disabled={exporting || exportItemsLoading} class="flex-1 px-4 py-3.5 text-sm font-medium {$t.accentText} hover:opacity-80 border-l {$t.borderBase} transition-colors disabled:opacity-40 flex items-center justify-center gap-2">
+						{#if exporting}
+							<span class="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin inline-block"></span>
+							Exporting…
+						{:else}
+							Export
+						{/if}
+					</button>
+				{/if}
+			</div>
+		</div>
+	</div>
+{/if}
+
 {#if !$authReady}
 	<div class="flex items-center justify-center min-h-[75vh]">
 		<img src="/khord-logo.png" alt={APP_NAME} class="h-40 w-40 rounded-3xl opacity-80" />
@@ -663,13 +791,7 @@
 			{#if pullRefreshing}
 				<span class="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin {$t.textFaint}"></span>
 			{:else}
-				<svg
-					viewBox="0 0 24 24" fill="none" class="w-5 h-5 {$t.textFaint}"
-					style="opacity: {Math.min(pullDistance / PULL_THRESHOLD, 1)}; transform: rotate({Math.min(pullDistance / PULL_THRESHOLD, 1) * 180}deg)"
-					xmlns="http://www.w3.org/2000/svg"
-				>
-					<path d="M12 5v14M5 12l7 7 7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
+				<ArrowDownIcon size={20} class="{$t.textFaint}" style="opacity: {Math.min(pullDistance / PULL_THRESHOLD, 1)}; transform: rotate({Math.min(pullDistance / PULL_THRESHOLD, 1) * 180}deg)" />
 			{/if}
 		</div>
 
@@ -709,9 +831,7 @@
 						title="Pick a date"
 						class="flex items-center gap-1.5 text-xs {$t.textSecondary} border {$t.borderStrong} {$t.hoverBorderStrong} px-2.5 py-1 rounded-full transition-colors"
 					>
-						<svg viewBox="0 0 24 24" fill="none" class="w-3.5 h-3.5 shrink-0" xmlns="http://www.w3.org/2000/svg">
-							<path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
+						<CalendarIcon size={14} class="shrink-0" />
 						{formatDateLabel(dailyDate)}{dailyItems.length > 0 ? ` · ${dailyItems.length} ${dailyItems.length === 1 ? 'song' : 'songs'}` : ''}
 					</button>
 					{#if dailyItems.length > 0}
@@ -725,9 +845,7 @@
 							class="hidden sm:flex items-center gap-1.5 text-xs {$t.accentText} {$t.accentTextHover} border {$t.accentBorder} {$t.accentBorderHover}
 								{$t.accentBg} px-2.5 py-1 rounded-full transition-colors"
 						>
-							<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
-								<path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-							</svg>
+							<PlusIcon size={12} class="shrink-0" />
 							{dailySelectedIds.size > 0 ? `Mixtape (${dailySelectedIds.size})` : 'Mixtape all'}
 						</button>
 					{/if}
@@ -742,9 +860,7 @@
 								class="flex items-center gap-1.5 text-xs {$t.accentText} {$t.accentTextHover} border {$t.accentBorder} {$t.accentBorderHover}
 									{$t.accentBg} px-2.5 py-1 rounded-full transition-colors"
 							>
-								<svg viewBox="0 0 14 14" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
-									<path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-								</svg>
+								<PlusIcon size={12} class="shrink-0" />
 								Mixtape ({selectedIds.size})
 							</button>
 							<button
@@ -753,9 +869,7 @@
 								class="flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 border border-red-900 hover:border-red-700
 									bg-red-950 px-2.5 py-1 rounded-full disabled:opacity-50 transition-colors"
 							>
-								<svg viewBox="0 0 24 24" fill="none" class="w-3 h-3 shrink-0" xmlns="http://www.w3.org/2000/svg">
-									<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-								</svg>
+								<TrashIcon size={12} class="shrink-0" />
 								Remove {selectedIds.size}
 							</button>
 						</div>
@@ -853,10 +967,7 @@
 								<a href="/s/{setlistSlug(pin.title, pin.id)}" class="block">
 									<div class="flex items-start gap-3">
 										<div class="shrink-0 w-12 h-12 rounded-md {$t.recessedBg} flex items-center justify-center">
-											<svg viewBox="0 0 24 24" fill="none" class="w-5 h-5 {$t.textFaint}" xmlns="http://www.w3.org/2000/svg">
-												<path d="M3 6h12M3 10h12M3 14h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-												<path d="M18 7v7.5a2 2 0 1 1-1.5-1.94V7z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-											</svg>
+											<MusicNotesIcon size={20} class="{$t.textFaint}" />
 										</div>
 										<div class="min-w-0">
 											<p class="text-base font-semibold {$t.textPrimary} leading-snug truncate">{pin.title}</p>
@@ -879,9 +990,7 @@
 												<span class="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
 											{:else}
 												<span class="flex items-center gap-0.5">
-													<svg viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-														<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-													</svg>
+													<HeartIcon size={24} weight={liked ? "fill" : "regular"} />
 													<span class="text-base leading-none -mt-0.5">♪</span>
 												</span>
 												{#if count > 0}<span class="text-sm tabular-nums">{count}</span>{/if}
@@ -890,9 +999,7 @@
 									{:else if count > 0}
 										<span class="p-2 flex items-center gap-1.5 text-sm {$t.textFaint}">
 											<span class="flex items-center gap-0.5">
-												<svg viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-													<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-												</svg>
+												<HeartIcon size={24} weight="fill" />
 												<span class="text-base leading-none -mt-0.5">♪</span>
 											</span>
 											<span class="tabular-nums">{count}</span>
@@ -905,10 +1012,7 @@
 											title="Export to Spotify"
 											class="p-2 transition-colors {$t.textFaint} {$t.hoverTextSecondary}"
 										>
-											<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-												<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
-												<path d="M7 9.5c2.8-1 5.8-.8 8 .8M7.5 12.5c2.3-.8 4.7-.7 6.5.5M8 15.5c1.8-.6 3.6-.5 5 .4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-											</svg>
+											<SpotifyLogoIcon size={24} />
 										</button>
 									{/if}
 									{#if $session}
@@ -918,9 +1022,7 @@
 											title="Share"
 											class="p-2 transition-colors {$t.textFaint} {$t.hoverTextSecondary}"
 										>
-											<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-												<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-											</svg>
+											<UploadSimpleIcon size={24} />
 										</button>
 									{/if}
 									{#if $instanceConfig.isOwner}
@@ -934,10 +1036,7 @@
 											{#if pinLoading.has(pin.id)}
 												<span class="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
 											{:else}
-												<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-													<circle cx="12" cy="7" r="5" stroke="currentColor" stroke-width="1.5" fill="currentColor"/>
-													<line x1="12" y1="12" x2="12" y2="21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-												</svg>
+												<PushPinIcon size={24} weight="fill" />
 											{/if}
 										</button>
 									{/if}
@@ -966,10 +1065,7 @@
 								<a href="/s/{setlistSlug(setlist.title, setlist.id)}" class="block">
 									<div class="flex items-start gap-3">
 										<div class="shrink-0 w-12 h-12 rounded-md {$t.recessedBg} flex items-center justify-center">
-											<svg viewBox="0 0 24 24" fill="none" class="w-5 h-5 {$t.textFaint}" xmlns="http://www.w3.org/2000/svg">
-												<path d="M3 6h12M3 10h12M3 14h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-												<path d="M18 7v7.5a2 2 0 1 1-1.5-1.94V7z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-											</svg>
+											<MusicNotesIcon size={20} class="{$t.textFaint}" />
 										</div>
 										<div class="min-w-0">
 											<p class="text-base font-semibold {$t.textPrimary} leading-snug truncate">{setlist.title}</p>
@@ -993,9 +1089,7 @@
 											<span class="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
 										{:else}
 											<span class="flex items-center gap-0.5">
-												<svg viewBox="0 0 24 24" fill={liked ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-													<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-												</svg>
+												<HeartIcon size={24} weight={liked ? "fill" : "regular"} />
 												<span class="text-base leading-none -mt-0.5">♪</span>
 											</span>
 											{#if count > 0}<span class="text-sm tabular-nums">{count}</span>{/if}
@@ -1008,10 +1102,7 @@
 											title="Export to Spotify"
 											class="p-2 transition-colors {$t.textFaint} {$t.hoverTextSecondary}"
 										>
-											<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-												<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
-												<path d="M7 9.5c2.8-1 5.8-.8 8 .8M7.5 12.5c2.3-.8 4.7-.7 6.5.5M8 15.5c1.8-.6 3.6-.5 5 .4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-											</svg>
+											<SpotifyLogoIcon size={24} />
 										</button>
 									{/if}
 									<button
@@ -1020,9 +1111,7 @@
 										title="Share"
 										class="p-2 transition-colors {$t.textFaint} {$t.hoverTextSecondary}"
 									>
-										<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-											<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-										</svg>
+										<UploadSimpleIcon size={24} />
 									</button>
 									{#if $instanceConfig.isOwner}
 										<button
@@ -1035,10 +1124,7 @@
 											{#if pinLoading.has(setlist.id)}
 												<span class="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
 											{:else}
-												<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-													<circle cx="12" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/>
-													<line x1="12" y1="12" x2="12" y2="21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-												</svg>
+												<PushPinIcon size={24} />
 											{/if}
 										</button>
 									{/if}
@@ -1066,9 +1152,7 @@
 			<div class="space-y-2">
 				<a href="/login" class="inline-flex items-center gap-2 {$t.btnPrimaryBg} {$t.btnPrimaryText} text-sm font-semibold px-5 py-2.5 rounded-lg {$t.btnPrimaryHover} transition-colors">
 					Get started
-					<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
-						<path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
+					<ArrowRightIcon size={16} />
 				</a>
 				<p class="text-xs {$t.textMuted}">Create an account to get started.</p>
 			</div>
@@ -1097,9 +1181,7 @@
 					on:click={() => { mobileActionOpen = false; openShareSong(); }}
 					class="w-full flex items-center gap-3 px-4 py-4 text-sm font-medium {$t.textPrimary} {$t.hoverBg} transition-colors"
 				>
-					<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 {$t.accentText} shrink-0" xmlns="http://www.w3.org/2000/svg">
-						<path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-					</svg>
+					<PlusIcon size={16} class="{$t.accentText} shrink-0" />
 					Share a song
 				</button>
 				<div class="border-t {$t.borderFaded}"></div>
@@ -1107,9 +1189,7 @@
 					on:click={() => { mobileActionOpen = false; openNewSetlist(); }}
 					class="w-full flex items-center gap-3 px-4 py-4 text-sm font-medium {$t.textPrimary} {$t.hoverBg} transition-colors"
 				>
-					<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 {$t.accentText} shrink-0" xmlns="http://www.w3.org/2000/svg">
-						<path d="M2 5h12M2 8h8M2 11h5M13 9v6M10 12h6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
-					</svg>
+					<ListPlusIcon size={16} class="{$t.accentText} shrink-0" />
 					New mixtape
 				</button>
 				<div class="border-t {$t.borderFaded}"></div>
@@ -1117,10 +1197,7 @@
 					on:click={() => { mobileActionOpen = false; openImportPlaylist(); }}
 					class="w-full flex items-center gap-3 px-4 py-4 text-sm font-medium {$t.textPrimary} {$t.hoverBg} transition-colors"
 				>
-					<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4 {$t.accentText} shrink-0" xmlns="http://www.w3.org/2000/svg">
-						<path d="M2 2h10a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H9l-1 2-1-2H2a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/>
-						<path d="M4 6h6M4 8.5h4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
-					</svg>
+					<ArrowSquareInIcon size={16} class="{$t.accentText} shrink-0" />
 					Import playlist
 				</button>
 			</div>
@@ -1129,9 +1206,7 @@
 		{#if hasSelection}
 			<div class="flex h-20">
 				<button on:click={clearSelection} class="flex-1 flex flex-col items-center justify-center gap-1 {$t.textMuted} transition-colors">
-					<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-						<path d="M3 3l10 10M13 3 3 13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-					</svg>
+					<XIcon size={24} />
 					<span class="text-[11px] leading-none">Cancel</span>
 				</button>
 				<div class="flex-1 flex flex-col items-center justify-center gap-0.5">
@@ -1139,16 +1214,12 @@
 					<span class="text-[11px] leading-none {$t.textMuted}">selected</span>
 				</div>
 				<button on:click={handleMobileSetlist} class="flex-1 flex flex-col items-center justify-center gap-1 {$t.accentText} transition-colors">
-					<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-						<path d="M2 4h12M2 8h8M2 12h5M13 9v6M10 12h6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
-					</svg>
+					<ListPlusIcon size={24} />
 					<span class="text-[11px] leading-none">Mixtape</span>
 				</button>
 				{#if canRemove}
 					<button on:click={() => (confirmOpen = true)} disabled={removing} class="flex-1 flex flex-col items-center justify-center gap-1 text-red-400 transition-colors disabled:opacity-40">
-						<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-							<path d="M3 4.5h10M6 4.5V3.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v1M12 4.5l-.6 8.5a1 1 0 0 1-1 .9H5.6a1 1 0 0 1-1-.9L4 4.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
+						<TrashIcon size={24} />
 						<span class="text-[11px] leading-none">Remove</span>
 					</button>
 				{:else}
@@ -1158,37 +1229,25 @@
 		{:else}
 			<div class="flex h-20">
 				<button on:click={() => switchTab('all')} class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors" aria-label="Feed">
-					<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6 {activeTab === 'all' ? $t.accentText : $t.textMuted}" xmlns="http://www.w3.org/2000/svg">
-						<path d="M2 6.5 8 2l6 4.5V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6.5Z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/>
-						<path d="M6 15v-5h4v5" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/>
-					</svg>
+					<HouseIcon size={24} class="{activeTab === 'all' ? $t.accentText : $t.textMuted}" />
 					<span class="text-[11px] leading-none {activeTab === 'all' ? $t.accentText : $t.textMuted}">Feed</span>
 				</button>
 				<button on:click={() => switchTab('daily')} class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors" aria-label="Daily">
-					<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6 {activeTab === 'daily' ? $t.accentText : $t.textMuted}" xmlns="http://www.w3.org/2000/svg">
-						<path d="M5 2v2M11 2v2M2 6h12M3 3h10a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
+					<CalendarIcon size={24} class="{activeTab === 'daily' ? $t.accentText : $t.textMuted}" />
 					<span class="text-[11px] leading-none {activeTab === 'daily' ? $t.accentText : $t.textMuted}">Daily</span>
 				</button>
 				<button on:click={() => (mobileActionOpen = !mobileActionOpen)} class="flex-1 flex flex-col items-center justify-center" aria-label="New" aria-expanded={mobileActionOpen}>
 					<div class="w-11 h-11 {$t.btnPrimaryBg} rounded-full flex items-center justify-center shadow-md">
-						<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6 {$t.btnPrimaryText} transition-transform {mobileActionOpen ? 'rotate-45' : ''}" xmlns="http://www.w3.org/2000/svg">
-							<path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
-						</svg>
+						<PlusIcon size={24} class="{$t.btnPrimaryText} transition-transform {mobileActionOpen ? 'rotate-45' : ''}" />
 					</div>
 				</button>
 				<button on:click={() => switchTab('setlists')} class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors" aria-label="Mixtapes">
-					<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6 {activeTab === 'setlists' ? $t.accentText : $t.textMuted}" xmlns="http://www.w3.org/2000/svg">
-						<path d="M2 4h12M2 8h8M2 12h5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
-					</svg>
+					<ListIcon size={24} class="{activeTab === 'setlists' ? $t.accentText : $t.textMuted}" />
 					<span class="text-[11px] leading-none {activeTab === 'setlists' ? $t.accentText : $t.textMuted}">Mixtapes</span>
 				</button>
 
 				<button on:click={() => (settingsOpen = true)} class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors" aria-label="Streaming service">
-					<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6 {$t.textMuted}" xmlns="http://www.w3.org/2000/svg">
-						<path d="M8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" stroke="currentColor" stroke-width="1.25"/>
-						<path d="M13.3 6.6a1 1 0 0 0 .2-1.1l-.8-1.4a1 1 0 0 0-1-.5l-1 .2a5 5 0 0 0-.8-.5l-.2-1A1 1 0 0 0 8.8 2H7.2a1 1 0 0 0-1 .8l-.2 1a5 5 0 0 0-.8.5l-1-.2a1 1 0 0 0-1 .5L2.4 6a1 1 0 0 0 .2 1.1l.7.7v.4l-.7.7a1 1 0 0 0-.2 1.1l.8 1.4a1 1 0 0 0 1 .5l1-.2c.3.2.5.3.8.5l.2 1a1 1 0 0 0 1 .8h1.6a1 1 0 0 0 1-.8l.2-1c.3-.2.5-.3.8-.5l1 .2a1 1 0 0 0 1-.5l.8-1.4a1 1 0 0 0-.2-1.1l-.7-.7v-.4l.7-.7Z" stroke="currentColor" stroke-width="1.25"/>
-					</svg>
+					<GearIcon size={24} class="{$t.textMuted}" />
 					<span class="text-[11px] leading-none {$t.textMuted}">Settings</span>
 				</button>
 			</div>

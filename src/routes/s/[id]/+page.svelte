@@ -4,6 +4,7 @@
 	import { instanceConfig } from '$lib/stores/instance';
 	import { prefs, type PlatformKey } from '$lib/stores/prefs';
 	import { theme as t } from '$lib/theme';
+	import { PencilSimpleIcon, DotsSixVerticalIcon, PlayIcon, XIcon, ArrowRightIcon, PlusIcon, TrashIcon, ArrowLeftIcon, HeartIcon, SpotifyLogoIcon, UploadSimpleIcon, PushPinIcon } from 'phosphor-svelte';
 	import { APP_NAME, APP_URL, thumbUrl } from '$lib/config';
 	import { setlistSlug } from '$lib/slug';
 	import { goto } from '$app/navigation';
@@ -101,23 +102,47 @@
 	let exportDone = false;
 	let exportError = '';
 	let exportPlaylistUrl = '';
+	let showExportDialog = false;
+	let hasExistingPlaylist = false;
 	const PENDING_EXPORT_KEY = 'khord_spotify_pending_export';
 
-	async function exportToSpotify() {
+	function openExportDialog() {
+		const storageKey = `khord_spotify_export_${setlist.id}`;
+		hasExistingPlaylist = browser ? !!localStorage.getItem(storageKey) : false;
+		exportDone = false;
+		exportError = '';
+		exportPlaylistUrl = '';
+		showExportDialog = true;
+	}
+
+	function closeExportDialog() {
 		if (exporting) return;
+		showExportDialog = false;
+		exportDone = false;
+		exportError = '';
+		exportPlaylistUrl = '';
+	}
+
+	async function exportToSpotify() {
 		if (!$spotifyAuthorized) {
 			if (browser) localStorage.setItem(PENDING_EXPORT_KEY, String(setlist.id));
 			await initiateSpotifyAuth(`/s/${setlistSlug(setlist.title, setlist.id)}`);
 			return;
 		}
-		exporting = true; exportDone = false; exportError = '';
+		openExportDialog();
+	}
+
+	async function doExport() {
+		if (exporting) return;
+		exporting = true;
+		exportError = '';
 		let token: string;
 		try {
 			token = await spotifyTokens.getValidToken();
 		} catch {
-			// Tokens gone or expired — clear and re-auth
 			exporting = false;
 			spotifyTokens.clear();
+			showExportDialog = false;
 			if (browser) localStorage.setItem(PENDING_EXPORT_KEY, String(setlist.id));
 			await initiateSpotifyAuth(`/s/${setlistSlug(setlist.title, setlist.id)}`);
 			return;
@@ -146,11 +171,10 @@
 			}
 			await replacePlaylistTracks(playlistId, trackIds, token);
 			exportPlaylistUrl = `https://open.spotify.com/playlist/${playlistId}`;
+			hasExistingPlaylist = true;
 			exportDone = true;
-			setTimeout(() => { exportDone = false; }, 5000);
 		} catch (e) {
 			exportError = e instanceof Error ? e.message : 'Export failed.';
-			setTimeout(() => { exportError = ''; }, 5000);
 		} finally {
 			exporting = false;
 		}
@@ -497,13 +521,11 @@
 				isPinned = pins.some((p: any) => p.id === setlist.id);
 			}
 		}
-		// Auto-trigger export: from Spotify auth return or ?autoExport=1 from list page
+		// Auto-trigger export after Spotify OAuth redirect
 		const pendingExport = localStorage.getItem(PENDING_EXPORT_KEY) === String(setlist.id);
-		const autoExport = new URLSearchParams(window.location.search).has('autoExport');
-		if (pendingExport || autoExport) {
-			if (pendingExport) localStorage.removeItem(PENDING_EXPORT_KEY);
-			if (isOwner) editing = true;
-			exportToSpotify();
+		if (pendingExport) {
+			localStorage.removeItem(PENDING_EXPORT_KEY);
+			openExportDialog();
 		}
 	});
 </script>
@@ -547,9 +569,7 @@
 				<h1 class="text-2xl font-bold {$t.textPrimary} flex-1">{setlist.title}</h1>
 				{#if isOwner && editing}
 					<button on:click={startEditTitle} class="{$t.textFaint} hover:opacity-70 transition-opacity mt-1 shrink-0" title="Edit title" aria-label="Edit title">
-						<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
-							<path d="M11.5 2.5a1.414 1.414 0 0 1 2 2L5 13H3v-2L11.5 2.5Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
+						<PencilSimpleIcon size={16} />
 					</button>
 				{/if}
 			</div>
@@ -693,9 +713,7 @@
 				<li animate:flip={{ duration: 200 }} class="relative flex items-start gap-3 border-b {$t.borderFaded} pl-5 pr-5 py-4 transition-colors">
 					{#if isOwner && editing}
 						<div class="cursor-grab active:cursor-grabbing {$t.textFaint} shrink-0">
-							<svg viewBox="0 0 16 16" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
-								<path d="M5 5h1M5 8h1M5 11h1M10 5h1M10 8h1M10 11h1" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-							</svg>
+							<DotsSixVerticalIcon size={16} />
 						</div>
 					{/if}
 					{#if rec}
@@ -714,9 +732,7 @@
 								style="background-color: {primary.color}"
 								on:click|stopPropagation
 							>
-								<svg viewBox="0 0 10 10" fill="white" class="w-4 h-4 ml-0.5" xmlns="http://www.w3.org/2000/svg">
-									<path d="M2 1.5l6 3.5-6 3.5V1.5Z"/>
-								</svg>
+								<PlayIcon size={16} weight="fill" color="white" class="ml-0.5" />
 							</a>
 						{/if}
 					{:else}
@@ -730,9 +746,7 @@
 							aria-label="Remove"
 							class="{$t.textFaint} hover:text-red-400 transition-colors shrink-0"
 						>
-							<svg viewBox="0 0 14 14" fill="none" class="w-4 h-4" xmlns="http://www.w3.org/2000/svg">
-								<path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-							</svg>
+							<XIcon size={16} />
 						</button>
 					{/if}
 				</li>
@@ -772,27 +786,21 @@
 				on:click={() => { editing = false; addOpen = false; }}
 				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
 			>
-				<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-					<path d="M3 8h10M8 3l5 5-5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
+				<ArrowRightIcon size={24} />
 				<span class="text-[11px] leading-none">Done</span>
 			</button>
 			<button
 				on:click={() => (addOpen = !addOpen)}
 				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {addOpen ? $t.accentText : $t.textMuted}"
 			>
-				<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-					<path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-				</svg>
+				<PlusIcon size={24} />
 				<span class="text-[11px] leading-none">Add</span>
 			</button>
 			<button
 				on:click={() => (confirmDeleteOpen = true)}
 				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors text-red-400"
 			>
-				<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-					<path d="M3 4.5h10M6 4.5V3.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v1M12 4.5l-.6 8.5a1 1 0 0 1-1 .9H5.6a1 1 0 0 1-1-.9L4 4.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
+				<TrashIcon size={24} />
 				<span class="text-[11px] leading-none">Delete</span>
 			</button>
 		</div>
@@ -804,9 +812,7 @@
 				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
 				aria-label="Go back"
 			>
-				<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-					<path d="M19 12H5M5 12l7 7M5 12l7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
+				<ArrowLeftIcon size={24} />
 				<span class="text-[11px] leading-none">Back</span>
 			</button>
 			{#if !isOwner}
@@ -816,9 +822,7 @@
 					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {setlistLiked ? $t.accentText : $t.textMuted} disabled:opacity-50"
 				>
 					<span class="flex items-center gap-0.5">
-						<svg viewBox="0 0 24 24" fill={setlistLiked ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-							<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
+						<HeartIcon size={24} weight={setlistLiked ? "fill" : "regular"} />
 						<span class="text-base leading-none -mt-0.5">♪</span>
 					</span>
 					<span class="text-[11px] leading-none">{setlistLikeCount > 0 ? setlistLikeCount : 'Upnote'}</span>
@@ -827,46 +831,28 @@
 			{#if spotifyEnabled}
 				<button
 					on:click={exportToSpotify}
-					disabled={exporting}
-					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50
-						{exportDone ? 'text-green-400' : exportError ? 'text-red-400' : $t.textMuted}"
+					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
 				>
-					{#if exporting}
-						<span class="w-6 h-6 flex items-center justify-center">
-							<span class="w-4 h-4 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin"></span>
-						</span>
-					{:else if exportDone}
-						<svg viewBox="0 0 14 14" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-							<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
-					{:else}
-						<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-							<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
-							<path d="M7 9.5c2.8-1 5.8-.8 8 .8M7.5 12.5c2.3-.8 4.7-.7 6.5.5M8 15.5c1.8-.6 3.6-.5 5 .4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-						</svg>
-					{/if}
-					<span class="text-[11px] leading-none">{exporting ? 'Exporting…' : exportDone ? 'Exported!' : 'Spotify'}</span>
+					<SpotifyLogoIcon size={24} />
+					<span class="text-[11px] leading-none">Spotify</span>
 				</button>
 			{/if}
 			{#if isOwner}
 				<button
 					on:click={() => (editing = true)}
-					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
+					class="flex-1 flex flex-col items-center justify-center"
+					aria-label="Edit mixtape"
 				>
-					<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-						<circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.5"/>
-						<path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
-					<span class="text-[11px] leading-none">Edit</span>
+					<div class="w-11 h-11 {$t.btnPrimaryBg} rounded-full flex items-center justify-center shadow-md">
+						<PencilSimpleIcon size={24} class="{$t.btnPrimaryText}" />
+					</div>
 				</button>
 			{/if}
 			<button
 				on:click={shareSetlist}
 				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
 			>
-				<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-					<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
+				<UploadSimpleIcon size={24} />
 				<span class="text-[11px] leading-none">Share</span>
 			</button>
 			{#if !isOwner}
@@ -874,9 +860,7 @@
 					on:click={() => (proposeOpen = !proposeOpen)}
 					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {proposeOpen ? $t.accentText : $t.textMuted}"
 				>
-					<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-						<path d="M8 2v10M2 8h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-					</svg>
+					<PlusIcon size={24} />
 					<span class="text-[11px] leading-none">Propose</span>
 				</button>
 			{/if}
@@ -890,10 +874,7 @@
 						<span class="w-4 h-4 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin"></span>
 					</span>
 				{:else}
-					<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-						<circle cx="12" cy="7" r="5" stroke="currentColor" stroke-width="1.5" fill={isPinned ? 'currentColor' : 'none'}/>
-						<line x1="12" y1="12" x2="12" y2="21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-					</svg>
+					<PushPinIcon size={24} weight={isPinned ? "fill" : "regular"} />
 				{/if}
 				<span class="text-[11px] leading-none">{isPinned ? 'Unpin' : 'Pin'}</span>
 			</button>
@@ -906,33 +887,16 @@
 				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
 				aria-label="Go back"
 			>
-				<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-					<path d="M19 12H5M5 12l7 7M5 12l7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
+				<ArrowLeftIcon size={24} />
 				<span class="text-[11px] leading-none">Back</span>
 			</button>
 			{#if spotifyEnabled}
 				<button
 					on:click={exportToSpotify}
-					disabled={exporting}
-					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50
-						{exportDone ? 'text-green-400' : exportError ? 'text-red-400' : $t.textMuted}"
+					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
 				>
-					{#if exporting}
-						<span class="w-6 h-6 flex items-center justify-center">
-							<span class="w-4 h-4 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin"></span>
-						</span>
-					{:else if exportDone}
-						<svg viewBox="0 0 14 14" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-							<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
-					{:else}
-						<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-							<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
-							<path d="M7 9.5c2.8-1 5.8-.8 8 .8M7.5 12.5c2.3-.8 4.7-.7 6.5.5M8 15.5c1.8-.6 3.6-.5 5 .4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-						</svg>
-					{/if}
-					<span class="text-[11px] leading-none">{exporting ? 'Exporting…' : exportDone ? 'Exported!' : 'Spotify'}</span>
+					<SpotifyLogoIcon size={24} />
+					<span class="text-[11px] leading-none">Spotify</span>
 				</button>
 			{/if}
 			<button
@@ -941,18 +905,14 @@
 				aria-label="Edit mixtape"
 			>
 				<div class="w-11 h-11 {$t.btnPrimaryBg} rounded-full flex items-center justify-center shadow-md">
-					<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6 {$t.btnPrimaryText}" xmlns="http://www.w3.org/2000/svg">
-						<path d="M11.5 2.5a1.414 1.414 0 0 1 2 2L5 13H3v-2L11.5 2.5Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
+					<PencilSimpleIcon size={24} class="{$t.btnPrimaryText}" />
 				</div>
 			</button>
 			<button
 				on:click={shareSetlist}
 				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
 			>
-				<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-					<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
+				<UploadSimpleIcon size={24} />
 				<span class="text-[11px] leading-none">Share</span>
 			</button>
 		</div>
@@ -964,9 +924,7 @@
 				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
 				aria-label="Go back"
 			>
-				<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-					<path d="M19 12H5M5 12l7 7M5 12l7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
+				<ArrowLeftIcon size={24} />
 				<span class="text-[11px] leading-none">Back</span>
 			</button>
 			<button
@@ -975,9 +933,7 @@
 				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {setlistLiked ? $t.accentText : $t.textMuted} disabled:opacity-50"
 			>
 				<span class="flex items-center gap-0.5">
-					<svg viewBox="0 0 24 24" fill={setlistLiked ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-						<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
+					<HeartIcon size={24} weight={setlistLiked ? "fill" : "regular"} />
 					<span class="text-base leading-none -mt-0.5">♪</span>
 				</span>
 				<span class="text-[11px] leading-none">{setlistLikeCount > 0 ? setlistLikeCount : 'Upnote'}</span>
@@ -985,43 +941,24 @@
 			{#if spotifyEnabled}
 				<button
 					on:click={exportToSpotify}
-					disabled={exporting}
-					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50
-						{exportDone ? 'text-green-400' : exportError ? 'text-red-400' : $t.textMuted}"
+					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
 				>
-					{#if exporting}
-						<span class="w-6 h-6 flex items-center justify-center">
-							<span class="w-4 h-4 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin"></span>
-						</span>
-					{:else if exportDone}
-						<svg viewBox="0 0 14 14" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-							<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
-					{:else}
-						<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-							<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
-							<path d="M7 9.5c2.8-1 5.8-.8 8 .8M7.5 12.5c2.3-.8 4.7-.7 6.5.5M8 15.5c1.8-.6 3.6-.5 5 .4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-						</svg>
-					{/if}
-					<span class="text-[11px] leading-none">{exporting ? 'Exporting…' : exportDone ? 'Exported!' : 'Spotify'}</span>
+					<SpotifyLogoIcon size={24} />
+					<span class="text-[11px] leading-none">Spotify</span>
 				</button>
 			{/if}
 			<button
 				on:click={shareSetlist}
 				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
 			>
-				<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-					<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
+				<UploadSimpleIcon size={24} />
 				<span class="text-[11px] leading-none">Share</span>
 			</button>
 			<button
 				on:click={() => (proposeOpen = !proposeOpen)}
 				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {proposeOpen ? $t.accentText : $t.textMuted}"
 			>
-				<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-					<path d="M8 2v10M2 8h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-				</svg>
+				<PlusIcon size={24} />
 				<span class="text-[11px] leading-none">Propose</span>
 			</button>
 		</div>
@@ -1029,14 +966,70 @@
 </nav>
 {/if}
 
-{#if exportError}
-	<p class="fixed bottom-24 left-0 right-0 text-center text-xs text-red-400 px-4 z-40 pointer-events-none">{exportError}</p>
-{/if}
-{#if exportDone && exportPlaylistUrl}
-	<a
-		href={exportPlaylistUrl}
-		target="_blank"
-		rel="noopener noreferrer"
-		class="fixed bottom-24 left-0 right-0 text-center text-xs text-green-400 underline px-4 z-40"
-	>Open in Spotify →</a>
+{#if showExportDialog}
+	<div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+		<button
+			class="absolute inset-0 bg-black/60 backdrop-blur-sm"
+			aria-label="Close"
+			disabled={exporting}
+			on:click={closeExportDialog}
+		></button>
+		<div class="relative w-full max-w-sm {$t.surfaceBg} border {$t.borderStrong} rounded-2xl shadow-2xl overflow-hidden">
+			<div class="px-5 pt-5 pb-4 space-y-3">
+				<div class="flex items-center gap-3">
+					<SpotifyLogoIcon size={28} class="shrink-0 {$t.textPrimary}" />
+					<div class="min-w-0">
+						<p class="text-sm font-semibold {$t.textPrimary}">Export to Spotify</p>
+						<p class="text-xs {$t.textMuted} truncate">{setlist.title}</p>
+					</div>
+				</div>
+				<div class="space-y-1">
+					<p class="text-xs {$t.textMuted}">{dndItems.length} {dndItems.length === 1 ? 'song' : 'songs'}</p>
+					<p class="text-xs {$t.textMuted}">
+						{hasExistingPlaylist
+							? 'A Spotify playlist was previously created for this mixtape and will be updated with the current songs.'
+							: 'A new Spotify playlist will be created for this mixtape.'}
+					</p>
+				</div>
+				{#if exportError}
+					<p class="text-xs text-red-400">{exportError}</p>
+				{/if}
+				{#if exportDone}
+					<p class="text-xs text-green-400">Exported successfully!</p>
+				{/if}
+			</div>
+			<div class="flex border-t {$t.borderBase}">
+				{#if exportDone}
+					<button
+						on:click={closeExportDialog}
+						class="flex-1 px-4 py-3.5 text-sm {$t.textMuted} {$t.hoverText} {$t.hoverBg} transition-colors"
+					>Close</button>
+					<a
+						href={exportPlaylistUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="flex-1 px-4 py-3.5 text-sm font-medium text-green-400 hover:text-green-300 border-l {$t.borderBase} transition-colors text-center"
+					>View on Spotify →</a>
+				{:else}
+					<button
+						on:click={closeExportDialog}
+						disabled={exporting}
+						class="flex-1 px-4 py-3.5 text-sm {$t.textMuted} {$t.hoverText} {$t.hoverBg} transition-colors disabled:opacity-40"
+					>Cancel</button>
+					<button
+						on:click={doExport}
+						disabled={exporting}
+						class="flex-1 px-4 py-3.5 text-sm font-medium {$t.accentText} hover:opacity-80 border-l {$t.borderBase} transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+					>
+						{#if exporting}
+							<span class="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin inline-block"></span>
+							Exporting…
+						{:else}
+							Export
+						{/if}
+					</button>
+				{/if}
+			</div>
+		</div>
+	</div>
 {/if}

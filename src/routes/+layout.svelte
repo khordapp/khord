@@ -16,6 +16,7 @@
 	import { instanceConfig } from '$lib/stores/instance';
 	import { theme as t } from '$lib/theme';
 	import { prefs, type PlatformKey } from '$lib/stores/prefs';
+	import { CaretDownIcon, XIcon, HouseIcon, CheckIcon, GearIcon, UserPlusIcon, BuildingsIcon, SunIcon, MoonIcon, InfoIcon, SignOutIcon, PlusIcon, ListPlusIcon, ArrowSquareInIcon } from 'phosphor-svelte';
 	import type { LayoutData } from './$types';
 
 	export let data: LayoutData;
@@ -180,9 +181,7 @@
 							{/if}
 						</div>
 						<span class="text-sm {$t.textSecondary} max-w-[120px] truncate hidden sm:block">@{$session?.username}</span>
-						<svg viewBox="0 0 10 10" fill="none" class="w-3 h-3 {$t.textMuted} shrink-0" xmlns="http://www.w3.org/2000/svg">
-							<path d="M2 4l3 3 3-3" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
+						<CaretDownIcon size={12} class="shrink-0 {$t.textMuted}" />
 					</button>
 				{:else}
 					<a href="/login" class="text-sm {$t.textMuted} {$t.hoverText} transition-colors">Sign in</a>
@@ -212,15 +211,13 @@
 								<span class="text-sm font-medium {$t.textSecondary} truncate">@{$session?.username}</span>
 							</div>
 							<button on:click={closeMenu} aria-label="Close menu" class="p-1.5 rounded-lg {$t.textMuted} {$t.hoverText} transition-colors shrink-0">
-								<svg viewBox="0 0 14 14" fill="none" class="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
-									<path d="M2 2l10 10M12 2 2 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-								</svg>
+								<XIcon size={20} />
 							</button>
 						</div>
 
 						<nav class="flex-1 py-2">
 							<a href="/" on:click={closeMenu} class="flex items-center gap-4 px-5 py-4 text-base {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
-								<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M2 6.5 8 2l6 4.5V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6.5Z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/><path d="M6 15v-5h4v5" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></svg>
+								<HouseIcon size={20} class="shrink-0" />
 								Feed
 							</a>
 							<!-- Streaming service inline selector -->
@@ -235,9 +232,7 @@
 										<span class="w-4 h-4 rounded-full shrink-0" style="background-color: {platform.color}"></span>
 										<span class="flex-1 text-left">{platform.label}</span>
 										{#if $prefs === platform.key}
-											<svg viewBox="0 0 14 14" fill="none" class="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg">
-												<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-											</svg>
+											<CheckIcon size={16} class="shrink-0" />
 										{/if}
 									</button>
 								{/each}
@@ -251,16 +246,16 @@
 								{/if}
 							</div>
 							<a href="/settings" on:click={closeMenu} class="flex items-center gap-4 px-5 py-4 text-base {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
-								<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z" stroke="currentColor" stroke-width="1.25"/><path d="M13.3 6.6a1 1 0 0 0 .2-1.1l-.8-1.4a1 1 0 0 0-1-.5l-1 .2a5 5 0 0 0-.8-.5l-.2-1A1 1 0 0 0 8.8 2H7.2a1 1 0 0 0-1 .8l-.2 1a5 5 0 0 0-.8.5l-1-.2a1 1 0 0 0-1 .5L2.4 6a1 1 0 0 0 .2 1.1l.7.7v.4l-.7.7a1 1 0 0 0-.2 1.1l.8 1.4a1 1 0 0 0 1 .5l1-.2c.3.2.5.3.8.5l.2 1a1 1 0 0 0 1 .8h1.6a1 1 0 0 0 1-.8l.2-1c.3-.2.5-.3.8-.5l1 .2a1 1 0 0 0 1-.5l.8-1.4a1 1 0 0 0-.2-1.1l-.7-.7v-.4l.7-.7Z" stroke="currentColor" stroke-width="1.25"/></svg>
+								<GearIcon size={20} class="shrink-0" />
 								All Settings
 							</a>
 							<a href="/invite" on:click={closeMenu} class="flex items-center gap-4 px-5 py-4 text-base {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
-								<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M10.5 8H14M12 6.5V9.5M6 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM2 13s-.5-4 4-4 4 4 4 4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
+								<UserPlusIcon size={20} class="shrink-0" />
 								Invite
 							</a>
 							{#if $instanceConfig.isOwner}
 								<a href="/admin" on:click={closeMenu} class="flex items-center gap-4 px-5 py-4 text-base {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
-									<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M8 2a2 2 0 0 1 2 2v.5l2.5 1.5V13H3.5V6L6 4.5V4a2 2 0 0 1 2-2Z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/><path d="M6.5 13v-3a1.5 1.5 0 0 1 3 0v3" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></svg>
+									<BuildingsIcon size={20} class="shrink-0" />
 									Admin
 								</a>
 							{/if}
@@ -270,20 +265,20 @@
 							{#if themeHasPair}
 								<button on:click={t.toggle} class="w-full flex items-center gap-4 px-5 py-4 text-base {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
 									{#if isLightTheme}
-										<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="3" stroke="currentColor" stroke-width="1.25"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>
+										<SunIcon size={20} class="shrink-0" />
 										Dark mode
 									{:else}
-										<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M13.5 9.5A6 6 0 0 1 6.5 2.5a6 6 0 1 0 7 7Z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/></svg>
+										<MoonIcon size={20} class="shrink-0" />
 										Light mode
 									{/if}
 								</button>
 							{/if}
 							<button on:click={() => { closeMenu(); aboutOpen = true; }} class="w-full flex items-center gap-4 px-5 py-4 text-base {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
-								<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.25"/><path d="M8 7v4M8 5v.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/></svg>
+								<InfoIcon size={20} class="shrink-0" />
 								About
 							</button>
 							<button on:click={() => { closeMenu(); handleLogout(); }} class="w-full flex items-center gap-4 px-5 py-4 text-base {$t.textSecondary} {$t.hoverText} {$t.hoverBg} transition-colors">
-								<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 shrink-0" xmlns="http://www.w3.org/2000/svg"><path d="M6 2H3a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3M10.5 11 14 8l-3.5-3M14 8H6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/></svg>
+								<SignOutIcon size={20} class="shrink-0" />
 								Sign out
 							</button>
 						</div>
@@ -307,9 +302,7 @@
 						class="flex items-center gap-3 sm:gap-2.5 {$t.elevatedBg} {$t.textPrimary} text-base sm:text-sm font-medium
 							px-5 py-3.5 sm:px-4 sm:py-2.5 rounded-full shadow-lg {$t.hoverBgStrong} transition-colors"
 					>
-						<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 sm:w-4 sm:h-4 shrink-0" xmlns="http://www.w3.org/2000/svg">
-							<path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-						</svg>
+						<PlusIcon size={20} class="shrink-0 sm:w-4 sm:h-4" />
 						Share song
 					</button>
 					<button
@@ -317,9 +310,7 @@
 						class="flex items-center gap-3 sm:gap-2.5 {$t.elevatedBg} {$t.textPrimary} text-base sm:text-sm font-medium
 							px-5 py-3.5 sm:px-4 sm:py-2.5 rounded-full shadow-lg {$t.hoverBgStrong} transition-colors"
 					>
-						<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 sm:w-4 sm:h-4 shrink-0" xmlns="http://www.w3.org/2000/svg">
-							<path d="M2 5h12M2 8h8M2 11h5M13 9v6M10 12h6" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
-						</svg>
+						<ListPlusIcon size={20} class="shrink-0 sm:w-4 sm:h-4" />
 						New mixtape
 					</button>
 					<button
@@ -327,10 +318,7 @@
 						class="flex items-center gap-3 sm:gap-2.5 {$t.elevatedBg} {$t.textPrimary} text-base sm:text-sm font-medium
 							px-5 py-3.5 sm:px-4 sm:py-2.5 rounded-full shadow-lg {$t.hoverBgStrong} transition-colors"
 					>
-						<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 sm:w-4 sm:h-4 shrink-0" xmlns="http://www.w3.org/2000/svg">
-							<path d="M2 2h10a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H9l-1 2-1-2H2a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/>
-							<path d="M4 6h6M4 8.5h4" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
-						</svg>
+						<ArrowSquareInIcon size={20} class="shrink-0 sm:w-4 sm:h-4" />
 						Import playlist
 					</button>
 				</div>
@@ -341,9 +329,7 @@
 				class="relative z-20 w-14 h-14 {$t.btnPrimaryBg} {$t.btnPrimaryText} rounded-full shadow-lg flex items-center justify-center
 					{$t.btnPrimaryHover} transition-all"
 			>
-				<svg viewBox="0 0 16 16" fill="none" class="w-5 h-5 transition-transform {fabOpen ? 'rotate-45' : ''}" xmlns="http://www.w3.org/2000/svg">
-					<path d="M8 2v12M2 8h12" stroke="currentColor" stroke-width="1.75" stroke-linecap="round"/>
-				</svg>
+				<PlusIcon size={20} class="transition-transform {fabOpen ? 'rotate-45' : ''}" />
 			</button>
 		</div>
 	{/if}
