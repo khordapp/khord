@@ -15,6 +15,31 @@
 	import { theme as t } from '$lib/theme';
 	import { prefs } from '$lib/stores/prefs';
 	import LandingContent from '$lib/landing.svelte';
+	import { env } from '$env/dynamic/public';
+	import { initiateSpotifyAuth } from '$lib/streaming/spotify';
+	import { spotifyAuthorized } from '$lib/stores/spotify';
+
+	$: spotifyEnabled = !!env.PUBLIC_SPOTIFY_CLIENT_ID;
+	const PENDING_EXPORT_KEY = 'khord_spotify_pending_export';
+
+	function shareSetlist(title: string, id: number) {
+		const url = `${APP_URL}/s/${setlistSlug(title, id)}`;
+		if (navigator.share) {
+			navigator.share({ title, url }).catch(() => {});
+		} else {
+			navigator.clipboard.writeText(url).catch(() => {});
+		}
+	}
+
+	function exportSetlistToSpotify(title: string, id: number) {
+		const slug = setlistSlug(title, id);
+		if ($spotifyAuthorized) {
+			goto(`/s/${slug}?autoExport=1`);
+		} else {
+			localStorage.setItem(PENDING_EXPORT_KEY, String(id));
+			initiateSpotifyAuth(`/s/${slug}`);
+		}
+	}
 
 	let isLightTheme = false;
 	$: if ($t) isLightTheme = t.isLight();
@@ -873,6 +898,31 @@
 											<span class="tabular-nums">{count}</span>
 										</span>
 									{/if}
+									{#if $session && spotifyEnabled}
+										<button
+											on:click|stopPropagation={() => exportSetlistToSpotify(pin.title, pin.id)}
+											aria-label="Export to Spotify"
+											title="Export to Spotify"
+											class="p-2 transition-colors {$t.textFaint} {$t.hoverTextSecondary}"
+										>
+											<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+												<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+												<path d="M7 9.5c2.8-1 5.8-.8 8 .8M7.5 12.5c2.3-.8 4.7-.7 6.5.5M8 15.5c1.8-.6 3.6-.5 5 .4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+											</svg>
+										</button>
+									{/if}
+									{#if $session}
+										<button
+											on:click|stopPropagation={() => shareSetlist(pin.title, pin.id)}
+											aria-label="Share mixtape"
+											title="Share"
+											class="p-2 transition-colors {$t.textFaint} {$t.hoverTextSecondary}"
+										>
+											<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+												<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+											</svg>
+										</button>
+									{/if}
 									{#if $instanceConfig.isOwner}
 										<button
 											on:click|stopPropagation={() => togglePin(pin.id)}
@@ -950,6 +1000,29 @@
 											</span>
 											{#if count > 0}<span class="text-sm tabular-nums">{count}</span>{/if}
 										{/if}
+									</button>
+									{#if spotifyEnabled}
+										<button
+											on:click|stopPropagation={() => exportSetlistToSpotify(setlist.title, setlist.id)}
+											aria-label="Export to Spotify"
+											title="Export to Spotify"
+											class="p-2 transition-colors {$t.textFaint} {$t.hoverTextSecondary}"
+										>
+											<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+												<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+												<path d="M7 9.5c2.8-1 5.8-.8 8 .8M7.5 12.5c2.3-.8 4.7-.7 6.5.5M8 15.5c1.8-.6 3.6-.5 5 .4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+											</svg>
+										</button>
+									{/if}
+									<button
+										on:click|stopPropagation={() => shareSetlist(setlist.title, setlist.id)}
+										aria-label="Share mixtape"
+										title="Share"
+										class="p-2 transition-colors {$t.textFaint} {$t.hoverTextSecondary}"
+									>
+										<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+											<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+										</svg>
 									</button>
 									{#if $instanceConfig.isOwner}
 										<button

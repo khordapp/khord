@@ -497,9 +497,11 @@
 				isPinned = pins.some((p: any) => p.id === setlist.id);
 			}
 		}
-		// Auto-trigger export if we just returned from Spotify auth
-		if (localStorage.getItem(PENDING_EXPORT_KEY) === String(setlist.id)) {
-			localStorage.removeItem(PENDING_EXPORT_KEY);
+		// Auto-trigger export: from Spotify auth return or ?autoExport=1 from list page
+		const pendingExport = localStorage.getItem(PENDING_EXPORT_KEY) === String(setlist.id);
+		const autoExport = new URLSearchParams(window.location.search).has('autoExport');
+		if (pendingExport || autoExport) {
+			if (pendingExport) localStorage.removeItem(PENDING_EXPORT_KEY);
 			if (isOwner) editing = true;
 			exportToSpotify();
 		}
