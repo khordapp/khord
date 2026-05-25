@@ -884,8 +884,9 @@
 											{#if pinLoading.has(pin.id)}
 												<span class="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
 											{:else}
-												<svg viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-													<path d="M12 20v-7M9 3h6l1 5-2 2v2H10V10L8 8l1-5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+												<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+													<circle cx="12" cy="7" r="5" stroke="currentColor" stroke-width="1.5" fill="currentColor"/>
+													<line x1="12" y1="12" x2="12" y2="21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
 												</svg>
 											{/if}
 										</button>
@@ -962,7 +963,8 @@
 												<span class="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin inline-block"></span>
 											{:else}
 												<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-													<path d="M12 20v-7M9 3h6l1 5-2 2v2H10V10L8 8l1-5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+													<circle cx="12" cy="7" r="5" stroke="currentColor" stroke-width="1.5"/>
+													<line x1="12" y1="12" x2="12" y2="21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
 												</svg>
 											{/if}
 										</button>

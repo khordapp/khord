@@ -56,6 +56,7 @@
 	}));
 
 	$: isOwner = $session?.id === setlist.owner.userId;
+	$: displayItems = $session ? dndItems : dndItems.slice(0, 3);
 
 	// Vote state
 	let setlistLikeCount = 0;
@@ -527,7 +528,7 @@
 	</div>
 {/if}
 
-<div class="space-y-6" style="padding-bottom: calc(5rem + env(safe-area-inset-bottom, 0px))">
+<div class="space-y-6" style="padding-bottom: {$session ? 'calc(5rem + env(safe-area-inset-bottom, 0px))' : '2rem'}">
 	<!-- Header -->
 	<div class="space-y-1">
 		{#if editingTitle && isOwner && editing}
@@ -680,11 +681,11 @@
 		</div>
 	{:else}
 		<ul
-			use:dndzone={{ items: dndItems, dragDisabled: !isOwner || !editing, type: 'setlist-items' }}
+			use:dndzone={{ items: displayItems, dragDisabled: !isOwner || !editing, type: 'setlist-items' }}
 			on:consider={handleDndConsider}
 			on:finalize={handleDndFinalize}
 		>
-			{#each dndItems as item (item.id)}
+			{#each displayItems as item (item.id)}
 				{@const rec = item.record}
 				{@const primary = rec ? getPrimaryPlatform(rec) : null}
 				<li animate:flip={{ duration: 200 }} class="relative flex items-start gap-3 border-b {$t.borderFaded} pl-5 pr-5 py-4 transition-colors">
@@ -735,9 +736,20 @@
 				</li>
 			{/each}
 		</ul>
+		{#if !$session}
+			<div class="pt-2 pb-6 text-center space-y-4">
+				{#if dndItems.length > 3}
+					<p class="text-sm {$t.textMuted}">{dndItems.length - 3} more song{dndItems.length - 3 === 1 ? '' : 's'} in this mixtape</p>
+				{/if}
+				<a href="/login" class="inline-flex items-center gap-2 px-6 py-3 {$t.btnPrimaryBg} {$t.btnPrimaryText} rounded-full text-sm font-semibold shadow-md">
+					Join {APP_NAME} to listen
+				</a>
+			</div>
+		{/if}
 	{/if}
 </div>
 
+{#if $session}
 <!-- Fixed bottom toolbar -->
 <nav
 	class="fixed bottom-0 left-0 right-0 z-30"
@@ -772,11 +784,48 @@
 				</svg>
 				<span class="text-[11px] leading-none">Add</span>
 			</button>
+			<button
+				on:click={() => (confirmDeleteOpen = true)}
+				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors text-red-400"
+			>
+				<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+					<path d="M3 4.5h10M6 4.5V3.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v1M12 4.5l-.6 8.5a1 1 0 0 1-1 .9H5.6a1 1 0 0 1-1-.9L4 4.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+				<span class="text-[11px] leading-none">Delete</span>
+			</button>
+		</div>
+	{:else if $instanceConfig.isOwner}
+		<!-- Admin toolbar -->
+		<div class="flex h-20">
+			<button
+				on:click={() => history.back()}
+				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
+				aria-label="Go back"
+			>
+				<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+					<path d="M19 12H5M5 12l7 7M5 12l7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+				<span class="text-[11px] leading-none">Back</span>
+			</button>
+			{#if !isOwner}
+				<button
+					on:click={toggleSetlistLike}
+					disabled={setlistLiking}
+					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {setlistLiked ? $t.accentText : $t.textMuted} disabled:opacity-50"
+				>
+					<span class="flex items-center gap-0.5">
+						<svg viewBox="0 0 24 24" fill={setlistLiked ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+							<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+						<span class="text-base leading-none -mt-0.5">♪</span>
+					</span>
+					<span class="text-[11px] leading-none">{setlistLikeCount > 0 ? setlistLikeCount : 'Upnote'}</span>
+				</button>
+			{/if}
 			{#if spotifyEnabled}
 				<button
 					on:click={exportToSpotify}
 					disabled={exporting}
-					title={$spotifyAuthorized ? 'Export to Spotify playlist' : 'Connect Spotify to export'}
 					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50
 						{exportDone ? 'text-green-400' : exportError ? 'text-red-400' : $t.textMuted}"
 				>
@@ -794,52 +843,45 @@
 							<path d="M7 9.5c2.8-1 5.8-.8 8 .8M7.5 12.5c2.3-.8 4.7-.7 6.5.5M8 15.5c1.8-.6 3.6-.5 5 .4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
 						</svg>
 					{/if}
-					<span class="text-[11px] leading-none">
-						{exporting ? 'Exporting…' : exportDone ? 'Exported!' : 'Spotify'}
-					</span>
+					<span class="text-[11px] leading-none">{exporting ? 'Exporting…' : exportDone ? 'Exported!' : 'Spotify'}</span>
 				</button>
-			{/if}
-			{#if unresolvedCount > 0}
-				<button
-					on:click={resolveUnresolved}
-					disabled={resolving}
-					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {resolving ? $t.textFaint : $t.accentText} disabled:opacity-60"
-				>
-					{#if resolving}
-						<span class="w-6 h-6 flex items-center justify-center">
-							<span class="w-4 h-4 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin"></span>
-						</span>
-					{:else}
-						<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-							<path d="M13.5 8A5.5 5.5 0 1 1 8 2.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round"/>
-							<path d="M13.5 2.5v3.5H10" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
-					{/if}
-					<span class="text-[11px] leading-none">{resolving ? 'Resolving…' : `Resolve (${unresolvedCount})`}</span>
-				</button>
-			{/if}
-			{#if $instanceConfig.isOwner}
-				<button
-					on:click={togglePin}
-					disabled={pinLoading}
-					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {isPinned ? $t.accentText : $t.textMuted} disabled:opacity-50"
-				>
-					<svg viewBox="0 0 24 24" fill={isPinned ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-						<path d="M12 20v-7M9 3h6l1 5-2 2v2H10V10L8 8l1-5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
-					<span class="text-[11px] leading-none">{isPinned ? 'Unpin' : 'Pin'}</span>
-				</button>
-			{:else}
-				<div class="flex-1"></div>
 			{/if}
 			<button
-				on:click={() => (confirmDeleteOpen = true)}
-				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors text-red-400"
+				on:click={shareSetlist}
+				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
 			>
-				<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-					<path d="M3 4.5h10M6 4.5V3.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v1M12 4.5l-.6 8.5a1 1 0 0 1-1 .9H5.6a1 1 0 0 1-1-.9L4 4.5" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+				<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+					<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 				</svg>
-				<span class="text-[11px] leading-none">Delete</span>
+				<span class="text-[11px] leading-none">Share</span>
+			</button>
+			{#if !isOwner}
+				<button
+					on:click={() => (proposeOpen = !proposeOpen)}
+					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {proposeOpen ? $t.accentText : $t.textMuted}"
+				>
+					<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+						<path d="M8 2v10M2 8h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+					</svg>
+					<span class="text-[11px] leading-none">Propose</span>
+				</button>
+			{/if}
+			<button
+				on:click={togglePin}
+				disabled={pinLoading}
+				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {isPinned ? $t.accentText : $t.textMuted} disabled:opacity-50"
+			>
+				{#if pinLoading}
+					<span class="w-6 h-6 flex items-center justify-center">
+						<span class="w-4 h-4 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin"></span>
+					</span>
+				{:else}
+					<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+						<circle cx="12" cy="7" r="5" stroke="currentColor" stroke-width="1.5" fill={isPinned ? 'currentColor' : 'none'}/>
+						<line x1="12" y1="12" x2="12" y2="21" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+					</svg>
+				{/if}
+				<span class="text-[11px] leading-none">{isPinned ? 'Unpin' : 'Pin'}</span>
 			</button>
 		</div>
 	{:else if isOwner}
@@ -855,89 +897,10 @@
 				</svg>
 				<span class="text-[11px] leading-none">Back</span>
 			</button>
-			<div class="flex-1"></div>
-			<button
-				on:click={() => { editing = true; }}
-				class="flex-1 flex flex-col items-center justify-center"
-				aria-label="Edit mixtape"
-			>
-				<div class="w-11 h-11 {$t.btnPrimaryBg} rounded-full flex items-center justify-center shadow-md">
-					<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6 {$t.btnPrimaryText}" xmlns="http://www.w3.org/2000/svg">
-						<path d="M11.5 2.5a1.414 1.414 0 0 1 2 2L5 13H3v-2L11.5 2.5Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
-				</div>
-			</button>
-			<button
-				on:click={toggleSetlistLike}
-				disabled={setlistLiking || !$session}
-				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {setlistLiked ? $t.accentText : $t.textMuted} disabled:opacity-50"
-			>
-				<span class="flex items-center gap-0.5">
-					<svg viewBox="0 0 24 24" fill={setlistLiked ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-						<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
-					<span class="text-base leading-none -mt-0.5">♪</span>
-				</span>
-				<span class="text-[11px] leading-none">{setlistLikeCount > 0 ? setlistLikeCount : 'Upnote'}</span>
-			</button>
-			<button
-				on:click={shareSetlist}
-				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
-			>
-				<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-					<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
-				<span class="text-[11px] leading-none">Share</span>
-			</button>
-			{#if $instanceConfig.isOwner}
-				<button
-					on:click={togglePin}
-					disabled={pinLoading}
-					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {isPinned ? $t.accentText : $t.textMuted} disabled:opacity-50"
-				>
-					{#if pinLoading}
-						<span class="w-6 h-6 flex items-center justify-center">
-							<span class="w-4 h-4 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin"></span>
-						</span>
-					{:else}
-						<svg viewBox="0 0 24 24" fill={isPinned ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-							<path d="M12 20v-7M9 3h6l1 5-2 2v2H10V10L8 8l1-5Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-						</svg>
-					{/if}
-					<span class="text-[11px] leading-none">{isPinned ? 'Unpin' : 'Pin'}</span>
-				</button>
-			{/if}
-		</div>
-	{:else if $session}
-		<!-- Non-owner toolbar -->
-		<div class="flex h-20">
-			<button
-				on:click={toggleSetlistLike}
-				disabled={setlistLiking}
-				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {setlistLiked ? $t.accentText : $t.textMuted} disabled:opacity-50"
-			>
-				<span class="flex items-center gap-0.5">
-					<svg viewBox="0 0 24 24" fill={setlistLiked ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-						<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-					</svg>
-					<span class="text-base leading-none -mt-0.5">♪</span>
-				</span>
-				<span class="text-[11px] leading-none">{setlistLikeCount > 0 ? setlistLikeCount : 'Upnote'}</span>
-			</button>
-			<button
-				on:click={shareSetlist}
-				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
-			>
-				<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-					<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-				</svg>
-				<span class="text-[11px] leading-none">Share</span>
-			</button>
 			{#if spotifyEnabled}
 				<button
 					on:click={exportToSpotify}
 					disabled={exporting}
-					title={$spotifyAuthorized ? 'Export to Spotify playlist' : 'Connect Spotify to export'}
 					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50
 						{exportDone ? 'text-green-400' : exportError ? 'text-red-400' : $t.textMuted}"
 				>
@@ -955,33 +918,32 @@
 							<path d="M7 9.5c2.8-1 5.8-.8 8 .8M7.5 12.5c2.3-.8 4.7-.7 6.5.5M8 15.5c1.8-.6 3.6-.5 5 .4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
 						</svg>
 					{/if}
-					<span class="text-[11px] leading-none">
-						{exporting ? 'Exporting…' : exportDone ? 'Exported!' : 'Spotify'}
-					</span>
+					<span class="text-[11px] leading-none">{exporting ? 'Exporting…' : exportDone ? 'Exported!' : 'Spotify'}</span>
 				</button>
 			{/if}
 			<button
-				on:click={() => (proposeOpen = !proposeOpen)}
-				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {proposeOpen ? $t.accentText : $t.textMuted}"
+				on:click={() => { editing = true; }}
+				class="flex-1 flex flex-col items-center justify-center"
+				aria-label="Edit mixtape"
 			>
-				<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-					<path d="M8 2v10M2 8h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
-				</svg>
-				<span class="text-[11px] leading-none">Propose</span>
+				<div class="w-11 h-11 {$t.btnPrimaryBg} rounded-full flex items-center justify-center shadow-md">
+					<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6 {$t.btnPrimaryText}" xmlns="http://www.w3.org/2000/svg">
+						<path d="M11.5 2.5a1.414 1.414 0 0 1 2 2L5 13H3v-2L11.5 2.5Z" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+				</div>
 			</button>
 			<button
-				on:click={() => history.back()}
+				on:click={shareSetlist}
 				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
-				aria-label="Go back"
 			>
 				<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
-					<path d="M19 12H5M5 12l7 7M5 12l7-7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+					<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 				</svg>
-				<span class="text-[11px] leading-none">Back</span>
+				<span class="text-[11px] leading-none">Share</span>
 			</button>
 		</div>
-	{:else}
-		<!-- Logged-out toolbar -->
+	{:else if $session}
+		<!-- User toolbar -->
 		<div class="flex h-20">
 			<button
 				on:click={() => history.back()}
@@ -993,9 +955,65 @@
 				</svg>
 				<span class="text-[11px] leading-none">Back</span>
 			</button>
+			<button
+				on:click={toggleSetlistLike}
+				disabled={setlistLiking}
+				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {setlistLiked ? $t.accentText : $t.textMuted} disabled:opacity-50"
+			>
+				<span class="flex items-center gap-0.5">
+					<svg viewBox="0 0 24 24" fill={setlistLiked ? 'currentColor' : 'none'} class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+						<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+					</svg>
+					<span class="text-base leading-none -mt-0.5">♪</span>
+				</span>
+				<span class="text-[11px] leading-none">{setlistLikeCount > 0 ? setlistLikeCount : 'Upnote'}</span>
+			</button>
+			{#if spotifyEnabled}
+				<button
+					on:click={exportToSpotify}
+					disabled={exporting}
+					class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50
+						{exportDone ? 'text-green-400' : exportError ? 'text-red-400' : $t.textMuted}"
+				>
+					{#if exporting}
+						<span class="w-6 h-6 flex items-center justify-center">
+							<span class="w-4 h-4 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin"></span>
+						</span>
+					{:else if exportDone}
+						<svg viewBox="0 0 14 14" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+							<path d="M2 7l3.5 3.5L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+						</svg>
+					{:else}
+						<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+							<circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5"/>
+							<path d="M7 9.5c2.8-1 5.8-.8 8 .8M7.5 12.5c2.3-.8 4.7-.7 6.5.5M8 15.5c1.8-.6 3.6-.5 5 .4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+						</svg>
+					{/if}
+					<span class="text-[11px] leading-none">{exporting ? 'Exporting…' : exportDone ? 'Exported!' : 'Spotify'}</span>
+				</button>
+			{/if}
+			<button
+				on:click={shareSetlist}
+				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {$t.textMuted}"
+			>
+				<svg viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+					<path d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M12 3v13.5M7.5 7.5 12 3l4.5 4.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+				</svg>
+				<span class="text-[11px] leading-none">Share</span>
+			</button>
+			<button
+				on:click={() => (proposeOpen = !proposeOpen)}
+				class="flex-1 flex flex-col items-center justify-center gap-1 transition-colors {proposeOpen ? $t.accentText : $t.textMuted}"
+			>
+				<svg viewBox="0 0 16 16" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg">
+					<path d="M8 2v10M2 8h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+				</svg>
+				<span class="text-[11px] leading-none">Propose</span>
+			</button>
 		</div>
 	{/if}
 </nav>
+{/if}
 
 {#if exportError}
 	<p class="fixed bottom-24 left-0 right-0 text-center text-xs text-red-400 px-4 z-40 pointer-events-none">{exportError}</p>
