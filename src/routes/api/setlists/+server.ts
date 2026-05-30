@@ -3,6 +3,7 @@
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { requireAuth } from '$lib/server/auth';
 import { getDb } from '$lib/server/db';
 
 export const GET: RequestHandler = ({ url, locals }) => {
@@ -41,7 +42,7 @@ export const GET: RequestHandler = ({ url, locals }) => {
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.user) error(401, 'Not authenticated');
+	const user = requireAuth(locals.user);
 
 	const body = await request.json().catch(() => null);
 	if (!body) error(400, 'Invalid JSON');
@@ -52,7 +53,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const db = getDb();
 	const result = db.prepare(`
 		INSERT INTO setlists (user_id, title, description) VALUES (?, ?, ?)
-	`).run(locals.user.id, title.trim(), description?.trim() ?? null);
+	`).run(user.id, title.trim(), description?.trim() ?? null);
 
 	const row = db.prepare('SELECT id, created_at FROM setlists WHERE id = ?').get(result.lastInsertRowid) as { id: number; created_at: string };
 	return json({ id: row.id, createdAt: row.created_at }, { status: 201 });

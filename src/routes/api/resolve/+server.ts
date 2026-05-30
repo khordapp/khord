@@ -1,4 +1,5 @@
 import { json, error } from '@sveltejs/kit';
+import { requireAuth } from '$lib/server/auth';
 import type { RequestHandler } from './$types';
 import { findSpotifyUrl } from '$lib/server/spotify';
 import { findYoutubeMusicUrl } from '$lib/server/youtube';
@@ -18,7 +19,7 @@ async function findAppleMusicUrl(title: string, artist: string): Promise<string 
 }
 
 export const GET: RequestHandler = async ({ url, locals }) => {
-	if (!locals.user) error(401, 'Unauthorized');
+	requireAuth(locals.user);
 	const spotifyEnabled      = getSetting('spotify_enabled', 'true') === 'true';
 	const youtubeMusicEnabled = getSetting('youtube_music_enabled', 'false') === 'true';
 

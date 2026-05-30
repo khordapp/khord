@@ -1,7 +1,9 @@
 // Instance access control — owner check and ban check.
 // Owner identity: OWNER_EMAILS env var (comma-separated) or role = 'admin' in DB.
 
+import { error } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
+import type { SessionUser } from './auth';
 
 function getOwnerEmails(): Set<string> {
 	const raw = env.OWNER_EMAILS ?? '';
@@ -23,6 +25,12 @@ export function isOwnerById(userId: number): boolean {
 	} catch {
 		return false;
 	}
+}
+
+/** Throws 403 unless the user is an instance owner. Returns the user for chaining. */
+export function requireOwner(user: SessionUser | null | undefined): SessionUser {
+	if (!user || !isOwnerUser(user.username, user.email)) error(403, 'Forbidden');
+	return user;
 }
 
 // Legacy shim — some admin routes still pass a string identifier.

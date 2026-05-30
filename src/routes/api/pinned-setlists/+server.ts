@@ -4,10 +4,9 @@
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { requireOwner } from '$lib/server/access';
 import { getSetting, setSetting } from '$lib/server/settings';
-import { isOwnerUser } from '$lib/server/access';
 import { getDb } from '$lib/server/db';
-import { env } from '$env/dynamic/private';
 
 export interface PinnedSetlist {
 	id: number;
@@ -66,9 +65,7 @@ export const GET: RequestHandler = () => {
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.user) error(401, 'Not authenticated');
-	const isOwner = locals.user.role === 'admin' || isOwnerUser(locals.user.username, locals.user.email);
-	if (!isOwner) error(403, 'Forbidden');
+	requireOwner(locals.user);
 
 	const body = await request.json().catch(() => null);
 	const setlistId: number = body?.setlistId;
@@ -84,9 +81,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 };
 
 export const DELETE: RequestHandler = async ({ request, locals }) => {
-	if (!locals.user) error(401, 'Not authenticated');
-	const isOwner = locals.user.role === 'admin' || isOwnerUser(locals.user.username, locals.user.email);
-	if (!isOwner) error(403, 'Forbidden');
+	requireOwner(locals.user);
 
 	const body = await request.json().catch(() => null);
 	const setlistId: number = body?.setlistId;

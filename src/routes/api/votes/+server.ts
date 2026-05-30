@@ -3,10 +3,11 @@
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { requireAuth } from '$lib/server/auth';
 import { getDb } from '$lib/server/db';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.user) error(401, 'Not authenticated');
+	const user = requireAuth(locals.user);
 
 	const body = await request.json().catch(() => null);
 	if (!body) error(400, 'Invalid JSON');
@@ -19,7 +20,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
 		const result = db.prepare(`
 			INSERT INTO votes (user_id, song_id, setlist_id) VALUES (?, ?, ?)
-		`).run(locals.user.id, songId ?? null, setlistId ?? null);
+		`).run(user.id, songId ?? null, setlistId ?? null);
 		return json({ id: result.lastInsertRowid }, { status: 201 });
 	} catch (e: any) {
 		if (e?.code === 'SQLITE_CONSTRAINT_UNIQUE') error(409, 'Already voted');

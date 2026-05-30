@@ -2,12 +2,13 @@
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { requireAuth } from '$lib/server/auth';
 import { getDb } from '$lib/server/db';
 import { getSetting } from '$lib/server/settings';
 import { env } from '$env/dynamic/private';
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.user) error(401, 'Not authenticated');
+	const user = requireAuth(locals.user);
 
 	const body = await request.json().catch(() => null);
 	if (!body) error(400, 'Invalid JSON');
@@ -32,7 +33,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 			urls_resolved_at
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`).run(
-		locals.user.id,
+		user.id,
 		title.trim(),
 		artist.trim(),
 		album?.trim() ?? null,

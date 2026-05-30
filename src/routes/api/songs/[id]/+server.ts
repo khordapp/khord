@@ -3,18 +3,18 @@
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { requireAuth } from '$lib/server/auth';
 import { getDb } from '$lib/server/db';
+import { getParamId } from '$lib/server/utils';
 
 export const PUT: RequestHandler = async ({ params, request, locals }) => {
-	if (!locals.user) error(401, 'Not authenticated');
-
-	const id = parseInt(params.id, 10);
-	if (!id) error(400, 'Invalid id');
+	const user = requireAuth(locals.user);
+	const id = getParamId(params.id);
 
 	const db = getDb();
 	const song = db.prepare('SELECT user_id FROM songs WHERE id = ?').get(id) as { user_id: number } | undefined;
 	if (!song) error(404, 'Song not found');
-	if (song.user_id !== locals.user.id) error(403, 'Not your song');
+	if (song.user_id !== user.id) error(403, 'Not your song');
 
 	const body = await request.json().catch(() => null);
 	if (!body) error(400, 'Invalid JSON');
@@ -43,7 +43,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	const row = db.prepare(`
 		SELECT spotify_url, apple_music_url, youtube_music_url, deezer_url, tidal_url, updated_at, urls_resolved_at
 		FROM songs WHERE id = ?
-	`).get(id) as any;
+	`).get(id) as Pick<import('$lib/server/utils').SongRow, 'spotify_url' | 'apple_music_url' | 'youtube_music_url' | 'deezer_url' | 'tidal_url' | 'updated_at' | 'urls_resolved_at'>;
 
 	return json({
 		spotifyUrl:      row.spotify_url ?? undefined,
@@ -57,15 +57,13 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 };
 
 export const DELETE: RequestHandler = ({ params, locals }) => {
-	if (!locals.user) error(401, 'Not authenticated');
-
-	const id = parseInt(params.id, 10);
-	if (!id) error(400, 'Invalid id');
+	const user = requireAuth(locals.user);
+	const id = getParamId(params.id);
 
 	const db = getDb();
 	const song = db.prepare('SELECT user_id FROM songs WHERE id = ?').get(id) as { user_id: number } | undefined;
 	if (!song) error(404, 'Song not found');
-	if (song.user_id !== locals.user.id && locals.user.role !== 'admin') error(403, 'Not your song');
+	if (song.user_id !== user.id && user.role !== 'admin') error(403, 'Not your song');
 
 	db.prepare('DELETE FROM songs WHERE id = ?').run(id);
 	return new Response(null, { status: 204 });

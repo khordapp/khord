@@ -2,13 +2,15 @@
 // Returns listed songs from all users, sorted by created_at DESC.
 // No fallback needed — DB is authoritative.
 
-import { json, error } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { requireAuth } from '$lib/server/auth';
 import { getDb } from '$lib/server/db';
 import { getSetting } from '$lib/server/settings';
+import { mapSongRecord, type SongRow } from '$lib/server/utils';
 
 export const GET: RequestHandler = ({ url, locals }) => {
-	if (!locals.user) error(401, 'Unauthorized');
+	requireAuth(locals.user);
 	const db = getDb();
 	const limit  = Math.min(parseInt(url.searchParams.get('limit') ?? '50'), 100);
 	const cursor = url.searchParams.get('cursor'); // ISO datetime of last item
@@ -31,25 +33,11 @@ export const GET: RequestHandler = ({ url, locals }) => {
 		${cursor ? 'AND s.created_at < ?' : ''}
 		ORDER BY s.created_at DESC
 		LIMIT ?
-	`).all(...params) as any[];
+	`).all(...params) as (SongRow & { username: string; display_name: string | null })[];
 
 	const items = rows.map((r) => ({
 		id: r.id,
-		record: {
-			title:           r.title,
-			artist:          r.artist,
-			album:           r.album ?? undefined,
-			thumbnailUrl:    r.thumbnail_url ?? undefined,
-			spotifyUrl:      r.spotify_url ?? undefined,
-			appleMusicUrl:   r.apple_music_url ?? undefined,
-			youtubeMusicUrl: r.youtube_music_url ?? undefined,
-			deezerUrl:       r.deezer_url ?? undefined,
-			tidalUrl:        r.tidal_url ?? undefined,
-			amazonMusicUrl:  r.amazon_music_url ?? undefined,
-			soundcloudUrl:   r.soundcloud_url ?? undefined,
-			note:            r.note ?? undefined,
-			createdAt:       r.created_at,
-		},
+		record: mapSongRecord(r),
 		sharedBy: {
 			userId:      r.user_id,
 			username:    r.username,

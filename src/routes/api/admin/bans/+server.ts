@@ -5,11 +5,10 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
-import { isOwnerUser } from '$lib/server/access';
+import { requireOwner } from '$lib/server/access';
 
 export const GET: RequestHandler = ({ locals }) => {
-	const user = locals.user;
-	if (!user || !isOwnerUser(user.username, user.email)) error(403, 'Forbidden');
+	requireOwner(locals.user);
 
 	const db = getDb();
 
@@ -34,8 +33,7 @@ export const GET: RequestHandler = ({ locals }) => {
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	const user = locals.user;
-	if (!user || !isOwnerUser(user.username, user.email)) error(403, 'Forbidden');
+	requireOwner(locals.user);
 
 	const body = await request.json().catch(() => null);
 	const targetUserId: number = body?.targetUserId;
@@ -69,8 +67,7 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 };
 
 export const DELETE: RequestHandler = async ({ request, locals }) => {
-	const user = locals.user;
-	if (!user || !isOwnerUser(user.username, user.email)) error(403, 'Forbidden');
+	requireOwner(locals.user);
 
 	const body = await request.json().catch(() => null);
 	const targetUserId: number = body?.targetUserId;

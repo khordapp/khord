@@ -3,12 +3,11 @@
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { isOwnerUser } from '$lib/server/access';
+import { requireOwner } from '$lib/server/access';
 import { getDb } from '$lib/server/db';
 
 export const POST: RequestHandler = ({ locals }) => {
-	const user = locals.user;
-	if (!user || !isOwnerUser(user.username, user.email)) error(403, 'Forbidden');
+	requireOwner(locals.user);
 
 	const db = getDb();
 

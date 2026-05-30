@@ -1,5 +1,6 @@
 // Server-side session management — token stored in cookie, resolved against sessions table.
 
+import { error } from '@sveltejs/kit';
 import { randomBytes } from 'crypto';
 import { getDb } from './db';
 
@@ -13,6 +14,12 @@ export interface SessionUser {
 	displayName: string | null;
 	role: string;
 	hasAvatar: boolean;
+}
+
+/** Throws 401 if the user is not authenticated. Returns the user for chaining. */
+export function requireAuth(user: SessionUser | null | undefined): SessionUser {
+	if (!user) error(401, 'Not authenticated');
+	return user;
 }
 
 export function createSession(userId: number): string {

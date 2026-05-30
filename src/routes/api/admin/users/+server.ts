@@ -3,11 +3,11 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { getDb } from '$lib/server/db';
-import { isOwnerUser } from '$lib/server/access';
+import { requireOwner } from '$lib/server/access';
+import type { UserRow } from '$lib/server/utils';
 
 export const GET: RequestHandler = ({ url, locals }) => {
-	const user = locals.user;
-	if (!user || !isOwnerUser(user.username, user.email)) error(403, 'Forbidden');
+	requireOwner(locals.user);
 
 	const db = getDb();
 
@@ -20,7 +20,7 @@ export const GET: RequestHandler = ({ url, locals }) => {
 		${cursor ? 'WHERE created_at < ?' : ''}
 		ORDER BY created_at DESC
 		LIMIT ?
-	`).all(...(cursor ? [cursor] : []), limit) as any[];
+	`).all(...(cursor ? [cursor] : []), limit) as UserRow[];
 
 	const users = rows.map((r) => ({
 		id:          r.id,

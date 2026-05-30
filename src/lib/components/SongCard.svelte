@@ -7,15 +7,8 @@
 	import { prefs } from '$lib/stores/prefs';
 	import { APP_URL, thumbUrl } from '$lib/config';
 	import { songSlug } from '$lib/slug';
-	import type { PlatformKey } from '$lib/stores/prefs';
 	import { CheckCircleIcon, PlayIcon, CheckIcon, UploadSimpleIcon, HeartIcon, ArrowsClockwiseIcon } from 'phosphor-svelte';
-
-	const PLATFORMS: { key: PlatformKey; label: string; color: string }[] = [
-		{ key: 'appleMusicUrl',   label: 'Apple Music',   color: '#FC3C44' },
-		{ key: 'spotifyUrl',      label: 'Spotify',       color: '#1DB954' },
-		{ key: 'youtubeMusicUrl', label: 'YouTube Music', color: '#FF0000' },
-		{ key: 'deezerUrl',       label: 'Deezer',        color: '#EF5466' },
-	];
+	import { PLATFORMS } from '$lib/constants';
 
 	export let id: number;
 	export let record: SongRecord;

@@ -3,10 +3,12 @@
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { requireAuth } from '$lib/server/auth';
 import { getDb } from '$lib/server/db';
+import type { ProposalRow } from '$lib/server/utils';
 
 export const GET: RequestHandler = ({ url, locals }) => {
-	if (!locals.user) error(401, 'Not authenticated');
+	const user = requireAuth(locals.user);
 
 	const setlistIdParam = url.searchParams.get('setlistId');
 	if (!setlistIdParam) error(400, 'setlistId required');
@@ -16,7 +18,7 @@ export const GET: RequestHandler = ({ url, locals }) => {
 	const db = getDb();
 	const setlist = db.prepare('SELECT user_id FROM setlists WHERE id = ?').get(setlistId) as { user_id: number } | undefined;
 	if (!setlist) error(404, 'Setlist not found');
-	if (setlist.user_id !== locals.user.id) error(403, 'Not your setlist');
+	if (setlist.user_id !== user.id && user.role !== 'admin') error(403, 'Not your setlist');
 
 	const rows = db.prepare(`
 		SELECT p.id, p.snapshot, p.note, p.status, p.created_at,
@@ -25,7 +27,7 @@ export const GET: RequestHandler = ({ url, locals }) => {
 		JOIN users u ON u.id = p.proposer_user_id
 		WHERE p.setlist_id = ? AND p.status = 'pending'
 		ORDER BY p.created_at ASC
-	`).all(setlistId) as any[];
+	`).all(setlistId) as ProposalRow[];
 
 	return json({ proposals: rows.map((r) => ({
 		id:        r.id,
@@ -42,7 +44,7 @@ export const GET: RequestHandler = ({ url, locals }) => {
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.user) error(401, 'Not authenticated');
+	const user = requireAuth(locals.user);
 
 	const body = await request.json().catch(() => null);
 	if (!body) error(400, 'Invalid JSON');
@@ -54,12 +56,12 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const db = getDb();
 	const setlist = db.prepare('SELECT user_id FROM setlists WHERE id = ?').get(setlistId) as { user_id: number } | undefined;
 	if (!setlist) error(404, 'Setlist not found');
-	if (setlist.user_id === locals.user.id) error(400, 'Owners add songs directly; no proposal needed');
+	if (setlist.user_id === user.id) error(400, 'Owners add songs directly; no proposal needed');
 
 	const result = db.prepare(`
 		INSERT INTO proposals (setlist_id, proposer_user_id, snapshot, note)
 		VALUES (?, ?, ?, ?)
-	`).run(setlistId, locals.user.id, JSON.stringify(snapshot), note?.trim() ?? null);
+	`).run(setlistId, user.id, JSON.stringify(snapshot), note?.trim() ?? null);
 
 	return json({ id: result.lastInsertRowid }, { status: 201 });
 };

@@ -2,19 +2,19 @@
 
 import { error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { requireAuth } from '$lib/server/auth';
 import { getDb } from '$lib/server/db';
+import { getParamId } from '$lib/server/utils';
 
 export const DELETE: RequestHandler = ({ params, locals }) => {
-	if (!locals.user) error(401, 'Not authenticated');
-
-	const setlistId = parseInt(params.id, 10);
-	const itemId    = parseInt(params.itemId, 10);
-	if (!setlistId || !itemId) error(400, 'Invalid id');
+	const user = requireAuth(locals.user);
+	const setlistId = getParamId(params.id);
+	const itemId    = getParamId(params.itemId);
 
 	const db = getDb();
 	const setlist = db.prepare('SELECT user_id FROM setlists WHERE id = ?').get(setlistId) as { user_id: number } | undefined;
 	if (!setlist) error(404, 'Setlist not found');
-	if (setlist.user_id !== locals.user.id) error(403, 'Not your setlist');
+	if (setlist.user_id !== user.id && user.role !== 'admin') error(403, 'Not your setlist');
 
 	const item = db.prepare('SELECT id FROM setlist_items WHERE id = ? AND setlist_id = ?').get(itemId, setlistId);
 	if (!item) error(404, 'Item not found');

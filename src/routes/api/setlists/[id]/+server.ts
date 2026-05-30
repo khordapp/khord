@@ -4,11 +4,12 @@
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { requireAuth } from '$lib/server/auth';
 import { getDb } from '$lib/server/db';
+import { getParamId, mapSongRecord, type SetlistRow, type SetlistItemRow } from '$lib/server/utils';
 
 export const GET: RequestHandler = ({ params }) => {
-	const id = parseInt(params.id, 10);
-	if (!id) error(400, 'Invalid id');
+	const id = getParamId(params.id);
 
 	const db = getDb();
 	const setlist = db.prepare(`
@@ -17,7 +18,7 @@ export const GET: RequestHandler = ({ params }) => {
 		FROM setlists sl
 		JOIN users u ON u.id = sl.user_id
 		WHERE sl.id = ?
-	`).get(id) as any;
+	`).get(id) as SetlistRow | undefined;
 	if (!setlist) error(404, 'Setlist not found');
 
 	const items = db.prepare(`
@@ -34,7 +35,7 @@ export const GET: RequestHandler = ({ params }) => {
 		LEFT JOIN users adder ON adder.id = si.added_by_user_id
 		WHERE si.setlist_id = ?
 		ORDER BY si.position ASC
-	`).all(id) as any[];
+	`).all(id) as SetlistItemRow[];
 
 	return json({
 		id:          setlist.id,
@@ -51,19 +52,7 @@ export const GET: RequestHandler = ({ params }) => {
 		items: items.map((r) => {
 			// Use live song data if available, else fall back to snapshot
 			const snapshot = r.snapshot ? JSON.parse(r.snapshot) : null;
-			const record = r.song_id ? {
-				title:           r.title,
-				artist:          r.artist,
-				album:           r.album ?? undefined,
-				thumbnailUrl:    r.thumbnail_url ?? undefined,
-				spotifyUrl:      r.spotify_url ?? undefined,
-				appleMusicUrl:   r.apple_music_url ?? undefined,
-				youtubeMusicUrl: r.youtube_music_url ?? undefined,
-				deezerUrl:       r.deezer_url ?? undefined,
-				tidalUrl:        r.tidal_url ?? undefined,
-				note:            r.note ?? undefined,
-				createdAt:       r.song_created_at,
-			} : snapshot;
+			const record = r.song_id ? mapSongRecord(r) : snapshot;
 			return {
 				id:            r.id,
 				songId:        r.song_id ?? undefined,
@@ -77,15 +66,13 @@ export const GET: RequestHandler = ({ params }) => {
 };
 
 export const PUT: RequestHandler = async ({ params, request, locals }) => {
-	if (!locals.user) error(401, 'Not authenticated');
-
-	const id = parseInt(params.id, 10);
-	if (!id) error(400, 'Invalid id');
+	const user = requireAuth(locals.user);
+	const id = getParamId(params.id);
 
 	const db = getDb();
 	const setlist = db.prepare('SELECT user_id FROM setlists WHERE id = ?').get(id) as { user_id: number } | undefined;
 	if (!setlist) error(404, 'Setlist not found');
-	if (setlist.user_id !== locals.user.id) error(403, 'Not your setlist');
+	if (setlist.user_id !== user.id && user.role !== 'admin') error(403, 'Not your setlist');
 
 	const body = await request.json().catch(() => null);
 	if (!body) error(400, 'Invalid JSON');
@@ -115,15 +102,13 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 };
 
 export const DELETE: RequestHandler = ({ params, locals }) => {
-	if (!locals.user) error(401, 'Not authenticated');
-
-	const id = parseInt(params.id, 10);
-	if (!id) error(400, 'Invalid id');
+	const user = requireAuth(locals.user);
+	const id = getParamId(params.id);
 
 	const db = getDb();
 	const setlist = db.prepare('SELECT user_id FROM setlists WHERE id = ?').get(id) as { user_id: number } | undefined;
 	if (!setlist) error(404, 'Setlist not found');
-	if (setlist.user_id !== locals.user.id && locals.user.role !== 'admin') error(403, 'Not your setlist');
+	if (setlist.user_id !== user.id && user.role !== 'admin') error(403, 'Not your setlist');
 
 	db.prepare('DELETE FROM setlists WHERE id = ?').run(id);
 	return new Response(null, { status: 204 });

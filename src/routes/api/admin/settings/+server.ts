@@ -4,7 +4,7 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { env } from '$env/dynamic/private';
-import { isOwnerUser } from '$lib/server/access';
+import { requireOwner } from '$lib/server/access';
 import { getAllSettings, setSetting } from '$lib/server/settings';
 
 function defaults(): Record<string, string> {
@@ -22,16 +22,14 @@ function defaults(): Record<string, string> {
 }
 
 export const GET: RequestHandler = ({ locals }) => {
-	const user = locals.user;
-	if (!user || !isOwnerUser(user.username, user.email)) error(403, 'Forbidden');
+	requireOwner(locals.user);
 
 	const stored = getAllSettings();
 	return json({ ...defaults(), ...stored });
 };
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	const user = locals.user;
-	if (!user || !isOwnerUser(user.username, user.email)) error(403, 'Forbidden');
+	requireOwner(locals.user);
 
 	const body = await request.json().catch(() => null);
 	const incoming: Record<string, string> = body?.settings ?? {};

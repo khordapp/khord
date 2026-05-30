@@ -18,10 +18,10 @@
 	import { env } from '$env/dynamic/public';
 	import { initiateSpotifyAuth, createPlaylist, replacePlaylistTracks, searchSpotifyTracks, extractSpotifyId, getSpotifyUser } from '$lib/streaming/spotify';
 	import { spotifyAuthorized, spotifyTokens } from '$lib/stores/spotify';
+	import { STORAGE_KEYS } from '$lib/constants';
 	import { ArrowDownIcon, CalendarIcon, PlusIcon, TrashIcon, MusicNotesIcon, HeartIcon, SpotifyLogoIcon, UploadSimpleIcon, PushPinIcon, ArrowRightIcon, ListPlusIcon, ArrowSquareInIcon, XIcon, HouseIcon, ListIcon, GearIcon } from 'phosphor-svelte';
 
 	$: spotifyEnabled = !!env.PUBLIC_SPOTIFY_CLIENT_ID;
-	const PENDING_EXPORT_KEY = 'khord_spotify_pending_export';
 
 	function shareSetlist(title: string, id: number) {
 		const url = `${APP_URL}/s/${setlistSlug(title, id)}`;
@@ -49,7 +49,7 @@
 			exportDone = false;
 			exportError = '';
 			exportPlaylistUrl = '';
-			exportHasExisting = browser ? !!localStorage.getItem(`khord_spotify_export_${id}`) : false;
+			exportHasExisting = browser ? !!localStorage.getItem(STORAGE_KEYS.spotifyExport(id)) : false;
 			try {
 				const res = await fetch(`/api/setlists/${id}`);
 				if (res.ok) exportItems = (await res.json()).items;
@@ -57,7 +57,7 @@
 				exportItemsLoading = false;
 			}
 		} else {
-			localStorage.setItem(PENDING_EXPORT_KEY, String(id));
+			localStorage.setItem(STORAGE_KEYS.SPOTIFY_PENDING_EXPORT, String(id));
 			initiateSpotifyAuth(`/s/${slug}`);
 		}
 	}
@@ -83,7 +83,7 @@
 			exporting = false;
 			spotifyTokens.clear();
 			exportDialog = null;
-			localStorage.setItem(PENDING_EXPORT_KEY, String(id));
+			localStorage.setItem(STORAGE_KEYS.SPOTIFY_PENDING_EXPORT, String(id));
 			await initiateSpotifyAuth(`/s/${setlistSlug(title, id)}`);
 			return;
 		}
@@ -101,7 +101,7 @@
 				}
 			}
 			if (trackIds.length === 0) throw new Error('No Spotify tracks found in this mixtape.');
-			const storageKey = `khord_spotify_export_${id}`;
+			const storageKey = STORAGE_KEYS.spotifyExport(id);
 			let playlistId = browser ? localStorage.getItem(storageKey) : null;
 			if (!playlistId) {
 				playlistId = await createPlaylist(user.id, title, token);

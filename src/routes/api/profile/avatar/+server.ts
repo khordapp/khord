@@ -1,12 +1,13 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { requireAuth } from '$lib/server/auth';
 import { getDb } from '$lib/server/db';
 
 const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 const MAX_BYTES = 512 * 1024; // 512 KB
 
 export const POST: RequestHandler = async ({ request, locals }) => {
-	if (!locals.user) error(401, 'Unauthorized');
+	const user = requireAuth(locals.user);
 
 	const contentLength = request.headers.get('content-length');
 	if (contentLength && parseInt(contentLength, 10) > MAX_BYTES * 2) {
@@ -25,15 +26,15 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const buf = Buffer.from(bytes);
 	getDb()
 		.prepare('UPDATE users SET avatar = ?, avatar_mime = ? WHERE id = ?')
-		.run(buf, file.type, locals.user.id);
+		.run(buf, file.type, user.id);
 
 	return json({ ok: true });
 };
 
 export const DELETE: RequestHandler = ({ locals }) => {
-	if (!locals.user) error(401, 'Unauthorized');
+	const user = requireAuth(locals.user);
 	getDb()
 		.prepare('UPDATE users SET avatar = NULL, avatar_mime = NULL WHERE id = ?')
-		.run(locals.user.id);
+		.run(user.id);
 	return json({ ok: true });
 };

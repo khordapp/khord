@@ -1,16 +1,17 @@
 // GET /api/votes/mine — returns current user's upvoted song and setlist IDs + vote IDs for unlike
 
-import { json, error } from '@sveltejs/kit';
+import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { requireAuth } from '$lib/server/auth';
 import { getDb } from '$lib/server/db';
 
 export const GET: RequestHandler = ({ locals }) => {
-	if (!locals.user) error(401, 'Not authenticated');
+	const user = requireAuth(locals.user);
 
 	const db = getDb();
 	const rows = db.prepare(`
 		SELECT id, song_id, setlist_id FROM votes WHERE user_id = ?
-	`).all(locals.user.id) as { id: number; song_id: number | null; setlist_id: number | null }[];
+	`).all(user.id) as { id: number; song_id: number | null; setlist_id: number | null }[];
 
 	// Maps from subject ID → vote row ID (needed for unlike/delete)
 	const songs: Record<number, number> = {};

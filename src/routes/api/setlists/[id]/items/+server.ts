@@ -3,18 +3,18 @@
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { requireAuth } from '$lib/server/auth';
 import { getDb } from '$lib/server/db';
+import { getParamId } from '$lib/server/utils';
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
-	if (!locals.user) error(401, 'Not authenticated');
-
-	const setlistId = parseInt(params.id, 10);
-	if (!setlistId) error(400, 'Invalid id');
+	const user = requireAuth(locals.user);
+	const setlistId = getParamId(params.id);
 
 	const db = getDb();
 	const setlist = db.prepare('SELECT user_id FROM setlists WHERE id = ?').get(setlistId) as { user_id: number } | undefined;
 	if (!setlist) error(404, 'Setlist not found');
-	if (setlist.user_id !== locals.user.id) error(403, 'Not your setlist');
+	if (setlist.user_id !== user.id && user.role !== 'admin') error(403, 'Not your setlist');
 
 	const body = await request.json().catch(() => null);
 	if (!body) error(400, 'Invalid JSON');
@@ -29,7 +29,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	const result = db.prepare(`
 		INSERT INTO setlist_items (setlist_id, song_id, added_by_user_id, position, snapshot)
 		VALUES (?, ?, ?, ?, ?)
-	`).run(setlistId, songId, locals.user.id, position, snapshot ? JSON.stringify(snapshot) : null);
+	`).run(setlistId, songId, user.id, position, snapshot ? JSON.stringify(snapshot) : null);
 
 	// Touch setlist updated_at
 	db.prepare("UPDATE setlists SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?").run(setlistId);

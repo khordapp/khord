@@ -4,13 +4,13 @@
 
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
+import { requireAuth } from '$lib/server/auth';
 import { getDb } from '$lib/server/db';
+import { getParamId } from '$lib/server/utils';
 
 export const PUT: RequestHandler = async ({ params, request, locals }) => {
-	if (!locals.user) error(401, 'Not authenticated');
-
-	const id = parseInt(params.id, 10);
-	if (!id) error(400, 'Invalid id');
+	const user = requireAuth(locals.user);
+	const id = getParamId(params.id);
 
 	const body = await request.json().catch(() => null);
 	if (!body) error(400, 'Invalid JSON');
@@ -26,7 +26,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		WHERE p.id = ? AND p.status = 'pending'
 	`).get(id) as any;
 	if (!proposal) error(404, 'Proposal not found');
-	if (proposal.setlist_owner_id !== locals.user.id) error(403, 'Not your setlist');
+	if (proposal.setlist_owner_id !== user.id && user.role !== 'admin') error(403, 'Not your setlist');
 
 	if (action === 'decline') {
 		db.prepare("UPDATE proposals SET status = 'declined' WHERE id = ?").run(id);
@@ -43,7 +43,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 				deezer_url, tidal_url, note, listed
 			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
 		`).run(
-			locals.user!.id,
+			user.id,
 			snapshot.title,
 			snapshot.artist,
 			snapshot.album ?? null,
@@ -61,7 +61,7 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 		db.prepare(`
 			INSERT INTO setlist_items (setlist_id, song_id, added_by_user_id, position, snapshot)
 			VALUES (?, ?, ?, ?, ?)
-		`).run(proposal.setlist_id, songId, locals.user!.id, maxRow.max + 1, proposal.snapshot);
+		`).run(proposal.setlist_id, songId, user.id, maxRow.max + 1, proposal.snapshot);
 
 		db.prepare("UPDATE setlists SET updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?").run(proposal.setlist_id);
 		db.prepare("UPDATE proposals SET status = 'accepted' WHERE id = ?").run(id);

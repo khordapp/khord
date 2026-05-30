@@ -2,7 +2,8 @@
 	import { session, authReady } from '$lib/stores/auth';
 	import { votes } from '$lib/stores/votes';
 	import { instanceConfig } from '$lib/stores/instance';
-	import { prefs, type PlatformKey } from '$lib/stores/prefs';
+	import { prefs } from '$lib/stores/prefs';
+	import { PLATFORMS, STORAGE_KEYS } from '$lib/constants';
 	import { theme as t } from '$lib/theme';
 	import { PencilSimpleIcon, DotsSixVerticalIcon, PlayIcon, XIcon, ArrowRightIcon, PlusIcon, TrashIcon, ArrowLeftIcon, HeartIcon, SpotifyLogoIcon, UploadSimpleIcon, PushPinIcon } from 'phosphor-svelte';
 	import { APP_NAME, APP_URL, thumbUrl } from '$lib/config';
@@ -24,14 +25,7 @@
 
 	export let data: PageData;
 
-	const PLATFORMS: { key: PlatformKey; label: string; color: string }[] = [
-		{ key: 'appleMusicUrl',   label: 'Apple Music',   color: '#FC3C44' },
-		{ key: 'spotifyUrl',      label: 'Spotify',       color: '#1DB954' },
-		{ key: 'youtubeMusicUrl', label: 'YouTube Music', color: '#FF0000' },
-		{ key: 'deezerUrl',       label: 'Deezer',        color: '#EF5466' },
-	];
-
-	function getPrimaryPlatform(rec: SongRecord) {
+function getPrimaryPlatform(rec: SongRecord) {
 		const available = PLATFORMS.filter((p) => rec[p.key as keyof SongRecord]);
 		return available.find((p) => p.key === $prefs) ?? available[0] ?? null;
 	}
@@ -104,10 +98,9 @@
 	let exportPlaylistUrl = '';
 	let showExportDialog = false;
 	let hasExistingPlaylist = false;
-	const PENDING_EXPORT_KEY = 'khord_spotify_pending_export';
 
 	function openExportDialog() {
-		const storageKey = `khord_spotify_export_${setlist.id}`;
+		const storageKey = STORAGE_KEYS.spotifyExport(setlist.id);
 		hasExistingPlaylist = browser ? !!localStorage.getItem(storageKey) : false;
 		exportDone = false;
 		exportError = '';
@@ -125,7 +118,7 @@
 
 	async function exportToSpotify() {
 		if (!$spotifyAuthorized) {
-			if (browser) localStorage.setItem(PENDING_EXPORT_KEY, String(setlist.id));
+			if (browser) localStorage.setItem(STORAGE_KEYS.SPOTIFY_PENDING_EXPORT, String(setlist.id));
 			await initiateSpotifyAuth(`/s/${setlistSlug(setlist.title, setlist.id)}`);
 			return;
 		}
@@ -143,7 +136,7 @@
 			exporting = false;
 			spotifyTokens.clear();
 			showExportDialog = false;
-			if (browser) localStorage.setItem(PENDING_EXPORT_KEY, String(setlist.id));
+			if (browser) localStorage.setItem(STORAGE_KEYS.SPOTIFY_PENDING_EXPORT, String(setlist.id));
 			await initiateSpotifyAuth(`/s/${setlistSlug(setlist.title, setlist.id)}`);
 			return;
 		}
@@ -163,7 +156,7 @@
 				}
 			}
 			if (trackIds.length === 0) throw new Error('No Spotify tracks found in this mixtape.');
-			const storageKey = `khord_spotify_export_${setlist.id}`;
+			const storageKey = STORAGE_KEYS.spotifyExport(setlist.id);
 			let playlistId = browser ? localStorage.getItem(storageKey) : null;
 			if (!playlistId) {
 				playlistId = await createPlaylist(user.id, setlist.title, token);
@@ -522,9 +515,9 @@
 			}
 		}
 		// Auto-trigger export after Spotify OAuth redirect
-		const pendingExport = localStorage.getItem(PENDING_EXPORT_KEY) === String(setlist.id);
+		const pendingExport = localStorage.getItem(STORAGE_KEYS.SPOTIFY_PENDING_EXPORT) === String(setlist.id);
 		if (pendingExport) {
-			localStorage.removeItem(PENDING_EXPORT_KEY);
+			localStorage.removeItem(STORAGE_KEYS.SPOTIFY_PENDING_EXPORT);
 			openExportDialog();
 		}
 	});
