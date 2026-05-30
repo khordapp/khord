@@ -46,16 +46,23 @@
 	let shared = false;
 
 	let keyboardOffset = 0;
+	let vvHeight: number | null = null;
 	function updateKeyboardOffset() {
 		const vv = window.visualViewport;
-		if (!vv || window.innerWidth >= 640) { keyboardOffset = 0; return; }
-		keyboardOffset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+		if (!vv || window.innerWidth >= 640) { keyboardOffset = 0; vvHeight = null; return; }
+		const offset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+		keyboardOffset = offset;
+		// Android WebView: dvh doesn't update when the keyboard opens, so we
+		// override max-height explicitly with the visual viewport height.
+		vvHeight = offset > 0 ? vv.height : null;
 	}
 	onMount(() => {
 		window.visualViewport?.addEventListener('resize', updateKeyboardOffset);
+		window.visualViewport?.addEventListener('scroll', updateKeyboardOffset);
 	});
 	onDestroy(() => {
 		window.visualViewport?.removeEventListener('resize', updateKeyboardOffset);
+		window.visualViewport?.removeEventListener('scroll', updateKeyboardOffset);
 	});
 
 	$: noteCharsLeft = NOTE_LIMIT - [...note].length;
@@ -154,7 +161,7 @@
 
 <div
 	transition:fly={{ y: 320, duration: 260 }}
-	style={keyboardOffset > 0 ? `bottom: ${keyboardOffset}px; transition: bottom 0.2s ease;` : undefined}
+	style={keyboardOffset > 0 ? `bottom: ${keyboardOffset}px; max-height: ${Math.round((vvHeight ?? 0) * 0.92)}px; transition: bottom 0.2s ease;` : undefined}
 	class="fixed z-50 bottom-0 left-0 right-0 flex flex-col
 		sm:bottom-auto sm:top-20 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:w-full sm:max-w-md
 		{$t.surfaceBg} border-t border-l border-r sm:border {$t.borderStrong}
