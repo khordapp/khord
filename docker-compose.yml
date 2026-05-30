@@ -14,17 +14,6 @@ services:
       THUMBNAIL_CACHE_DIR: ${THUMBNAIL_CACHE_DIR:-/data/thumbnails}
     volumes:
       - sqlite_data:/data
-    depends_on:
-      - indexer
-
-  indexer:
-    image: ghcr.io/khordapp/khord-indexer:latest
-    restart: unless-stopped
-    environment:
-      INDEXER_DB_PATH: /data/khord.db
-      FIREHOSE_RELAY: ${FIREHOSE_RELAY:-wss://bsky.network}
-    volumes:
-      - sqlite_data:/data
 
   caddy:
     image: caddy:2-alpine
@@ -40,6 +29,6 @@ services:
       - app
 
 volumes:
-  sqlite_data:   # shared between app and indexer
+  sqlite_data:
   caddy_data:    # TLS certificates
   caddy_config:  # Caddy internal config

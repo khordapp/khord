@@ -77,8 +77,10 @@ See [docs/admin.md](docs/admin.md) for the full admin guide — streaming integr
 - [x] Setlists — create, reorder, collaborate via proposals, daily view
 - [x] Instance management — 18 themes, access control, admin panel, Docker/Unraid deployment
 - [x] Playlist import — Spotify, YouTube Music, Deezer, Apple Music (requires MusicKit token)
-- [ ] Setlist export to streaming services (Spotify first; Apple Music feasible once MusicKit token is configured)
-- [ ] Mobile apps (iOS/Android via Capacitor)
+- [x] Setlist export to Spotify
+- [ ] Setlist export to Apple Music
+- [ ] Android app (Capacitor — in internal testing; background notifications via 15-min polling, by design for self-hosted instances)
+- [ ] iOS app (Capacitor — not started)
 
 ## Questions
 
