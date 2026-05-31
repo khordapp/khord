@@ -226,7 +226,6 @@ Three tabs in `+page.svelte`, controlled by `activeTab: 'feed' | 'daily' | 'setl
 - App name and tagline configurable via `PUBLIC_APP_NAME` and `PUBLIC_APP_TAGLINE` env vars
 - `PUBLIC_APP_URL` reads from `$env/dynamic/public` — required for share URLs to match whichever domain the instance is running on
 - Capacitor wrapper: Android build complete (in testing); iOS not yet started. Background notifications use 15-min WorkManager polling (bearer token → `/api/feed/new`) rather than FCM — FCM requires a shared Firebase project whose service account key every self-hosted instance would need, which is impractical for a purely self-hosted product. Polling is the correct approach here.
-- `@atproto/*` packages remain in `package.json` but are unused — safe to remove
 
 ## Adding Tidal (future point release)
 

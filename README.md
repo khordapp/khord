@@ -2,7 +2,7 @@
 
 **Share music, listen anywhere.**
 
-Khord is a self-hosted music sharing app. Share a song once — your followers listen on whichever streaming service they use. Spotify, Apple Music, YouTube Music, Deezer, and more. Artist revenue flows naturally because playback happens natively in each platform.
+Khord is a self-hosted music sharing app. Share a song once — everyone listens on whichever streaming service they use. Spotify, Apple Music, YouTube Music, Deezer, and more. Artist revenue flows naturally because playback happens natively in each platform.
 
 > **Vibe coded with [Claude](https://claude.ai/claude-code)** — this project was built collaboratively with Claude Code (Anthropic). Architecture decisions, feature design, and implementation were a human+AI pair programming effort.
 

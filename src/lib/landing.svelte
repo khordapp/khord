@@ -31,7 +31,7 @@
 				<div>
 					<p class="text-sm font-semibold {$t.textPrimary}">Share what you're listening to</p>
 					<p class="text-sm {$t.textMuted} mt-1">
-						Search for any song and post it to your feed. Your followers see it alongside who shared it.
+						Search for any song and post it to your feed. Everyone on the instance sees it alongside who shared it.
 					</p>
 				</div>
 			</li>
