@@ -145,20 +145,35 @@
 		}
 	}
 
-	// --- Delete data ---
+	// --- Delete data / account ---
 	let deleteModalOpen = false;
+	let deleteMode: 'data' | 'account' = 'data';
 	let deleteInput = '';
 	let deleting = false;
 	let deleteError = false;
 	let deleteSuccess = false;
 
-	async function confirmDeleteData() {
+	function openDeleteModal(mode: 'data' | 'account') {
+		deleteMode = mode;
+		deleteInput = '';
+		deleteError = false;
+		deleteModalOpen = true;
+	}
+
+	async function confirmDelete() {
 		if (!$session || deleteInput !== 'DELETE') return;
 		deleting = true;
 		deleteError = false;
 		try {
-			const res = await fetch('/api/auth/delete-data', { method: 'POST' });
+			const res = await fetch('/api/auth/delete-data', {
+				method: deleteMode === 'account' ? 'DELETE' : 'POST',
+			});
 			if (!res.ok) throw new Error();
+			if (deleteMode === 'account') {
+				// Session cleared server-side — reload to home
+				window.location.href = '/';
+				return;
+			}
 			deleteSuccess = true;
 			deleteModalOpen = false;
 			deleteInput = '';
@@ -331,17 +346,28 @@
 		<div class="space-y-3 pt-4 border-t border-red-900/40">
 			<div class="space-y-1">
 				<h2 class="text-sm font-semibold text-red-400">Danger zone</h2>
-				<p class="text-xs {$t.textMuted}">Permanently delete all songs, votes, mixtapes, and proposals you have shared on this instance.</p>
 			</div>
 			{#if deleteSuccess}
 				<p class="text-xs text-green-400">All your data has been deleted.</p>
 			{:else}
-				<button
-					on:click={() => (deleteModalOpen = true)}
-					class="px-4 py-2 rounded-lg border border-red-800 text-red-400 text-sm hover:bg-red-900/20 transition-colors"
-				>
-					Delete my data
-				</button>
+				<div class="space-y-2">
+					<div class="flex flex-col gap-1">
+						<button
+							on:click={() => openDeleteModal('data')}
+							class="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-red-900/60 text-red-400 text-sm hover:bg-red-900/20 transition-colors"
+						>
+							<span>Delete my data</span>
+							<span class="text-xs text-red-400/60">Keeps your account</span>
+						</button>
+						<button
+							on:click={() => openDeleteModal('account')}
+							class="w-full flex items-center justify-between px-4 py-3 rounded-lg border border-red-900/60 text-red-400 text-sm hover:bg-red-900/20 transition-colors"
+						>
+							<span>Delete my account</span>
+							<span class="text-xs text-red-400/60">Permanent</span>
+						</button>
+					</div>
+				</div>
 			{/if}
 		</div>
 	{/if}
@@ -353,8 +379,16 @@
 	<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
 		<div class="w-full max-w-sm rounded-xl border {$t.borderStrong} {$t.surfaceBg} p-6 space-y-4 shadow-xl">
 			<div class="space-y-1">
-				<h2 class="text-base font-semibold text-red-400">Delete my data</h2>
-				<p class="text-xs {$t.textMuted}">Permanently deletes your songs, votes, mixtapes, and proposals. Your account is kept so you can sign back in. This cannot be undone.</p>
+				<h2 class="text-base font-semibold text-red-400">
+					{deleteMode === 'account' ? 'Delete my account' : 'Delete my data'}
+				</h2>
+				<p class="text-xs {$t.textMuted}">
+					{#if deleteMode === 'account'}
+						Permanently deletes your account and all associated songs, votes, mixtapes, and proposals. You will be signed out immediately. This cannot be undone.
+					{:else}
+						Permanently deletes your songs, votes, mixtapes, and proposals. Your account is kept so you can sign back in. This cannot be undone.
+					{/if}
+				</p>
 			</div>
 			<div class="space-y-2">
 				<p class="text-xs {$t.textMuted}">Type <span class="text-red-400 font-mono font-bold">DELETE</span> to confirm:</p>
@@ -377,11 +411,11 @@
 					Cancel
 				</button>
 				<button
-					on:click={confirmDeleteData}
+					on:click={confirmDelete}
 					disabled={deleting || deleteInput !== 'DELETE'}
 					class="px-4 py-2 rounded-lg bg-red-700 text-white text-sm font-semibold hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
 				>
-					{deleting ? 'Deleting…' : 'Delete my data'}
+					{deleting ? 'Deleting…' : deleteMode === 'account' ? 'Delete my account' : 'Delete my data'}
 				</button>
 			</div>
 		</div>

@@ -30,7 +30,7 @@ export const GET: RequestHandler = ({ locals }) => {
 		.filter(f => f.startsWith('khord-backup-') && f.endsWith('.db'))
 		.map(filename => {
 			const stat = statSync(join(dir, filename));
-			return { filename, sizeBytes: stat.size, createdAt: stat.birthtime.toISOString() };
+			return { filename, sizeBytes: stat.size, createdAt: stat.mtime.toISOString() };
 		})
 		.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
@@ -49,5 +49,5 @@ export const POST: RequestHandler = async ({ locals }) => {
 	await db.backup(destPath);
 
 	const stat = statSync(destPath);
-	return json({ filename, sizeBytes: stat.size, createdAt: stat.birthtime.toISOString() });
+	return json({ filename, sizeBytes: stat.size, createdAt: stat.mtime.toISOString() });
 };
