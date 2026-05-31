@@ -132,6 +132,7 @@
 	let generatingBackup = false;
 	let backupGenerateError = false;
 	let deletingBackup: string | null = null;
+	let downloadingBackup: string | null = null;
 
 	async function runOrphanPrune() {
 		if (orphanPruning) return;
@@ -360,6 +361,25 @@
 			backups = backups.filter(b => b.filename !== filename);
 		} finally {
 			deletingBackup = null;
+		}
+	}
+
+	async function downloadBackup(filename: string) {
+		downloadingBackup = filename;
+		try {
+			const res = await fetch(`/api/admin/backup/${encodeURIComponent(filename)}`);
+			if (!res.ok) return;
+			const blob = await res.blob();
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = filename;
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+		} finally {
+			downloadingBackup = null;
 		}
 	}
 
@@ -1225,13 +1245,13 @@
 									<p class="text-xs {$t.textFaint}">{formatBytes(backup.sizeBytes)}</p>
 								</div>
 								<div class="flex items-center gap-2 shrink-0">
-									<a
-										href="/api/admin/backup/{encodeURIComponent(backup.filename)}"
-										download={backup.filename}
-										class="text-xs font-medium px-3 py-1.5 rounded-lg border {$t.borderStrong} {$t.textMuted} {$t.hoverText} {$t.hoverBg} transition-colors"
+									<button
+										on:click={() => downloadBackup(backup.filename)}
+										disabled={downloadingBackup === backup.filename}
+										class="text-xs font-medium px-3 py-1.5 rounded-lg border {$t.borderStrong} {$t.textMuted} {$t.hoverText} {$t.hoverBg} transition-colors disabled:opacity-40"
 									>
-										Download
-									</a>
+										{downloadingBackup === backup.filename ? 'Downloading…' : 'Download'}
+									</button>
 									<button
 										on:click={() => { if (confirm('Delete this backup?')) deleteBackup(backup.filename); }}
 										disabled={deletingBackup === backup.filename}
