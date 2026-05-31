@@ -618,6 +618,7 @@
 
 <svelte:head>
 	<title>{APP_NAME} — {APP_TAGLINE}</title>
+	<link rel="canonical" href={APP_URL} />
 </svelte:head>
 
 {#if showDateModal}

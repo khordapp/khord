@@ -2,6 +2,7 @@
 	import { session } from '$lib/stores/auth';
 	import { votes } from '$lib/stores/votes';
 	import { APP_NAME, APP_URL } from '$lib/config';
+	import { songSlug } from '$lib/slug';
 	import { theme as t } from '$lib/theme';
 	import { prefs } from '$lib/stores/prefs';
 	import SongCard from '$lib/components/SongCard.svelte';
@@ -25,14 +26,16 @@
 
 	$: ogTitle = `${data.song.title}${data.song.artist ? ` by ${data.song.artist}` : ''}`;
 	$: ogDesc = `${ogTitle} — view on ${APP_NAME}, listen on Spotify, Apple Music, and other platforms.`;
+	$: canonicalUrl = `${APP_URL}/song/${songSlug(data.song.title, data.song.artist, data.song.id)}`;
 </script>
 
 <svelte:head>
 	<title>{ogTitle} — {APP_NAME}</title>
+	<link rel="canonical" href={canonicalUrl} />
 	<meta name="description" content={ogDesc} />
 	<meta property="og:title" content={ogTitle} />
 	<meta property="og:description" content="View on {APP_NAME} — listen on Spotify, Apple Music, and other platforms." />
-	<meta property="og:url" content="{APP_URL}/song/{data.song.id}" />
+	<meta property="og:url" content={canonicalUrl} />
 	<meta property="og:type" content="music.song" />
 	{#if data.song.thumbnailUrl}
 		<meta property="og:image" content="{APP_URL}/api/thumbnail?url={encodeURIComponent(data.song.thumbnailUrl)}" />

@@ -525,6 +525,12 @@ function getPrimaryPlatform(rec: SongRecord) {
 
 <svelte:head>
 	<title>{setlist.title} — {APP_NAME}</title>
+	<link rel="canonical" href="{APP_URL}/s/{setlistSlug(setlist.title, setlist.id)}" />
+	<meta name="description" content="Listen to the {setlist.title} mixtape on {APP_NAME}." />
+	<meta property="og:title" content="{setlist.title} — {APP_NAME}" />
+	<meta property="og:description" content="Listen to the {setlist.title} mixtape on {APP_NAME}." />
+	<meta property="og:url" content="{APP_URL}/s/{setlistSlug(setlist.title, setlist.id)}" />
+	<meta property="og:type" content="music.playlist" />
 </svelte:head>
 
 {#if confirmDeleteOpen}
