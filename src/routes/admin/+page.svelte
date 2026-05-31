@@ -370,14 +370,21 @@
 			const res = await fetch(`/api/admin/backup/${encodeURIComponent(filename)}`);
 			if (!res.ok) return;
 			const blob = await res.blob();
-			const url = URL.createObjectURL(blob);
-			const a = document.createElement('a');
-			a.href = url;
-			a.download = filename;
-			document.body.appendChild(a);
-			a.click();
-			document.body.removeChild(a);
-			URL.revokeObjectURL(url);
+			// Use FileReader data URL instead of blob URL — more reliable across
+			// Android WebView and Capacitor where blob: URLs aren't downloadable.
+			await new Promise<void>((resolve) => {
+				const reader = new FileReader();
+				reader.onloadend = () => {
+					const a = document.createElement('a');
+					a.href = reader.result as string;
+					a.download = filename;
+					document.body.appendChild(a);
+					a.click();
+					document.body.removeChild(a);
+					resolve();
+				};
+				reader.readAsDataURL(blob);
+			});
 		} finally {
 			downloadingBackup = null;
 		}

@@ -10,9 +10,8 @@ import { join, dirname, basename } from 'path';
 import { Readable } from 'stream';
 
 function resolveBackupPath(filename: string): string {
-	// Validate filename to prevent path traversal
 	const safe = basename(filename);
-	if (!safe.startsWith('khord-backup-') || !safe.endsWith('.db') || safe.includes('/') || safe.includes('..')) {
+	if (!safe.startsWith('khord-backup-') || !safe.endsWith('.db.gz') || safe.includes('/') || safe.includes('..')) {
 		throw new Error('Invalid filename');
 	}
 	return join(dirname(getDbPath()), 'backups', safe);
@@ -35,7 +34,7 @@ export const GET: RequestHandler = ({ params, locals }) => {
 
 	return new Response(webStream, {
 		headers: {
-			'Content-Type': 'application/octet-stream',
+			'Content-Type': 'application/gzip',
 			'Content-Disposition': `attachment; filename="${params.filename}"`,
 		},
 	});
