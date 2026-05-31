@@ -70,7 +70,7 @@ PUBLIC_APP_URL=https://dev.myapp.com
 src/
   lib/
     server/
-      db.ts                 # SQLite connections — getDb() (read-only) / getDbRw() (read-write)
+      db.ts                 # SQLite connections — getDb() / getDbPath()
       auth.ts               # Session helpers — createSession, getSession
       access.ts             # isOwner checks — OWNER_EMAILS env var + role column
       spotify.ts            # Spotify client credentials token + track/playlist search
@@ -110,9 +110,9 @@ src/
     song/[id]/              # Public song permalink (SSR OG tags)
     login/+page.svelte      # Email + password login / register
     share/                  # Playlist import + single-link share flow
-    settings/               # Preferred streaming service, appearance
+    settings/               # Preferred streaming service, profile picture, public profile, Spotify connect, appearance
     invite/                 # Invite page
-    admin/                  # Admin panel (owner-only): users, bans, requests, settings, cache
+    admin/                  # Admin panel (owner-only): users, bans, requests, settings, cache, backups
     api/
       auth/login/           # POST — email + password login
       auth/register/        # POST — new account registration
@@ -120,9 +120,9 @@ src/
       auth/status/          # GET — instance config + isOwner for current session
       auth/delete-data/     # POST — delete current user's songs/votes/setlists
       songs/                # POST — create song; GET — song list
-      songs/[id]/           # GET — single song; DELETE — remove; PATCH — resync metadata
+      songs/[id]/           # GET — single song; DELETE — remove; PUT — resync metadata
       setlists/             # POST — create setlist
-      setlists/[id]/        # GET — setlist detail; PATCH — update; DELETE — delete
+      setlists/[id]/        # GET — setlist detail; PUT — update; DELETE — delete
       setlists/[id]/items/  # POST — add song; reorder
       setlists/[id]/items/[itemId]/ # DELETE — remove item
       votes/                # POST — upvote song or setlist
@@ -130,11 +130,11 @@ src/
       votes/mine/           # GET — all votes for current session user
       votes/counts/         # GET ?songIds= — batch vote counts
       proposals/            # GET ?setlistId= — proposals for a setlist
-      proposals/[id]/       # POST accept/dismiss
+      proposals/[id]/       # PUT — accept; DELETE — dismiss
       resolve/              # GET ?title=&artist= — Spotify + YouTube + Deezer lookup in parallel
       resolve-link/         # GET ?url= — detect and fetch track/playlist from a streaming URL
       thumbnail/            # Server-side image proxy (avoids CORS on third-party CDNs)
-      admin/                # Admin API routes (stats, users, bans, requests, settings) — owner-only
+      admin/                # Admin API routes (stats, users, bans, requests, settings, backup) — owner-only
 ```
 
 ## Schema
@@ -144,12 +144,12 @@ All data lives in SQLite. The schema is created automatically on first run via `
 | Table | Contents |
 |---|---|
 | `users` | `id, username, email, password_hash, display_name, role, created_at` |
-| `sessions` | `token, user_id, created_at` |
+| `sessions` | `token, user_id, expires_at, created_at` |
 | `songs` | `id, user_id, title, artist, album, thumbnail_url, platform URLs, note, listed, created_at` |
 | `votes` | `id, user_id, song_id, setlist_id, created_at` |
 | `setlists` | `id, user_id, title, description, open, created_at, updated_at` |
 | `setlist_items` | `id, setlist_id, song_id, added_by_user_id, position, snapshot (JSON), added_at` |
 | `proposals` | `id, setlist_id, proposer_user_id, snapshot (JSON), note, created_at` |
-| `banned_users` | `user_id INTEGER PK` |
+| `banned_users` | `user_id INTEGER PK, reason, banned_at` |
 | `instance_settings` | `key, value` |
 | `access_requests` | `id, username, email, status, created_at` |

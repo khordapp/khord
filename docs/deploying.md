@@ -94,7 +94,7 @@ See `.env.example` for full documentation and defaults.
 
 ## Themes
 
-Set `PUBLIC_THEME` in `.env`. A rebuild is required when changing this value.
+Set `PUBLIC_THEME` in `.env`. A container restart is required when changing this value — no rebuild needed.
 
 | Category | Values |
 |---|---|

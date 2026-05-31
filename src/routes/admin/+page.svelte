@@ -63,8 +63,14 @@
 		oldestMtime: string | null;
 	}
 
+	interface BackupFile {
+		filename: string;
+		sizeBytes: number;
+		createdAt: string;
+	}
+
 	// ── State ────────────────────────────────────────────────────────────────────
-	type Tab = 'users' | 'bans' | 'requests' | 'settings' | 'pins' | 'cache';
+	type Tab = 'users' | 'bans' | 'requests' | 'settings' | 'pins' | 'cache' | 'backups';
 	let activeTab: Tab = 'users';
 
 	let stats: Stats | null = null;
@@ -82,7 +88,7 @@
 
 	let banUsername = '';
 	let banReason = '';
-	let banPurgeContent = false;
+	let banPurgeContent = true;
 	let banSubmitting = false;
 	let banFormError = '';
 
@@ -119,6 +125,13 @@
 	let orphanPruning = false;
 	let orphanPruneResult: { count: number; bytesFreed: number } | null = null;
 	let orphanPruneError = false;
+
+	let backups: BackupFile[] = [];
+	let backupsLoading = false;
+	let backupsError = false;
+	let generatingBackup = false;
+	let backupGenerateError = false;
+	let deletingBackup: string | null = null;
 
 	async function runOrphanPrune() {
 		if (orphanPruning) return;
@@ -308,8 +321,50 @@
 		}
 	}
 
+	// ── Backups ───────────────────────────────────────────────────────────────────
+	async function loadBackups() {
+		if (backupsLoading) return;
+		backupsLoading = true;
+		backupsError = false;
+		try {
+			const r = await fetch('/api/admin/backup');
+			if (!r.ok) throw new Error();
+			backups = (await r.json()).backups;
+		} catch {
+			backupsError = true;
+		} finally {
+			backupsLoading = false;
+		}
+	}
+
+	async function generateBackup() {
+		if (generatingBackup) return;
+		generatingBackup = true;
+		backupGenerateError = false;
+		try {
+			const r = await fetch('/api/admin/backup', { method: 'POST' });
+			if (!r.ok) throw new Error();
+			const file = await r.json();
+			backups = [file, ...backups];
+		} catch {
+			backupGenerateError = true;
+		} finally {
+			generatingBackup = false;
+		}
+	}
+
+	async function deleteBackup(filename: string) {
+		deletingBackup = filename;
+		try {
+			await fetch(`/api/admin/backup/${encodeURIComponent(filename)}`, { method: 'DELETE' });
+			backups = backups.filter(b => b.filename !== filename);
+		} finally {
+			deletingBackup = null;
+		}
+	}
+
 	// ── Ban / unban ───────────────────────────────────────────────────────────────
-	async function banUser(targetUserId: number, reason?: string, purgeContent = false) {
+	async function banUser(targetUserId: number, reason?: string, purgeContent = true) {
 		await fetch('/api/admin/bans', {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
@@ -339,7 +394,7 @@
 			await banUser(found.id, banReason.trim() || undefined, banPurgeContent);
 			banUsername = '';
 			banReason = '';
-			banPurgeContent = false;
+			banPurgeContent = true;
 		} finally {
 			banSubmitting = false;
 		}
@@ -444,6 +499,7 @@
 		loadSettings();
 		loadCacheStats();
 		loadPins();
+		loadBackups();
 	}
 
 	$: if (dataLoaded) loadRequests();
@@ -516,6 +572,7 @@
 				<option value="settings">Settings</option>
 				<option value="pins">Pinned Mixtapes</option>
 				<option value="cache">Cache</option>
+			<option value="backups">Backups</option>
 			</select>
 			<div class="absolute inset-y-0 right-3 flex items-center pointer-events-none {$t.accentText}">
 				<CaretDownIcon size={12} />
@@ -525,7 +582,7 @@
 
 	<!-- Desktop: tab bar -->
 	<div class="hidden sm:flex gap-1 border-b {$t.borderBase}">
-		{#each [['users', 'Users'], ['bans', 'Bans'], ['requests', 'Requests'], ['settings', 'Settings'], ['pins', 'Pinned'], ['cache', 'Cache']] as [id, label]}
+		{#each [['users', 'Users'], ['bans', 'Bans'], ['requests', 'Requests'], ['settings', 'Settings'], ['pins', 'Pinned'], ['cache', 'Cache'], ['backups', 'Backups']] as [id, label]}
 			<button
 				on:click={() => (activeTab = id as Tab)}
 				class="px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px
@@ -1121,6 +1178,71 @@
 					</p>
 				{:else if orphanPruneError}
 					<p class="text-xs text-red-400">Prune failed — check server logs.</p>
+				{/if}
+			</div>
+		</div>
+	{/if}
+
+	<!-- Backups tab -->
+	{#if activeTab === 'backups'}
+		<div class="space-y-6 max-w-md">
+			<div class="{$t.surfaceBg} border {$t.borderStrong} rounded-xl p-4 space-y-4">
+				<div>
+					<p class="text-sm font-medium {$t.textPrimary}">Database backups</p>
+					<p class="text-xs {$t.textMuted} mt-0.5">Snapshots are saved to <code class="font-mono">/data/backups/</code> inside the container's data volume. Download and store them off-server.</p>
+				</div>
+				<button
+					on:click={generateBackup}
+					disabled={generatingBackup}
+					class="text-sm font-medium px-4 py-2 rounded-lg {$t.btnPrimaryBg} {$t.btnPrimaryText} {$t.btnPrimaryHover} transition-colors disabled:opacity-50"
+				>
+					{generatingBackup ? 'Generating…' : 'Generate backup'}
+				</button>
+				{#if backupGenerateError}
+					<p class="text-xs text-red-400">Backup failed — check server logs.</p>
+				{/if}
+			</div>
+
+			<div class="{$t.surfaceBg} border {$t.borderStrong} rounded-xl overflow-hidden">
+				{#if backupsLoading && backups.length === 0}
+					<div class="p-4 space-y-2">
+						{#each [1,2] as _}
+							<div class="{$t.recessedBg} rounded-lg h-10 animate-pulse"></div>
+						{/each}
+					</div>
+				{:else if backupsError}
+					<p class="text-sm {$t.textMuted} p-4">Could not load backups.</p>
+				{:else if backups.length === 0}
+					<p class="text-sm {$t.textMuted} p-4">No backups yet.</p>
+				{:else}
+					<ul class="divide-y {$t.borderFaded}">
+						{#each backups as backup (backup.filename)}
+							<li class="flex items-center justify-between gap-3 px-4 py-3">
+								<div class="min-w-0">
+									<p class="text-sm {$t.textPrimary} font-medium">
+										{new Date(backup.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+									</p>
+									<p class="text-xs {$t.textFaint}">{formatBytes(backup.sizeBytes)}</p>
+								</div>
+								<div class="flex items-center gap-2 shrink-0">
+									<a
+										href="/api/admin/backup/{encodeURIComponent(backup.filename)}"
+										download={backup.filename}
+										class="text-xs font-medium px-3 py-1.5 rounded-lg border {$t.borderStrong} {$t.textMuted} {$t.hoverText} {$t.hoverBg} transition-colors"
+									>
+										Download
+									</a>
+									<button
+										on:click={() => { if (confirm('Delete this backup?')) deleteBackup(backup.filename); }}
+										disabled={deletingBackup === backup.filename}
+										class="text-xs text-red-400 hover:text-red-300 transition-colors disabled:opacity-40"
+									>
+										{deletingBackup === backup.filename ? '…' : 'Delete'}
+									</button>
+								</div>
+							</li>
+						{/each}
+					</ul>
 				{/if}
 			</div>
 		</div>

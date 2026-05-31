@@ -177,7 +177,27 @@
 <div class="max-w-sm space-y-8">
 	<h1 class="text-2xl font-bold">Settings</h1>
 
+	<!-- 1. Preferred streaming service -->
+	<div class="space-y-3">
+		<div class="space-y-1">
+			<h2 class="text-sm font-semibold {$t.textPrimary}">Preferred streaming service</h2>
+			<p class="text-xs {$t.textMuted}">
+				When set, this platform's link will always appear first on each song. Others are shown in a
+				collapsed list.
+			</p>
+		</div>
+		<button
+			on:click={() => (modalOpen = true)}
+			class="w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-colors
+				{$t.borderStrong} {$t.surfaceBg} {$t.textSecondary} {$t.hoverBorderStrong} {$t.hoverText}"
+		>
+			<span class="text-sm">{currentLabel ?? 'None set'}</span>
+			<span class="text-xs {$t.textMuted}">Change</span>
+		</button>
+	</div>
+
 	{#if $session}
+		<!-- 2. Profile picture -->
 		<div class="space-y-3">
 			<div class="space-y-1">
 				<h2 class="text-sm font-semibold {$t.textPrimary}">Profile picture</h2>
@@ -229,6 +249,7 @@
 			{/if}
 		</div>
 
+		<!-- 3. Public profile -->
 		<div class="space-y-3">
 			<div class="space-y-1">
 				<h2 class="text-sm font-semibold {$t.textPrimary}">Public profile</h2>
@@ -259,6 +280,7 @@
 		</div>
 	{/if}
 
+	<!-- 4. Spotify / Apple connect -->
 	{#if spotifyClientId}
 		<div class="space-y-3">
 			<div class="space-y-1">
@@ -286,6 +308,7 @@
 		</div>
 	{/if}
 
+	<!-- 5. Appearance -->
 	{#if hasPair}
 		<div class="space-y-3">
 			<div class="space-y-1">
@@ -303,26 +326,7 @@
 		</div>
 	{/if}
 
-	<div class="space-y-3">
-		<div class="space-y-1">
-			<h2 class="text-sm font-semibold {$t.textPrimary}">Preferred streaming service</h2>
-			<p class="text-xs {$t.textMuted}">
-				When set, this platform's link will always appear first on each song. Others are shown in a
-				collapsed list.
-			</p>
-		</div>
-		<button
-			on:click={() => (modalOpen = true)}
-			class="w-full flex items-center justify-between px-4 py-3 rounded-lg border transition-colors
-				{$t.borderStrong} {$t.surfaceBg} {$t.textSecondary} {$t.hoverBorderStrong} {$t.hoverText}"
-		>
-			<span class="text-sm">{currentLabel ?? 'None set'}</span>
-			<span class="text-xs {$t.textMuted}">Change</span>
-		</button>
-	</div>
-
-	<StreamingServiceModal bind:open={modalOpen} />
-
+	<!-- 6. Danger zone -->
 	{#if $session}
 		<div class="space-y-3 pt-4 border-t border-red-900/40">
 			<div class="space-y-1">
@@ -342,6 +346,8 @@
 		</div>
 	{/if}
 </div>
+
+<StreamingServiceModal bind:open={modalOpen} />
 
 {#if deleteModalOpen}
 	<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">

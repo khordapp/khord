@@ -171,6 +171,11 @@ export function getDb(): import('better-sqlite3').Database {
 	return _db;
 }
 
+export function getDbPath(): string {
+	const dbName = process.env.INDEXER_DB_NAME;
+	return dbName ? `/data/${dbName}` : (process.env.INDEXER_DB_PATH ?? './data/khord.db');
+}
+
 // Kept for backward compat with settings.ts / access.ts that call getDbRw()
 export function getDbRw(): import('better-sqlite3').Database | null {
 	try {

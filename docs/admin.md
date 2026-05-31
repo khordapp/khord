@@ -14,6 +14,7 @@ Everything an instance owner needs to deploy and manage a Khord instance.
   - [Requests](#requests)
   - [Settings](#settings)
   - [Cache](#cache)
+  - [Backups](#backups)
 - [Streaming integrations](#streaming-integrations)
   - [Spotify](#spotify)
   - [YouTube Music](#youtube-music)
@@ -65,7 +66,7 @@ All variables can be set in `.env` (Docker Compose) or the Unraid template. Vari
 | Variable | Default | Description |
 |---|---|---|
 | `PUBLIC_APP_NAME` | `Khord` | Display name in the UI and page titles |
-| `PUBLIC_APP_TAGLINE` | `Music, across every platform.` | One-line tagline on the home page |
+| `PUBLIC_APP_TAGLINE` | `Share music, listen anywhere.` | One-line tagline on the home page |
 | `PUBLIC_THEME` | `dark` | UI color theme — see [Themes](#themes). Requires a container restart. |
 
 ### Streaming integrations
@@ -115,7 +116,9 @@ Paginated list of all registered users — username, email, display name, and re
 
 ### Bans
 
-Add and remove banned users. Banned users are immediately blocked from signing in — no restart needed. Enter a username or email to ban; the user is looked up and added to the ban list.
+Add and remove banned users. Banned users are immediately blocked from signing in — no restart needed. Enter a username to ban; the user is looked up and added to the ban list.
+
+When banning, the **Delete all their content** option (on by default) permanently removes the user's songs, votes, mixtapes, and proposals at the same time.
 
 ### Requests
 
@@ -141,6 +144,10 @@ All toggles and settings take effect immediately and persist across restarts (st
 
 Manage the server-side album art disk cache. Shows current cache size and lets you clear it. Cache entries are created lazily when album art is first viewed; entries are reused across requests with 24-hour HTTP cache headers.
 
+### Backups
+
+Generate point-in-time snapshots of the SQLite database directly from the browser. Snapshots are saved to `/data/backups/` inside the container's data volume. The list shows each backup's timestamp and file size — download them off-server for safekeeping, and delete old ones to reclaim space.
+
 ---
 
 ## Streaming integrations
@@ -151,7 +158,7 @@ Enables Spotify URLs on shared songs and Spotify playlist import.
 
 1. Create an app at [developer.spotify.com/dashboard](https://developer.spotify.com/dashboard)
    - The account that owns the app must have an **active Spotify Premium subscription**
-   - Add your `PUBLIC_APP_URL` as an allowed redirect URI
+   - Add `{PUBLIC_APP_URL}/spotify/callback` as an allowed redirect URI
 2. Copy the **Client ID** and **Client Secret**
 3. Set `PUBLIC_SPOTIFY_CLIENT_ID` and `SPOTIFY_CLIENT_SECRET` in your `.env` or Unraid template
 4. Restart the container
@@ -253,10 +260,15 @@ The entire state of your Khord instance lives in two places:
 1. **`khord.db`** — the SQLite database. Contains all songs, votes, setlists, users, bans, and instance settings. Back this up regularly.
 2. **`thumbnails/`** — the album art disk cache. Expendable — entries rebuild on demand from iTunes CDN. You can skip backing this up.
 
-**Simple backup with SQLite:**
+### Admin panel backup (recommended)
+
+Go to **Admin → Backups** and click **Generate backup**. The snapshot is saved to `/data/backups/` inside the container's data volume. Download it to off-server storage and delete old snapshots from the same page.
+
+### CLI backup
+
 ```bash
 # Safe online backup — no downtime needed
 sqlite3 /data/khord.db ".backup /backup/khord-$(date +%Y%m%d).db"
 ```
 
-Run this from a cron job or your backup tool of choice.
+Run this from a cron job or your backup tool of choice. For continuous off-site replication, [Litestream](https://litestream.io/) can stream WAL changes to S3-compatible storage.
