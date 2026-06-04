@@ -132,7 +132,10 @@
 	interface SetlistSummary {
 		id: number;
 		title: string;
+		description?: string;
 		itemCount: number;
+		open: boolean;
+		tags: string[];
 		createdAt: string;
 		owner: { userId: number; username: string; displayName?: string };
 	}
@@ -155,8 +158,24 @@
 	let mobileActionOpen = false;
 	let settingsOpen = false;
 	let newSetlistTitle = '';
+	let newSetlistDescription = '';
+	let newSetlistOpen = false;
+	let newSetlistTags: string[] = [];
+	let newTagInput = '';
 	let creatingSetlist = false;
 	let setlistPendingIds = new Set<number>();
+
+	function addTag() {
+		const t = newTagInput.trim().toLowerCase().slice(0, 25);
+		if (t && newSetlistTags.length < 10 && !newSetlistTags.includes(t)) {
+			newSetlistTags = [...newSetlistTags, t];
+		}
+		newTagInput = '';
+	}
+
+	function removeTag(tag: string) {
+		newSetlistTags = newSetlistTags.filter(t => t !== tag);
+	}
 
 	$: confirmItems = [...selectedIds]
 		.map((id) => allItems.find((i) => i.id === id))
@@ -236,7 +255,12 @@
 			const createRes = await fetch('/api/setlists', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ title: newSetlistTitle.trim() })
+				body: JSON.stringify({
+					title: newSetlistTitle.trim(),
+					description: newSetlistDescription.trim() || undefined,
+					open: newSetlistOpen,
+					tags: newSetlistTags,
+				})
 			});
 			if (!createRes.ok) throw new Error('Failed to create setlist');
 			const { id: setlistId } = await createRes.json();
@@ -266,12 +290,17 @@
 				});
 			}
 
+			const createdTitle = newSetlistTitle.trim();
 			createSetlistOpen = false;
 			newSetlistTitle = '';
+			newSetlistDescription = '';
+			newSetlistOpen = false;
+			newSetlistTags = [];
+			newTagInput = '';
 			selectedIds = new Set();
 			dailySelectedIds = new Set();
 			setlistPendingIds = new Set();
-			goto(`/s/${setlistSlug(newSetlistTitle.trim(), setlistId)}`);
+			goto(`/s/${setlistSlug(createdTitle, setlistId)}`);
 		} finally {
 			creatingSetlist = false;
 		}
@@ -693,25 +722,59 @@
 		<div class="relative w-full max-w-sm {$t.surfaceBg} border {$t.borderStrong} rounded-2xl shadow-2xl overflow-hidden">
 			<div class="px-5 pt-5 pb-4 space-y-4">
 				<h2 class="text-sm font-semibold {$t.textPrimary}">New mixtape</h2>
-				<div class="space-y-1.5">
+				<div class="space-y-3">
 					<input
 						bind:value={newSetlistTitle}
 						placeholder="Name your mixtape…"
 						maxlength="100"
 						class="w-full {$t.elevatedBg} border {$t.borderStrong} rounded-lg px-3 py-2 text-base sm:text-sm {$t.textPrimary} placeholder:{$t.textMuted} focus:outline-none {$t.hoverBorderStrong} transition-colors"
 					/>
+					<textarea
+						bind:value={newSetlistDescription}
+						placeholder="Describe the theme or vibe… (optional)"
+						rows="2"
+						maxlength="500"
+						class="w-full {$t.elevatedBg} border {$t.borderStrong} rounded-lg px-3 py-2 text-base sm:text-sm {$t.textPrimary} placeholder:{$t.textMuted} focus:outline-none {$t.hoverBorderStrong} transition-colors resize-none"
+					></textarea>
+					<label class="flex items-center gap-2.5 cursor-pointer select-none">
+						<input type="checkbox" bind:checked={newSetlistOpen} class="rounded" />
+						<span class="text-sm {$t.textPrimary}">Open challenge</span>
+					</label>
+					<div class="space-y-2">
+						<div class="flex gap-2">
+							<input
+								bind:value={newTagInput}
+								on:keydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }}
+								placeholder="Add a tag… (press Enter)"
+								maxlength="25"
+								class="flex-1 {$t.elevatedBg} border {$t.borderStrong} rounded-lg px-3 py-1.5 text-base sm:text-sm {$t.textPrimary} placeholder:{$t.textMuted} focus:outline-none {$t.hoverBorderStrong} transition-colors"
+							/>
+						</div>
+						{#if newSetlistTags.length > 0}
+							<div class="flex flex-wrap gap-1.5">
+								{#each newSetlistTags as tag}
+									<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs {$t.accentBg} {$t.accentText} border {$t.accentBorder}">
+										#{tag}
+										<button on:click={() => removeTag(tag)} class="hover:opacity-70 leading-none" aria-label="Remove tag">×</button>
+									</span>
+								{/each}
+							</div>
+						{/if}
+					</div>
 				</div>
-				<ul class="space-y-1.5 max-h-40 overflow-y-auto">
-					{#each [...setlistPendingIds].map(id => allItems.find(i => i.id === id)).filter(Boolean) as item}
-						<li class="flex items-center gap-2 text-xs {$t.textMuted}">
-							<span class="{$t.textFaint} shrink-0">♪</span>
-							<span class="truncate">
-								<span class="{$t.textSecondary}">{item!.record.title}</span>
-								<span class="{$t.textFaint}"> — {item!.record.artist}</span>
-							</span>
-						</li>
-					{/each}
-				</ul>
+				{#if setlistPendingIds.size > 0}
+					<ul class="space-y-1.5 max-h-40 overflow-y-auto">
+						{#each [...setlistPendingIds].map(id => allItems.find(i => i.id === id)).filter(Boolean) as item}
+							<li class="flex items-center gap-2 text-xs {$t.textMuted}">
+								<span class="{$t.textFaint} shrink-0">♪</span>
+								<span class="truncate">
+									<span class="{$t.textSecondary}">{item!.record.title}</span>
+									<span class="{$t.textFaint}"> — {item!.record.artist}</span>
+								</span>
+							</li>
+						{/each}
+					</ul>
+				{/if}
 			</div>
 			<div class="flex border-t {$t.borderBase}">
 				<button on:click={() => (createSetlistOpen = false)} class="flex-1 px-4 py-3 text-sm {$t.textMuted} {$t.hoverText} {$t.hoverBg} transition-colors">Cancel</button>
@@ -972,9 +1035,25 @@
 										</div>
 										<div class="min-w-0">
 											<p class="text-base font-semibold {$t.textPrimary} leading-snug truncate">{pin.title}</p>
+											{#if pin.open}
+												<div class="mt-0.5"><span class="px-1.5 py-0.5 rounded-full text-xs font-semibold {$t.accentBg} {$t.accentText} border {$t.accentBorder}">Challenge</span></div>
+											{/if}
+											{#if pin.description}
+												<p class="text-sm {$t.textSecondary} mt-0.5 line-clamp-2">{pin.description}</p>
+											{/if}
 											<p class="text-sm {$t.textMuted} mt-0.5">
 												{pin.itemCount} {pin.itemCount === 1 ? 'song' : 'songs'} · @{pin.owner.username}{#if pin.createdAt} · {new Date(pin.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}{/if}
 											</p>
+											{#if pin.tags && pin.tags.length > 0}
+												<div class="flex flex-wrap gap-1 mt-1">
+													{#each pin.tags.slice(0, 3) as tag}
+														<span class="px-1.5 py-0.5 rounded-full text-xs {$t.accentBg} {$t.accentText} border {$t.accentBorder}">#{tag}</span>
+													{/each}
+													{#if pin.tags.length > 3}
+														<span class="text-xs {$t.textFaint}">+{pin.tags.length - 3}</span>
+													{/if}
+												</div>
+											{/if}
 										</div>
 									</div>
 								</a>
@@ -1070,11 +1149,27 @@
 										</div>
 										<div class="min-w-0">
 											<p class="text-base font-semibold {$t.textPrimary} leading-snug truncate">{setlist.title}</p>
+											{#if setlist.open}
+												<div class="mt-0.5"><span class="px-1.5 py-0.5 rounded-full text-xs font-semibold {$t.accentBg} {$t.accentText} border {$t.accentBorder}">Challenge</span></div>
+											{/if}
+											{#if setlist.description}
+												<p class="text-sm {$t.textSecondary} mt-0.5 line-clamp-2">{setlist.description}</p>
+											{/if}
 											<p class="text-sm {$t.textMuted} mt-0.5">
 												{setlist.itemCount} {setlist.itemCount === 1 ? 'song' : 'songs'}
 												· @{$session?.username}
 												· {new Date(setlist.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
 											</p>
+											{#if setlist.tags && setlist.tags.length > 0}
+												<div class="flex flex-wrap gap-1 mt-1">
+													{#each setlist.tags.slice(0, 3) as tag}
+														<span class="px-1.5 py-0.5 rounded-full text-xs {$t.accentBg} {$t.accentText} border {$t.accentBorder}">#{tag}</span>
+													{/each}
+													{#if setlist.tags.length > 3}
+														<span class="text-xs {$t.textFaint}">+{setlist.tags.length - 3}</span>
+													{/if}
+												</div>
+											{/if}
 										</div>
 									</div>
 								</a>

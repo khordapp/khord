@@ -239,6 +239,65 @@ function getPrimaryPlatform(rec: SongRecord) {
 		}
 	}
 
+	// Description editing
+	let editingDescription = false;
+	let descriptionDraft = '';
+
+	function startEditDescription() {
+		descriptionDraft = setlist.description ?? '';
+		editingDescription = true;
+	}
+
+	async function saveDescription() {
+		editingDescription = false;
+		const val = descriptionDraft.trim() || null;
+		if (val === (setlist.description ?? null)) return;
+		const res = await fetch(`/api/setlists/${setlist.id}`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ description: val })
+		});
+		if (res.ok) setlist = { ...setlist, description: val ?? undefined };
+	}
+
+	// Open (challenge mode) toggle
+	async function toggleOpen() {
+		const newOpen = !setlist.open;
+		const res = await fetch(`/api/setlists/${setlist.id}`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ open: newOpen })
+		});
+		if (res.ok) setlist = { ...setlist, open: newOpen };
+	}
+
+	// Tags editing
+	let editTagInput = '';
+
+	function addEditTag() {
+		const tag = editTagInput.trim().toLowerCase().slice(0, 25);
+		if (tag && (setlist.tags?.length ?? 0) < 10 && !setlist.tags?.includes(tag)) {
+			const newTags = [...(setlist.tags ?? []), tag];
+			setlist = { ...setlist, tags: newTags };
+			saveTags(newTags);
+		}
+		editTagInput = '';
+	}
+
+	function removeEditTag(tag: string) {
+		const newTags = (setlist.tags ?? []).filter(t => t !== tag);
+		setlist = { ...setlist, tags: newTags };
+		saveTags(newTags);
+	}
+
+	async function saveTags(tags: string[]) {
+		await fetch(`/api/setlists/${setlist.id}`, {
+			method: 'PUT',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ tags })
+		});
+	}
+
 	// Drag reorder
 	let reordering = false;
 
@@ -364,13 +423,16 @@ function getPrimaryPlatform(rec: SongRecord) {
 		snapshot: SongRecord;
 		note?: string;
 		createdAt: string;
+		voteCount: number;
+		userHasVoted: boolean;
 		proposer: { userId: number; username: string; displayName?: string };
 	}
 	let proposals: Proposal[] = [];
 	let proposalsLoaded = false;
 
 	async function loadProposals() {
-		if (!isOwner) return;
+		if (!$session) return;
+		if (!isOwner && !setlist.open) return;
 		const res = await fetch(`/api/proposals?setlistId=${setlist.id}`);
 		if (res.ok) { proposals = (await res.json()).proposals; proposalsLoaded = true; }
 	}
@@ -399,6 +461,15 @@ function getPrimaryPlatform(rec: SongRecord) {
 			body: JSON.stringify({ action: 'decline' })
 		});
 		proposals = proposals.filter((p) => p.id !== proposal.id);
+	}
+
+	async function toggleProposalVote(proposal: Proposal) {
+		if (!$session) return;
+		const method = proposal.userHasVoted ? 'DELETE' : 'POST';
+		const res = await fetch(`/api/proposals/${proposal.id}/vote`, { method });
+		if (!res.ok) return;
+		const { voted, voteCount } = await res.json();
+		proposals = proposals.map(p => p.id === proposal.id ? { ...p, userHasVoted: voted, voteCount } : p);
 	}
 
 	// Propose a song (non-owner)
@@ -455,6 +526,8 @@ function getPrimaryPlatform(rec: SongRecord) {
 			});
 			if (!res.ok) throw new Error('Failed to submit proposal');
 			proposed = true;
+			// Reload proposals so the new one appears in Suggested songs
+			if (setlist.open) loadProposals();
 			setTimeout(() => { proposed = false; proposeOpen = false; proposeQuery = ''; proposeNote = ''; proposeResults = []; }, 2000);
 		} catch (e) {
 			proposeError = e instanceof Error ? e.message : 'Proposal failed.';
@@ -505,8 +578,10 @@ function getPrimaryPlatform(rec: SongRecord) {
 	import { onMount } from 'svelte';
 	onMount(async () => {
 		loadVoteCounts();
-		if (isOwner) {
+		if ($session) {
 			loadProposals();
+		}
+		if (isOwner) {
 			// Check if pinned
 			const pinRes = await fetch('/api/pinned-setlists');
 			if (pinRes.ok) {
@@ -553,7 +628,7 @@ function getPrimaryPlatform(rec: SongRecord) {
 
 <div class="space-y-6" style="padding-bottom: {$session ? 'calc(5rem + env(safe-area-inset-bottom, 0px))' : '2rem'}">
 	<!-- Header -->
-	<div class="space-y-1">
+	<div class="space-y-2">
 		{#if editingTitle && isOwner && editing}
 			<input
 				bind:this={titleInputEl}
@@ -572,6 +647,9 @@ function getPrimaryPlatform(rec: SongRecord) {
 					</button>
 				{/if}
 			</div>
+			{#if setlist.open}
+				<div><span class="px-2 py-0.5 rounded-full text-xs font-semibold {$t.accentBg} {$t.accentText} border {$t.accentBorder}">Open Challenge</span></div>
+			{/if}
 		{/if}
 		<p class="text-sm {$t.textMuted}">
 			{dndItems.length} {dndItems.length === 1 ? 'song' : 'songs'} · <a href="/u/{setlist.owner.username}" class="{$t.hoverText} transition-colors">@{setlist.owner.username}</a>
@@ -579,6 +657,68 @@ function getPrimaryPlatform(rec: SongRecord) {
 				<span class="{setlistLiked ? $t.accentText : ''}"> · ♥ {setlistLikeCount}</span>
 			{/if}
 		</p>
+
+		<!-- Description (challenge prompt) -->
+		{#if isOwner && editing}
+			<div class="space-y-2">
+				{#if editingDescription}
+					<textarea
+						bind:value={descriptionDraft}
+						on:blur={saveDescription}
+						on:keydown={(e) => { if (e.key === 'Escape') saveDescription(); }}
+						placeholder="Describe the theme or challenge…"
+						rows="3"
+						maxlength="500"
+						class="w-full {$t.elevatedBg} border {$t.borderStrong} rounded-lg px-3 py-2 text-base sm:text-sm {$t.textPrimary} placeholder:{$t.textFaint} focus:outline-none {$t.focusRing} resize-none"
+					></textarea>
+				{:else}
+					<button
+						on:click={startEditDescription}
+						class="w-full text-left text-sm {setlist.description ? $t.textSecondary : $t.textFaint} italic hover:opacity-70 transition-opacity py-1"
+					>
+						{setlist.description ?? 'Add a description…'}
+					</button>
+				{/if}
+				<!-- Open challenge toggle -->
+				<label class="flex items-center gap-2.5 cursor-pointer select-none">
+					<input type="checkbox" checked={setlist.open} on:change={toggleOpen} class="rounded" />
+					<span class="text-sm {$t.textPrimary}">Open challenge</span>
+				</label>
+				<!-- Tags input -->
+				<div class="space-y-1.5">
+					<div class="flex gap-2">
+						<input
+							bind:value={editTagInput}
+							on:keydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addEditTag(); } }}
+							placeholder="Add a tag… (press Enter)"
+							maxlength="25"
+							class="flex-1 {$t.elevatedBg} border {$t.borderStrong} rounded-lg px-3 py-1.5 text-base sm:text-sm {$t.textPrimary} placeholder:{$t.textFaint} focus:outline-none {$t.focusRing} transition-colors"
+						/>
+					</div>
+					{#if (setlist.tags ?? []).length > 0}
+						<div class="flex flex-wrap gap-1.5">
+							{#each (setlist.tags ?? []) as tag}
+								<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs {$t.accentBg} {$t.accentText} border {$t.accentBorder}">
+									#{tag}
+									<button on:click={() => removeEditTag(tag)} class="hover:opacity-70 leading-none" aria-label="Remove tag">×</button>
+								</span>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			</div>
+		{:else}
+			{#if setlist.description}
+				<p class="text-sm {$t.textSecondary} border-l-2 {$t.accentBorder} pl-3 italic">{setlist.description}</p>
+			{/if}
+			{#if (setlist.tags ?? []).length > 0}
+				<div class="flex flex-wrap gap-1.5">
+					{#each (setlist.tags ?? []) as tag}
+						<span class="px-2 py-0.5 rounded-full text-xs {$t.accentBg} {$t.accentText} border {$t.accentBorder}">#{tag}</span>
+					{/each}
+				</div>
+			{/if}
+		{/if}
 	</div>
 
 	<!-- Add song panel (owner, edit mode) -->
@@ -660,16 +800,16 @@ function getPrimaryPlatform(rec: SongRecord) {
 				{/if}
 				{#if proposeError}<p class="text-xs text-red-400">{proposeError}</p>{/if}
 				<textarea bind:value={proposeNote} placeholder="Add a note… (optional)" rows="2"
-					class="w-full {$t.elevatedBg} border {$t.borderStrong} rounded-lg px-3 py-2 text-sm {$t.textPrimary} placeholder:{$t.textFaint} focus:outline-none {$t.focusRing} resize-none"
+					class="w-full {$t.elevatedBg} border {$t.borderStrong} rounded-lg px-3 py-2 text-base sm:text-sm {$t.textPrimary} placeholder:{$t.textFaint} focus:outline-none {$t.focusRing} resize-none"
 				></textarea>
 			{/if}
 		</div>
 	{/if}
 
-	<!-- Proposals (owner) -->
-	{#if isOwner && proposalsLoaded && proposals.length > 0}
+	<!-- Proposals (all logged-in users on open mixtapes; owner sees accept/decline) -->
+	{#if $session && proposalsLoaded && (isOwner || setlist.open) && proposals.length > 0}
 		<div class="space-y-3">
-			<p class="text-xs font-semibold {$t.textFaint} uppercase tracking-wider">Proposals ({proposals.length})</p>
+			<p class="text-xs font-semibold {$t.textFaint} uppercase tracking-wider">Suggested songs ({proposals.length})</p>
 			{#each proposals as proposal}
 				<div class="rounded-xl border {$t.borderStrong} {$t.surfaceBg} p-4 space-y-3">
 					<div class="flex items-start gap-3">
@@ -680,13 +820,24 @@ function getPrimaryPlatform(rec: SongRecord) {
 							<p class="text-sm font-medium {$t.textPrimary} truncate">{proposal.snapshot.title}</p>
 							<p class="text-xs {$t.textMuted} truncate">{proposal.snapshot.artist}</p>
 							<p class="text-xs {$t.textFaint} mt-0.5">Proposed by @{proposal.proposer.username}</p>
-							{#if proposal.note}<p class="text-xs {$t.textSecondary} mt-1">"{proposal.note}"</p>{/if}
+							{#if proposal.note}<p class="text-xs {$t.textSecondary} mt-1 italic border-l-2 {$t.borderBase} pl-2">"{proposal.note}"</p>{/if}
 						</div>
+						<!-- Upvote button -->
+						<button
+							on:click={() => toggleProposalVote(proposal)}
+							class="shrink-0 flex flex-col items-center gap-0.5 px-2 py-1 rounded-lg transition-colors {proposal.userHasVoted ? $t.accentText : `${$t.textFaint} ${$t.hoverTextSecondary}`}"
+							title={proposal.userHasVoted ? 'Remove vote' : 'Support this suggestion'}
+						>
+							<HeartIcon size={18} weight={proposal.userHasVoted ? "fill" : "regular"} />
+							{#if proposal.voteCount > 0}<span class="text-xs tabular-nums leading-none">{proposal.voteCount}</span>{/if}
+						</button>
 					</div>
-					<div class="flex gap-2">
-						<button on:click={() => acceptProposal(proposal)} class="flex-1 text-sm font-medium {$t.btnPrimaryBg} {$t.btnPrimaryText} px-3 py-1.5 rounded-lg {$t.btnPrimaryHover} transition-colors">Accept</button>
-						<button on:click={() => declineProposal(proposal)} class="flex-1 text-sm {$t.textMuted} border {$t.borderStrong} px-3 py-1.5 rounded-lg {$t.hoverBg} transition-colors">Decline</button>
-					</div>
+					{#if isOwner}
+						<div class="flex gap-2">
+							<button on:click={() => acceptProposal(proposal)} class="flex-1 text-sm font-medium {$t.btnPrimaryBg} {$t.btnPrimaryText} px-3 py-1.5 rounded-lg {$t.btnPrimaryHover} transition-colors">Accept</button>
+							<button on:click={() => declineProposal(proposal)} class="flex-1 text-sm {$t.textMuted} border {$t.borderStrong} px-3 py-1.5 rounded-lg {$t.hoverBg} transition-colors">Decline</button>
+						</div>
+					{/if}
 				</div>
 			{/each}
 		</div>

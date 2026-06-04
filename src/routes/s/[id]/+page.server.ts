@@ -9,7 +9,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 
 	const db = getDb();
 	const setlist = db.prepare(`
-		SELECT sl.id, sl.title, sl.description, sl.open, sl.created_at, sl.updated_at,
+		SELECT sl.id, sl.title, sl.description, sl.open, sl.tags, sl.created_at, sl.updated_at,
 		       sl.user_id, u.username, u.display_name
 		FROM setlists sl
 		JOIN users u ON u.id = sl.user_id
@@ -42,6 +42,7 @@ export const load: PageServerLoad = ({ params, locals }) => {
 			title:       setlist.title,
 			description: setlist.description ?? undefined,
 			open:        setlist.open === 1,
+			tags:        JSON.parse(setlist.tags ?? '[]') as string[],
 			createdAt:   setlist.created_at,
 			updatedAt:   setlist.updated_at,
 			owner: {

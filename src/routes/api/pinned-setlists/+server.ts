@@ -34,7 +34,7 @@ export const GET: RequestHandler = () => {
 	const db = getDb();
 	const ph = ids.map(() => '?').join(',');
 	const rows = db.prepare(`
-		SELECT sl.id, sl.title, sl.created_at, sl.user_id,
+		SELECT sl.id, sl.title, sl.open, sl.tags, sl.created_at, sl.user_id,
 		       u.username, u.display_name,
 		       COUNT(si.id) as item_count
 		FROM setlists sl
@@ -51,6 +51,8 @@ export const GET: RequestHandler = () => {
 		return [{
 			id:          r.id,
 			title:       r.title,
+			open:        r.open === 1,
+			tags:        JSON.parse(r.tags ?? '[]') as string[],
 			createdAt:   r.created_at,
 			itemCount:   r.item_count,
 			owner: {

@@ -17,14 +17,14 @@ export interface TrackResult {
 	deezerUrl?: string;
 }
 
-export async function searchTracks(query: string, limit = 6): Promise<TrackResult[]> {
+export async function searchTracks(query: string, limit = 15): Promise<TrackResult[]> {
 	const results = await searchItunes(query, limit);
 	return results.map((r) => ({
-		title: r.trackName,
-		artist: r.artistName,
-		album: r.collectionName,
-		year: r.releaseDate?.split('-')[0],
+		title:        r.trackName,
+		artist:       r.artistName,
+		album:        r.collectionName,
+		year:         r.releaseDate?.split('-')[0],
 		appleMusicUrl: r.trackViewUrl,
-		artworkUrl: r.artworkUrl100?.replace('100x100bb', '600x600bb')
+		artworkUrl:   r.artworkUrl100?.replace('100x100bb', '600x600bb')
 	}));
 }

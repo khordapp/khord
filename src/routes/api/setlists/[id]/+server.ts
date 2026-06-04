@@ -42,6 +42,7 @@ export const GET: RequestHandler = ({ params }) => {
 		title:       setlist.title,
 		description: setlist.description ?? undefined,
 		open:        setlist.open === 1,
+		tags:        JSON.parse(setlist.tags ?? '[]') as string[],
 		createdAt:   setlist.created_at,
 		updatedAt:   setlist.updated_at,
 		owner: {
@@ -77,12 +78,19 @@ export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	const body = await request.json().catch(() => null);
 	if (!body) error(400, 'Invalid JSON');
 
-	const { title, description, items } = body;
+	const { title, description, open, tags, items } = body;
 
 	const updates: string[] = ["updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')"];
 	const vals: unknown[] = [];
 	if (title !== undefined) { updates.push('title = ?'); vals.push(title.trim()); }
 	if (description !== undefined) { updates.push('description = ?'); vals.push(description?.trim() ?? null); }
+	if (open !== undefined) { updates.push('open = ?'); vals.push(open ? 1 : 0); }
+	if (tags !== undefined) {
+		const tagsJson = JSON.stringify(
+			Array.isArray(tags) ? tags.map(String).filter(Boolean).slice(0, 10) : []
+		);
+		updates.push('tags = ?'); vals.push(tagsJson);
+	}
 	vals.push(id);
 
 	db.prepare(`UPDATE setlists SET ${updates.join(', ')} WHERE id = ?`).run(...vals);

@@ -1,4 +1,6 @@
-// GET /api/proposals?setlistId=N — pending proposals for a setlist (owner only)
+// GET /api/proposals?setlistId=N — pending proposals for a setlist
+//   Owner/admin: always allowed
+//   Any logged-in user: allowed when the setlist is open (challenge mode)
 // POST /api/proposals — submit a song proposal (authenticated, non-owner)
 
 import { json, error } from '@sveltejs/kit';
@@ -16,25 +18,34 @@ export const GET: RequestHandler = ({ url, locals }) => {
 	if (!setlistId) error(400, 'Invalid setlistId');
 
 	const db = getDb();
-	const setlist = db.prepare('SELECT user_id FROM setlists WHERE id = ?').get(setlistId) as { user_id: number } | undefined;
+	const setlist = db.prepare('SELECT user_id, open FROM setlists WHERE id = ?').get(setlistId) as { user_id: number; open: number } | undefined;
 	if (!setlist) error(404, 'Setlist not found');
-	if (setlist.user_id !== user.id && user.role !== 'admin') error(403, 'Not your setlist');
+
+	const isOwner = setlist.user_id === user.id || user.role === 'admin';
+	const isOpen = setlist.open === 1;
+	if (!isOwner && !isOpen) error(403, 'Not your setlist');
 
 	const rows = db.prepare(`
 		SELECT p.id, p.snapshot, p.note, p.status, p.created_at,
-		       p.proposer_user_id, u.username, u.display_name
+		       p.proposer_user_id, u.username, u.display_name,
+		       COUNT(pv.id) as vote_count,
+		       MAX(CASE WHEN pv.user_id = ? THEN 1 ELSE 0 END) as user_has_voted
 		FROM proposals p
 		JOIN users u ON u.id = p.proposer_user_id
+		LEFT JOIN proposal_votes pv ON pv.proposal_id = p.id
 		WHERE p.setlist_id = ? AND p.status = 'pending'
-		ORDER BY p.created_at ASC
-	`).all(setlistId) as ProposalRow[];
+		GROUP BY p.id
+		ORDER BY vote_count DESC, p.created_at ASC
+	`).all(user.id, setlistId) as (ProposalRow & { vote_count: number; user_has_voted: number })[];
 
 	return json({ proposals: rows.map((r) => ({
-		id:        r.id,
-		snapshot:  JSON.parse(r.snapshot),
-		note:      r.note ?? undefined,
-		status:    r.status,
-		createdAt: r.created_at,
+		id:           r.id,
+		snapshot:     JSON.parse(r.snapshot),
+		note:         r.note ?? undefined,
+		status:       r.status,
+		createdAt:    r.created_at,
+		voteCount:    r.vote_count,
+		userHasVoted: r.user_has_voted === 1,
 		proposer: {
 			userId:      r.proposer_user_id,
 			username:    r.username,

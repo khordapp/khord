@@ -63,6 +63,7 @@ CREATE TABLE IF NOT EXISTS setlists (
   title       TEXT NOT NULL,
   description TEXT,
   open        INTEGER NOT NULL DEFAULT 0,
+  tags        TEXT NOT NULL DEFAULT '[]',
   created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
   updated_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
 );
@@ -107,6 +108,15 @@ CREATE TABLE IF NOT EXISTS proposals (
 );
 CREATE INDEX IF NOT EXISTS proposals_setlist_id ON proposals(setlist_id);
 
+CREATE TABLE IF NOT EXISTS proposal_votes (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  proposal_id INTEGER NOT NULL REFERENCES proposals(id) ON DELETE CASCADE,
+  user_id     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at  TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+  UNIQUE(proposal_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS proposal_votes_proposal_id ON proposal_votes(proposal_id);
+
 CREATE TABLE IF NOT EXISTS banned_users (
   user_id   INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   reason    TEXT,
@@ -148,6 +158,7 @@ function openDb(): import('better-sqlite3').Database {
 		'ALTER TABLE users ADD COLUMN avatar_mime TEXT',
 		'ALTER TABLE songs ADD COLUMN urls_resolved_at TEXT',
 		'ALTER TABLE users ADD COLUMN profile_public INTEGER NOT NULL DEFAULT 1',
+		"ALTER TABLE setlists ADD COLUMN tags TEXT NOT NULL DEFAULT '[]'",
 	]) {
 		try { db.exec(stmt); } catch { /* column already exists */ }
 	}

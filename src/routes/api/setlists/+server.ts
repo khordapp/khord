@@ -14,7 +14,7 @@ export const GET: RequestHandler = ({ url, locals }) => {
 	const db = getDb();
 	const rows = db.prepare(`
 		SELECT
-			sl.id, sl.title, sl.description, sl.open, sl.created_at, sl.updated_at,
+			sl.id, sl.title, sl.description, sl.open, sl.tags, sl.created_at, sl.updated_at,
 			u.username, u.display_name,
 			COUNT(si.id) as item_count
 		FROM setlists sl
@@ -30,6 +30,7 @@ export const GET: RequestHandler = ({ url, locals }) => {
 		title:       r.title,
 		description: r.description ?? undefined,
 		open:        r.open === 1,
+		tags:        JSON.parse(r.tags ?? '[]') as string[],
 		createdAt:   r.created_at,
 		updatedAt:   r.updated_at,
 		itemCount:   r.item_count,
@@ -47,13 +48,17 @@ export const POST: RequestHandler = async ({ request, locals }) => {
 	const body = await request.json().catch(() => null);
 	if (!body) error(400, 'Invalid JSON');
 
-	const { title, description } = body;
+	const { title, description, open, tags } = body;
 	if (!title || typeof title !== 'string') error(400, 'title is required');
+
+	const tagsJson = JSON.stringify(
+		Array.isArray(tags) ? tags.map(String).filter(Boolean).slice(0, 10) : []
+	);
 
 	const db = getDb();
 	const result = db.prepare(`
-		INSERT INTO setlists (user_id, title, description) VALUES (?, ?, ?)
-	`).run(user.id, title.trim(), description?.trim() ?? null);
+		INSERT INTO setlists (user_id, title, description, open, tags) VALUES (?, ?, ?, ?, ?)
+	`).run(user.id, title.trim(), description?.trim() ?? null, open ? 1 : 0, tagsJson);
 
 	const row = db.prepare('SELECT id, created_at FROM setlists WHERE id = ?').get(result.lastInsertRowid) as { id: number; created_at: string };
 	return json({ id: row.id, createdAt: row.created_at }, { status: 201 });

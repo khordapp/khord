@@ -13,8 +13,8 @@ export interface ItunesTrack {
 	artworkUrl100?: string; // 100x100 album art — URL is templatable to larger sizes
 }
 
-export async function searchItunes(query: string, limit = 6): Promise<ItunesTrack[]> {
-	const params = new URLSearchParams({ term: query, entity: 'song', limit: String(limit) });
+export async function searchItunes(query: string, limit = 15): Promise<ItunesTrack[]> {
+	const params = new URLSearchParams({ term: query, entity: 'song', limit: String(limit), explicit: 'Yes' });
 	const res = await fetch(`${ITUNES_BASE}/search?${params}`);
 	if (!res.ok) throw new Error(`iTunes search failed (${res.status})`);
 	const data = await res.json();

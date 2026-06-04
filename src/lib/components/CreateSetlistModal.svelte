@@ -12,6 +12,20 @@
 
 	let title = '';
 	let titleFocused = false;
+	let description = '';
+	let open = false;
+	let tags: string[] = [];
+	let tagInput = '';
+
+	function addTag() {
+		const t = tagInput.trim().toLowerCase().slice(0, 25);
+		if (t && tags.length < 10 && !tags.includes(t)) tags = [...tags, t];
+		tagInput = '';
+	}
+
+	function removeTag(tag: string) {
+		tags = tags.filter(t => t !== tag);
+	}
 
 	let query = '';
 	let searching = false;
@@ -109,7 +123,12 @@
 			const createRes = await fetch('/api/setlists', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ title: title.trim() })
+				body: JSON.stringify({
+					title: title.trim(),
+					description: description.trim() || undefined,
+					open,
+					tags,
+				})
 			});
 			if (!createRes.ok) throw new Error('Failed to create setlist');
 			const { id: setlistId } = await createRes.json();
@@ -176,6 +195,36 @@
 				{#if titleFocused || title.length > TITLE_LIMIT * 0.8}
 					<p class="text-xs text-right {titleCharsLeft < 10 ? 'text-amber-400' : $t.textFaint}">{titleCharsLeft}</p>
 				{/if}
+				<textarea
+					bind:value={description}
+					placeholder="Describe the theme or vibe… (optional)"
+					rows="2"
+					maxlength="500"
+					class="w-full {$t.elevatedBg} border {$t.borderStrong} rounded-lg px-3 py-2 text-base sm:text-sm {$t.textPrimary} placeholder:{$t.textMuted} focus:outline-none {$t.hoverBorderStrong} transition-colors resize-none"
+				></textarea>
+				<label class="flex items-center gap-2.5 cursor-pointer select-none">
+					<input type="checkbox" bind:checked={open} class="rounded" />
+					<span class="text-sm {$t.textPrimary}">Open challenge</span>
+				</label>
+				<div class="space-y-1.5">
+					<input
+						bind:value={tagInput}
+						on:keydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }}
+						placeholder="Add a tag… (press Enter)"
+						maxlength="25"
+						class="w-full {$t.elevatedBg} border {$t.borderStrong} rounded-lg px-3 py-1.5 text-base sm:text-sm {$t.textPrimary} placeholder:{$t.textMuted} focus:outline-none {$t.hoverBorderStrong} transition-colors"
+					/>
+					{#if tags.length > 0}
+						<div class="flex flex-wrap gap-1.5">
+							{#each tags as tag}
+								<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs {$t.accentBg} {$t.accentText} border {$t.accentBorder}">
+									#{tag}
+									<button on:click={() => removeTag(tag)} class="hover:opacity-70 leading-none" aria-label="Remove tag">×</button>
+								</span>
+							{/each}
+						</div>
+					{/if}
+				</div>
 			</div>
 
 			<div class="px-5 pb-3 space-y-2">

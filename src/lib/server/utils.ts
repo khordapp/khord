@@ -29,6 +29,7 @@ export interface SetlistRow {
 	title: string;
 	description: string | null;
 	open: number;
+	tags: string;
 	created_at: string;
 	updated_at: string;
 	// joined fields
